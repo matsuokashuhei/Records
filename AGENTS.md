@@ -29,6 +29,11 @@ macOSデスクトップウィジェット+管理アプリ。Apple Musicのアル
 
 新しいSwiftファイルは `xcodegen generate` し直さないとターゲットに含まれない。
 
+### 4. スキルは `.agents/skills/` に作成する
+
+新しいスキル(SKILL.md)は `.agents/skills/<name>/SKILL.md` に置く。
+`.devin/skills/` には置かない(既存スキルもすべて `.agents/skills/` にある)。
+
 ## ビルド・起動コマンド
 
 ```bash
@@ -98,6 +103,6 @@ open .build/Build/Products/Debug/Records.app
 
 - `Shared/` — アプリとウィジェット拡張の両方にリンクされる層
   (MediaEntry/MediaURLParser, MediaCatalogClient, ShelfStore, PlaybackEngine, PlaylistPlayer, PlayAlbumIntent)
-- `Records/` — アプリ本体(RegistrationView, PlaybackMonitor)
+- `Records/` — アプリ本体(ShelfView, SettingsView, WindowGlass, PlaybackMonitor)
 - `WidgetExtension/` — WidgetKit拡張(RecordShelfWidget, extraLarge 5×4=20枚)
 - `project.yml` — xcodegen定義(ターゲット変更はここを編集)
