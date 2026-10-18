@@ -30,24 +30,54 @@ struct ShelfView: View {
             .onDisappear { PlaybackMonitor.shared.stopPolling() }
     }
 
-    private var shelfGrid: some View {
-        let slots = store.paddedSlots()
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 12), count: 5)
+    // グリッドの間隔・余白。ウィンドウサイズはこれらと設定値から厳密に計算する。
+    private static let columnSpacing: CGFloat = 12
+    private static let rowSpacing: CGFloat = 14
+    private static let sidePadding: CGFloat = 18
+    // タイトルバー非表示+fullSizeContentViewで信号ボタンが
+    // コンテンツ上に浮くため、上だけ広めに取って1段目を避ける
+    private static let topPadding: CGFloat = 34
+    private static let bottomPadding: CGFloat = 18
 
-        return ScrollView {
-            LazyVGrid(columns: columns, spacing: 14) {
-                ForEach(Array(slots.enumerated()), id: \.offset) { _, entry in
+    private var shelfGrid: some View {
+        let settings = store.settings
+        let cell = settings.artworkSize.points
+        let columnCount = settings.capacity.columns
+        let rowCount = settings.capacity.rows
+        let slots = store.paddedSlots()
+        let columns = Array(
+            repeating: GridItem(.fixed(cell), spacing: Self.columnSpacing),
+            count: columnCount
+        )
+        let width = CGFloat(columnCount) * cell
+            + CGFloat(columnCount - 1) * Self.columnSpacing
+            + Self.sidePadding * 2
+        let height = CGFloat(rowCount) * cell
+            + CGFloat(rowCount - 1) * Self.rowSpacing
+            + Self.topPadding + Self.bottomPadding
+
+        // ウィンドウはwindowResizability(.contentSize)なので、
+        // この固定フレームがそのままmin=maxのウィンドウサイズになる。
+        // 設定変更でstore.settingsが変わると自動的に追従する。
+        return LazyVGrid(columns: columns, spacing: Self.rowSpacing) {
+            ForEach(Array(slots.enumerated()), id: \.offset) { _, entry in
+                Group {
                     if let entry {
                         AlbumSlotView(entry: entry)
                     } else {
                         emptySlot
                     }
                 }
+                .frame(width: cell, height: cell)
             }
-            // タイトルバー非表示+fullSizeContentViewで信号ボタンが
-            // コンテンツ上に浮くため、上だけ広めに取って1段目を避ける
-            .padding(EdgeInsets(top: 34, leading: 18, bottom: 18, trailing: 18))
         }
+        .padding(EdgeInsets(
+            top: Self.topPadding,
+            leading: Self.sidePadding,
+            bottom: Self.bottomPadding,
+            trailing: Self.sidePadding
+        ))
+        .frame(width: width, height: height)
     }
 
     private var emptySlot: some View {
