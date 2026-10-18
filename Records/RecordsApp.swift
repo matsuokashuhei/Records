@@ -51,9 +51,14 @@ struct RecordsApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RegistrationView()
-                .frame(minWidth: 760, minHeight: 600)
+            ShelfView()
+                .frame(minWidth: 560, minHeight: 460)
         }
         .windowResizability(.contentSize)
+
+        // Cmd+, で開く設定画面。シェルフへの追加フォームはこちら。
+        Settings {
+            SettingsView()
+        }
     }
 }
