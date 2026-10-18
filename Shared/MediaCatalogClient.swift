@@ -24,23 +24,34 @@ enum MediaCatalogClient {
         }
     }
 
-    static func fetch(_ parsed: MediaURLParser.Parsed) async throws -> MediaEntry {
-        logger.notice("fetch kind=\(parsed.kind.rawValue, privacy: .public) country=\(parsed.country, privacy: .public) id=\(parsed.id, privacy: .public)")
-
-        // カタログ取得にもメディアライブラリ許可が必要(実測: 無許可だと .permissionDenied)
+    /// カタログ取得・再生の前にApple Musicへのアクセス許可を確認する。
+    /// カタログの読み取りにもメディアライブラリ許可が必要(実測: 無許可だと .permissionDenied)。
+    /// PlaylistPlayerからも共用する。
+    static func ensureAuthorized() async throws {
         if MusicAuthorization.currentStatus != .authorized {
             let status = await MusicAuthorization.request()
             logger.notice("authorization result=\(status.rawValue, privacy: .public)")
             guard status == .authorized else { throw CatalogError.notAuthorized }
         }
+    }
+
+    static func fetch(_ parsed: MediaURLParser.Parsed) async throws -> MediaEntry {
+        logger.notice("fetch kind=\(parsed.kind.rawValue, privacy: .public) country=\(parsed.country, privacy: .public) id=\(parsed.id, privacy: .public)")
+
+        try await ensureAuthorized()
 
         do {
             switch parsed.kind {
             case .album:
-                var request = MusicCatalogResourceRequest<Album>(matching: \.id, equalTo: MusicItemID(parsed.id))
+                let request = MusicCatalogResourceRequest<Album>(matching: \.id, equalTo: MusicItemID(parsed.id))
                 let response = try await request.response()
                 logger.notice("album response count=\(response.items.count, privacy: .public)")
                 guard let album = response.items.first else { throw CatalogError.notFound }
+                // カタログリクエストはデバイスのストアフロントで解決される(MusicKitに
+                // ストアフロント指定の公開APIはない)。album.url が nil の場合の
+                // フォールバックはユーザーが貼ったURLのストアフロント(parsed.country)
+                // から決定的に組み立てる — デバイス側とはズレ得るが、ショートカット経由で
+                // Musicアプリが解決する正規形式。
                 let entry = MediaEntry(
                     kind: .album,
                     id: parsed.id,
@@ -54,10 +65,11 @@ enum MediaCatalogClient {
                 logger.notice("album ok title=\(entry.title, privacy: .public) artwork=\(entry.artworkURL, privacy: .public)")
                 return entry
             case .playlist:
-                var request = MusicCatalogResourceRequest<Playlist>(matching: \.id, equalTo: MusicItemID(parsed.id))
+                let request = MusicCatalogResourceRequest<Playlist>(matching: \.id, equalTo: MusicItemID(parsed.id))
                 let response = try await request.response()
                 logger.notice("playlist response count=\(response.items.count, privacy: .public)")
                 guard let playlist = response.items.first else { throw CatalogError.notFound }
+                // ストアフロントの扱いは上記アルバム側のコメントと同じ
                 let entry = MediaEntry(
                     kind: .playlist,
                     id: parsed.id,

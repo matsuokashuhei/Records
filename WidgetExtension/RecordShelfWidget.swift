@@ -18,15 +18,23 @@ struct ShelfEntry: TimelineEntry {
 
 struct Provider: TimelineProvider {
     func placeholder(in context: Context) -> ShelfEntry {
-        ShelfEntry(date: .now, slots: ShelfStore.shared.paddedSlots())
+        ShelfEntry(date: .now, slots: ShelfStore.paddedSlotsFromDisk())
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ShelfEntry) -> Void) {
-        completion(ShelfEntry(date: .now, slots: ShelfStore.shared.paddedSlots()))
+        completion(ShelfEntry(date: .now, slots: ShelfStore.paddedSlotsFromDisk()))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ShelfEntry>) -> Void) {
-        let entry = ShelfEntry(date: .now, slots: ShelfStore.shared.paddedSlots())
+        // 内容はplaceholder/getSnapshotと同じく毎回ディスクから読む。
+        // 共有インスタンスのメモリ値は拡張プロセスの寿命中そのままなので、
+        // アプリ側の編集→reloadAllTimelines()後にstaleな内容を返しうる。
+        let entry = ShelfEntry(date: .now, slots: ShelfStore.paddedSlotsFromDisk())
+        // 不足アートワークのダウンロード開始という従来の副作用は維持する。
+        // (ShelfStoreは@MainActorのためTaskでホップ。fire-and-forgetでよい)
+        Task { @MainActor in
+            ShelfStore.shared.ensureArtworkDownloaded()
+        }
         // 内容の更新はアプリ側の保存時に WidgetCenter からリロードされる
         completion(Timeline(entries: [entry], policy: .never))
     }
@@ -67,7 +75,8 @@ struct ShelfGridView: View {
                     HStack(spacing: gap) {
                         ForEach(0..<columns, id: \.self) { column in
                             let index = row * columns + column
-                            cell(slots[index], size: cellSide)
+                            // slotsが想定より短い場合に備えて安全に参照する
+                            cell(slots.indices.contains(index) ? slots[index] : nil, size: cellSide)
                         }
                     }
                 }

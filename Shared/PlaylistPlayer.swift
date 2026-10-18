@@ -17,15 +17,9 @@ enum PlaylistPlayer {
         // Musicアプリが再生中なら先に止める(二重再生の防止)
         await PlaybackEngine.stopMusicApp()
 
-        if MusicAuthorization.currentStatus != .authorized {
-            let status = await MusicAuthorization.request()
-            logger.notice("authorization result=\(status.rawValue, privacy: .public)")
-            guard status == .authorized else {
-                throw PlaybackEngine.PlaybackError.failed("Apple Musicへのアクセスが許可されませんでした。")
-            }
-        }
+        try await MediaCatalogClient.ensureAuthorized()
 
-        var request = MusicCatalogResourceRequest<Playlist>(matching: \.id, equalTo: MusicItemID(entry.id))
+        let request = MusicCatalogResourceRequest<Playlist>(matching: \.id, equalTo: MusicItemID(entry.id))
         let response = try await request.response()
         logger.notice("catalog response count=\(response.items.count, privacy: .public)")
         guard let playlist = response.items.first else {

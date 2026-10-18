@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import AppKit
 import MusicKit
 import os
 
@@ -28,7 +29,32 @@ final class PlaybackMonitor: ObservableObject {
     @Published private(set) var activeEntryID: String?
 
     private var pollTask: Task<Void, Never>?
-    private init() {}
+    /// 表示中のビューがポーリングを要求しているか(.onAppear→true/.onDisappear→false)。
+    /// アプリが隠れている間はポーリングを止め、unhide時にこれがtrueなら再開する。
+    private var wantsPolling = false
+    /// 再生/停止の切り替え中フラグ(ダブルタップなどの再入防止)
+    private var isToggling = false
+    private var visibilityObservers: [NSObjectProtocol] = []
+
+    private init() {
+        // NSApp.hide(nil)(ウィジェットの再生インテント経路)はビューの.onDisappearを
+        // 発火させない。そのままだと非表示中も2秒おきにosascriptをspawnし続けるため、
+        // アプリのhide/unhideにポーリングを連動させる。
+        // (単一ウィンドウ前提の簡易実装。隠蔽中にウィンドウが閉じられても
+        //  .onDisappear→stopPollingでwantsPolling=falseになるためunhideで再開しない)
+        visibilityObservers = [
+            NotificationCenter.default.addObserver(
+                forName: NSApplication.didHideNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.pauseForHide() }
+            },
+            NotificationCenter.default.addObserver(
+                forName: NSApplication.didUnhideNotification, object: nil, queue: .main
+            ) { [weak self] _ in
+                MainActor.assumeIsolated { self?.resumeForUnhide() }
+            },
+        ]
+    }
 
     var isPlaying: Bool { musicAppPlaying || inAppPlaying }
 
@@ -43,7 +69,14 @@ final class PlaybackMonitor: ObservableObject {
     }
 
     func start() {
+        wantsPolling = true
+        startPollingIfNeeded()
+    }
+
+    private func startPollingIfNeeded() {
         guard pollTask == nil else { return }
+        // アプリが隠れている間は回さない(didUnhideNotificationで再開する)
+        guard !NSApp.isHidden else { return }
         pollTask = Task { [weak self] in
             while !Task.isCancelled {
                 await self?.refresh()
@@ -53,24 +86,48 @@ final class PlaybackMonitor: ObservableObject {
     }
 
     func stopPolling() {
+        wantsPolling = false
         pollTask?.cancel()
         pollTask = nil
     }
 
+    private func pauseForHide() {
+        Self.logger.notice("app hidden; pausing playback polling")
+        pollTask?.cancel()
+        pollTask = nil
+    }
+
+    private func resumeForUnhide() {
+        guard wantsPolling, pollTask == nil else { return }
+        Self.logger.notice("app unhidden; resuming playback polling")
+        startPollingIfNeeded()
+    }
+
     func refresh() async {
         let info = await PlaybackEngine.nowPlayingInfo()
-        musicAppPlaying = info?.isPlaying ?? false
-        currentAlbumTitle = info?.album
+        // 変化がないときは@Publishedへの代入を避ける
+        // (2秒おきの無変更publishで20枚のセルが再描画されるのを防ぐ)
+        let newMusicAppPlaying = info?.isPlaying ?? false
+        if musicAppPlaying != newMusicAppPlaying { musicAppPlaying = newMusicAppPlaying }
+        if currentAlbumTitle != info?.album { currentAlbumTitle = info?.album }
 
-        inAppPlaying = ApplicationMusicPlayer.shared.state.playbackStatus == .playing
+        let newInAppPlaying = ApplicationMusicPlayer.shared.state.playbackStatus == .playing
+        if inAppPlaying != newInAppPlaying { inAppPlaying = newInAppPlaying }
 
-        if !isPlaying {
+        if !isPlaying, activeEntryID != nil {
             activeEntryID = nil
         }
     }
 
     /// クリックで再生/停止を切り替える
     func toggle(_ entry: MediaEntry) async throws {
+        guard !isToggling else {
+            Self.logger.notice("toggle ignored (already toggling)")
+            return
+        }
+        isToggling = true
+        defer { isToggling = false }
+
         if isCurrent(entry) {
             Self.logger.notice("stop \(entry.title, privacy: .public)")
             try await PlaybackEngine.stop(entry)

@@ -16,7 +16,6 @@ struct RegistrationView: View {
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
 
     @ObservedObject private var store = ShelfStore.shared
-    @ObservedObject private var monitor = PlaybackMonitor.shared
     @State private var input = ""
     @State private var statusMessage: String?
     @State private var statusIsError = false
@@ -30,7 +29,10 @@ struct RegistrationView: View {
             footer
         }
         .padding(24)
-        .onAppear { monitor.start() }
+        // 再生状態はAlbumSlotViewが個別にmonitorを監視するので、ここでは監視せず
+        // 開始/停止だけ行う(画面全体の2秒おき再描画を避ける)
+        .onAppear { PlaybackMonitor.shared.start() }
+        .onDisappear { PlaybackMonitor.shared.stopPolling() }
     }
 
     // MARK: - パーツ
@@ -128,6 +130,8 @@ struct RegistrationView: View {
     // MARK: - アクション
 
     private func addFromInput() {
+        // TextFieldのonSubmitはdisabledにならないので、処理中の再入はここで弾く
+        guard !isBusy else { return }
         let text = input
         guard !text.trimmingCharacters(in: .whitespaces).isEmpty else { return }
         isBusy = true
@@ -170,16 +174,22 @@ struct RegistrationView: View {
 /// シェルフの1枚分。ホバーで再生/停止アイコンを表示する。
 private struct AlbumSlotView: View {
 
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
     let entry: MediaEntry
     var onPlaybackError: (String) -> Void
 
+    /// artworkRevision(ダウンロード完了)の検知用
+    @ObservedObject private var store = ShelfStore.shared
     @ObservedObject private var monitor = PlaybackMonitor.shared
     @State private var isHovered = false
+    /// キャッシュ済みジャケット(bodyのたびに同期ディスク読み込みしない)
+    @State private var artwork: NSImage?
 
     var body: some View {
         VStack(spacing: 6) {
             Group {
-                if let image = NSImage(contentsOfFile: ShelfStore.artworkFileURL(for: entry).path) {
+                if let image = artwork {
                     Image(nsImage: image)
                         .resizable()
                         .scaledToFit()
@@ -216,6 +226,7 @@ private struct AlbumSlotView: View {
                     do {
                         try await monitor.toggle(entry)
                     } catch {
+                        Self.logger.error("playback failed for '\(entry.title, privacy: .public)': \(error.localizedDescription, privacy: .public)")
                         onPlaybackError(error.localizedDescription)
                     }
                 }
@@ -232,5 +243,10 @@ private struct AlbumSlotView: View {
             }
         }
         .animation(.easeInOut(duration: 0.12), value: isHovered)
+        // ジャケットはバックグラウンド読み込み+キャッシュ。ダウンロード完了
+        // (artworkRevisionの増加)で未ロード分を再試行する。
+        .task(id: "\(entry.id)#\(store.artworkRevision)") {
+            artwork = await ShelfStore.artworkImage(for: entry)
+        }
     }
 }

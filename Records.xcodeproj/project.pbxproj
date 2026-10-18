@@ -7,10 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0372597F5055167CEA8D5DDF /* RecordsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 065945501B73341956B54777 /* RecordsTests.swift */; };
 		0CF026DEAB147084CF77898B /* RegistrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB5E56537401CD800125D774 /* RegistrationView.swift */; };
 		0F1C4913C9C3C7553D5FEEE5 /* PlaybackMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */; };
 		164BE9EEDC60C50DF52501A4 /* RecordsWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCC8F94A676CF5F3A3A0D9BF /* RecordsWidgetBundle.swift */; };
 		16991DD74B4D0200A03E101A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FAB464F15B4376012996DEAC /* Assets.xcassets */; };
+		212C17A7890590CB02408BB8 /* MediaEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */; };
 		23F96605AE1848C22DCF4A38 /* MediaEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */; };
 		3AE88F7791886ECA8B115137 /* MediaCatalogClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */; };
 		530954FC2DCFBE1FBF6CEC1E /* PlayAlbumIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1D0010FFF6ECF75D6E6281 /* PlayAlbumIntent.swift */; };
@@ -53,9 +55,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		065945501B73341956B54777 /* RecordsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordsTests.swift; sourceTree = "<group>"; };
 		1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaEntry.swift; sourceTree = "<group>"; };
 		43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordsApp.swift; sourceTree = "<group>"; };
 		4D1D0010FFF6ECF75D6E6281 /* PlayAlbumIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayAlbumIntent.swift; sourceTree = "<group>"; };
+		50F2FB1DE51231F752D3FE91 /* RecordsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RecordsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5326779F8829EBA05B501896 /* PlaylistPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistPlayer.swift; sourceTree = "<group>"; };
 		54EF98EA96353F7782B148F9 /* ShelfStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfStore.swift; sourceTree = "<group>"; };
 		68BFF1E8A1B88CC674C4145B /* RecordShelfWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordShelfWidget.swift; sourceTree = "<group>"; };
@@ -75,6 +79,7 @@
 			isa = PBXGroup;
 			children = (
 				7C284EC47CDF82DD758A63E3 /* Records */,
+				B3A47FD1C832777FFFAAFFA8 /* RecordsTests */,
 				7176005FC98D09CCE848EB6C /* Shared */,
 				2EAE6B1F85C59E6F95D8CC99 /* WidgetExtension */,
 				33C7714C3C540960E908CAAA /* Products */,
@@ -95,6 +100,7 @@
 			isa = PBXGroup;
 			children = (
 				79AF5BE0A651670867B2A9B0 /* Records.app */,
+				50F2FB1DE51231F752D3FE91 /* RecordsTests.xctest */,
 				C33297F975A29C890A2B63FD /* RecordsWidget.appex */,
 			);
 			name = Products;
@@ -124,6 +130,14 @@
 			path = Records;
 			sourceTree = "<group>";
 		};
+		B3A47FD1C832777FFFAAFFA8 /* RecordsTests */ = {
+			isa = PBXGroup;
+			children = (
+				065945501B73341956B54777 /* RecordsTests.swift */,
+			);
+			path = RecordsTests;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -146,6 +160,23 @@
 			productName = Records;
 			productReference = 79AF5BE0A651670867B2A9B0 /* Records.app */;
 			productType = "com.apple.product-type.application";
+		};
+		BA0F5C7B6CA41B02A7368650 /* RecordsTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5477C7BA978825B6DEF9B6F0 /* Build configuration list for PBXNativeTarget "RecordsTests" */;
+			buildPhases = (
+				79ED206B36795D25CEE08812 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = RecordsTests;
+			packageProductDependencies = (
+			);
+			productName = RecordsTests;
+			productReference = 50F2FB1DE51231F752D3FE91 /* RecordsTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
 		};
 		F4603F4AFA3C693EE3C0B39F /* RecordsWidget */ = {
 			isa = PBXNativeTarget;
@@ -177,6 +208,10 @@
 						DevelopmentTeam = CY4LJR5KMM;
 						ProvisioningStyle = Automatic;
 					};
+					BA0F5C7B6CA41B02A7368650 = {
+						DevelopmentTeam = CY4LJR5KMM;
+						ProvisioningStyle = Automatic;
+					};
 					F4603F4AFA3C693EE3C0B39F = {
 						DevelopmentTeam = CY4LJR5KMM;
 						ProvisioningStyle = Automatic;
@@ -199,6 +234,7 @@
 			targets = (
 				8BBC55351781245E17B9721F /* Records */,
 				F4603F4AFA3C693EE3C0B39F /* RecordsWidget */,
+				BA0F5C7B6CA41B02A7368650 /* RecordsTests */,
 			);
 		};
 /* End PBXProject section */
@@ -228,6 +264,15 @@
 				DE2065EC093BEE33CA9F3AD3 /* RecordsApp.swift in Sources */,
 				0CF026DEAB147084CF77898B /* RegistrationView.swift in Sources */,
 				695479100C2EE21BB2BC229C /* ShelfStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		79ED206B36795D25CEE08812 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				212C17A7890590CB02408BB8 /* MediaEntry.swift in Sources */,
+				0372597F5055167CEA8D5DDF /* RecordsTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -307,6 +352,38 @@
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Records;
 				PRODUCT_NAME = Records;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		318DE01ECE0A2DC734AC1153 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Records.tests;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		5AF0189C48E4EF726CAE87FA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Records.tests;
 				SDKROOT = macosx;
 			};
 			name = Debug;
@@ -464,6 +541,15 @@
 			buildConfigurations = (
 				CC4B64A73D422CDF2AE31CCB /* Debug */,
 				D59F4B62988683600279BA58 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		5477C7BA978825B6DEF9B6F0 /* Build configuration list for PBXNativeTarget "RecordsTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5AF0189C48E4EF726CAE87FA /* Debug */,
+				318DE01ECE0A2DC734AC1153 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

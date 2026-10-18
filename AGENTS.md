@@ -54,6 +54,9 @@ open .build/Build/Products/Debug/Records.app
 
 - `xcode-select` はCLT向きなので、xcodebuild/xcodegenには必ず `DEVELOPER_DIR` を付ける
 - テストで音を出すときは事前に音量を0にし、終わったら戻す
+- JSONの解析にはpythonではなく `jq` を使う(ユーザー指示)
+- appの場所を移すとウィジェット登録が壊れることがある → `lsregister -f <app>`、
+  `pluginkit -e use -i <bundleid>`、`killall Dock` で復旧できる(実測)
 
 ## アーキテクチャと検証済み事実(2026-10-18 実機)
 
