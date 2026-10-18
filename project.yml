@@ -1,0 +1,55 @@
+name: Records
+options:
+  bundleIdPrefix: com.cacheandbuffer
+  createIntermediateGroups: true
+  deploymentTarget:
+    macOS: "26.0"
+settings:
+  base:
+    DEVELOPMENT_TEAM: CY4LJR5KMM
+    CODE_SIGN_STYLE: Automatic
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+targets:
+  Records:
+    type: application
+    platform: macOS
+    sources:
+      - Records
+      - Shared
+    dependencies:
+      - target: RecordsWidget
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cacheandbuffer.Records
+        PRODUCT_NAME: Records
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: Records
+        INFOPLIST_KEY_NSAppleMusicUsageDescription: Apple Musicのカタログからアルバムとプレイリストを取得し、再生するために使用します。
+  RecordsWidget:
+    type: app-extension
+    platform: macOS
+    sources:
+      - WidgetExtension
+      - Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.cacheandbuffer.Records.widget
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: レコードシェルフ
+        SKIP_INSTALL: YES
+    info:
+      path: WidgetExtension/Info.plist
+      properties:
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+schemes:
+  Records:
+    build:
+      targets:
+        Records: all
+        RecordsWidget: all
+    run:
+      config: Debug

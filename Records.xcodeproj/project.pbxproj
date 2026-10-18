@@ -3,254 +3,322 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 110;
+	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0CF026DEAB147084CF77898B /* RegistrationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB5E56537401CD800125D774 /* RegistrationView.swift */; };
+		0F1C4913C9C3C7553D5FEEE5 /* PlaybackMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */; };
+		164BE9EEDC60C50DF52501A4 /* RecordsWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCC8F94A676CF5F3A3A0D9BF /* RecordsWidgetBundle.swift */; };
+		16991DD74B4D0200A03E101A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FAB464F15B4376012996DEAC /* Assets.xcassets */; };
+		23F96605AE1848C22DCF4A38 /* MediaEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */; };
+		3AE88F7791886ECA8B115137 /* MediaCatalogClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */; };
+		530954FC2DCFBE1FBF6CEC1E /* PlayAlbumIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1D0010FFF6ECF75D6E6281 /* PlayAlbumIntent.swift */; };
+		562358C1A5C25FFFB51EE2FC /* RecordsWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C33297F975A29C890A2B63FD /* RecordsWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		695479100C2EE21BB2BC229C /* ShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54EF98EA96353F7782B148F9 /* ShelfStore.swift */; };
+		900EBF1D1C1DC838943C9A96 /* MediaEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */; };
+		96D11C978F9779DE1C59DBC3 /* PlaylistPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5326779F8829EBA05B501896 /* PlaylistPlayer.swift */; };
+		9D54F51755BC2B1C0CC040BE /* MediaCatalogClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */; };
+		A1DE54C7E330CE74F6E7E188 /* PlaybackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */; };
+		A466F202C214F53B441110A5 /* RecordShelfWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68BFF1E8A1B88CC674C4145B /* RecordShelfWidget.swift */; };
+		A892D697B2BDC3E8479EA64D /* ShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54EF98EA96353F7782B148F9 /* ShelfStore.swift */; };
+		B9CA1FCF3F36287C72B7279E /* PlaybackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */; };
+		D9DB5DB83EBF1BC413B9EC8C /* PlayAlbumIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1D0010FFF6ECF75D6E6281 /* PlayAlbumIntent.swift */; };
+		DE2065EC093BEE33CA9F3AD3 /* RecordsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */; };
+		FC3E54327AC7D1A1A18B5B4B /* PlaylistPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5326779F8829EBA05B501896 /* PlaylistPlayer.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXContainerItemProxy section */
-		E72F0F3E30849E0D005537AC /* PBXContainerItemProxy */ = {
+		DC48F0DAD4F661D40268491E /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
-			containerPortal = E72F0F2630849E0C005537AC /* Project object */;
+			containerPortal = F318AC7B9E208287BED6358B /* Project object */;
 			proxyType = 1;
-			remoteGlobalIDString = E72F0F2D30849E0C005537AC;
-			remoteInfo = Records;
-		};
-		E72F0F4830849E0D005537AC /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = E72F0F2630849E0C005537AC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = E72F0F2D30849E0C005537AC;
-			remoteInfo = Records;
+			remoteGlobalIDString = F4603F4AFA3C693EE3C0B39F;
+			remoteInfo = RecordsWidget;
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		A8041AFBFE8C6EFF962FE909 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				562358C1A5C25FFFB51EE2FC /* RecordsWidget.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
-		E72F0F2E30849E0C005537AC /* Records.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Records.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		E72F0F3D30849E0D005537AC /* RecordsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RecordsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
-		E72F0F4730849E0D005537AC /* RecordsUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RecordsUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaEntry.swift; sourceTree = "<group>"; };
+		43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordsApp.swift; sourceTree = "<group>"; };
+		4D1D0010FFF6ECF75D6E6281 /* PlayAlbumIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayAlbumIntent.swift; sourceTree = "<group>"; };
+		5326779F8829EBA05B501896 /* PlaylistPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistPlayer.swift; sourceTree = "<group>"; };
+		54EF98EA96353F7782B148F9 /* ShelfStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfStore.swift; sourceTree = "<group>"; };
+		68BFF1E8A1B88CC674C4145B /* RecordShelfWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordShelfWidget.swift; sourceTree = "<group>"; };
+		79AF5BE0A651670867B2A9B0 /* Records.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Records.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackEngine.swift; sourceTree = "<group>"; };
+		C33297F975A29C890A2B63FD /* RecordsWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RecordsWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		CB5E56537401CD800125D774 /* RegistrationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistrationView.swift; sourceTree = "<group>"; };
+		CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackMonitor.swift; sourceTree = "<group>"; };
+		D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaCatalogClient.swift; sourceTree = "<group>"; };
+		FAB464F15B4376012996DEAC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		FC9F54D2996B01C2DD3798E7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		FCC8F94A676CF5F3A3A0D9BF /* RecordsWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordsWidgetBundle.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		E72F0F3030849E0C005537AC /* Records */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = Records;
-			sourceTree = "<group>";
-		};
-		E72F0F4030849E0D005537AC /* RecordsTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = RecordsTests;
-			sourceTree = "<group>";
-		};
-		E72F0F4A30849E0D005537AC /* RecordsUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = RecordsUITests;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
-
-/* Begin PBXFrameworksBuildPhase section */
-		E72F0F2B30849E0C005537AC /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			files = (
-			);
-		};
-		E72F0F3A30849E0D005537AC /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			files = (
-			);
-		};
-		E72F0F4430849E0D005537AC /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			files = (
-			);
-		};
-/* End PBXFrameworksBuildPhase section */
-
 /* Begin PBXGroup section */
-		E72F0F2530849E0C005537AC = {
+		06CE9FCDE9BD0BC37ADD324B = {
 			isa = PBXGroup;
 			children = (
-				E72F0F3030849E0C005537AC /* Records */,
-				E72F0F4030849E0D005537AC /* RecordsTests */,
-				E72F0F4A30849E0D005537AC /* RecordsUITests */,
-				E72F0F2F30849E0C005537AC /* Products */,
+				7C284EC47CDF82DD758A63E3 /* Records */,
+				7176005FC98D09CCE848EB6C /* Shared */,
+				2EAE6B1F85C59E6F95D8CC99 /* WidgetExtension */,
+				33C7714C3C540960E908CAAA /* Products */,
 			);
 			sourceTree = "<group>";
 		};
-		E72F0F2F30849E0C005537AC /* Products */ = {
+		2EAE6B1F85C59E6F95D8CC99 /* WidgetExtension */ = {
 			isa = PBXGroup;
 			children = (
-				E72F0F2E30849E0C005537AC /* Records.app */,
-				E72F0F3D30849E0D005537AC /* RecordsTests.xctest */,
-				E72F0F4730849E0D005537AC /* RecordsUITests.xctest */,
+				FC9F54D2996B01C2DD3798E7 /* Info.plist */,
+				68BFF1E8A1B88CC674C4145B /* RecordShelfWidget.swift */,
+				FCC8F94A676CF5F3A3A0D9BF /* RecordsWidgetBundle.swift */,
+			);
+			path = WidgetExtension;
+			sourceTree = "<group>";
+		};
+		33C7714C3C540960E908CAAA /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				79AF5BE0A651670867B2A9B0 /* Records.app */,
+				C33297F975A29C890A2B63FD /* RecordsWidget.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		7176005FC98D09CCE848EB6C /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */,
+				1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */,
+				4D1D0010FFF6ECF75D6E6281 /* PlayAlbumIntent.swift */,
+				B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */,
+				5326779F8829EBA05B501896 /* PlaylistPlayer.swift */,
+				54EF98EA96353F7782B148F9 /* ShelfStore.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		7C284EC47CDF82DD758A63E3 /* Records */ = {
+			isa = PBXGroup;
+			children = (
+				FAB464F15B4376012996DEAC /* Assets.xcassets */,
+				CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */,
+				43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */,
+				CB5E56537401CD800125D774 /* RegistrationView.swift */,
+			);
+			path = Records;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		E72F0F2D30849E0C005537AC /* Records */ = {
+		8BBC55351781245E17B9721F /* Records */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E72F0F4F30849E0D005537AC /* Build configuration list for PBXNativeTarget "Records" */;
+			buildConfigurationList = 9EDEA6BFB11C49E36355B6F2 /* Build configuration list for PBXNativeTarget "Records" */;
 			buildPhases = (
-				E72F0F2A30849E0C005537AC /* Sources */,
-				E72F0F2B30849E0C005537AC /* Frameworks */,
-				E72F0F2C30849E0C005537AC /* Resources */,
+				63DA1005C8BF2A72529D9F9F /* Sources */,
+				7BAEC0DE5DF83F3E9ED0CBF1 /* Resources */,
+				A8041AFBFE8C6EFF962FE909 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
-			fileSystemSynchronizedGroups = (
-				E72F0F3030849E0C005537AC /* Records */,
+			dependencies = (
+				D8840B5661A063352E3A6087 /* PBXTargetDependency */,
 			);
 			name = Records;
+			packageProductDependencies = (
+			);
 			productName = Records;
-			productReference = E72F0F2E30849E0C005537AC /* Records.app */;
+			productReference = 79AF5BE0A651670867B2A9B0 /* Records.app */;
 			productType = "com.apple.product-type.application";
 		};
-		E72F0F3C30849E0D005537AC /* RecordsTests */ = {
+		F4603F4AFA3C693EE3C0B39F /* RecordsWidget */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = E72F0F5230849E0D005537AC /* Build configuration list for PBXNativeTarget "RecordsTests" */;
+			buildConfigurationList = B9FBFAB259E69F878C033D5C /* Build configuration list for PBXNativeTarget "RecordsWidget" */;
 			buildPhases = (
-				E72F0F3930849E0D005537AC /* Sources */,
-				E72F0F3A30849E0D005537AC /* Frameworks */,
-				E72F0F3B30849E0D005537AC /* Resources */,
+				CEC889D2FB4145BCC48760DF /* Sources */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				E72F0F3F30849E0D005537AC /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				E72F0F4030849E0D005537AC /* RecordsTests */,
+			name = RecordsWidget;
+			packageProductDependencies = (
 			);
-			name = RecordsTests;
-			productName = RecordsTests;
-			productReference = E72F0F3D30849E0D005537AC /* RecordsTests.xctest */;
-			productType = "com.apple.product-type.bundle.unit-test";
-		};
-		E72F0F4630849E0D005537AC /* RecordsUITests */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = E72F0F5530849E0D005537AC /* Build configuration list for PBXNativeTarget "RecordsUITests" */;
-			buildPhases = (
-				E72F0F4330849E0D005537AC /* Sources */,
-				E72F0F4430849E0D005537AC /* Frameworks */,
-				E72F0F4530849E0D005537AC /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				E72F0F4930849E0D005537AC /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				E72F0F4A30849E0D005537AC /* RecordsUITests */,
-			);
-			name = RecordsUITests;
-			productName = RecordsUITests;
-			productReference = E72F0F4730849E0D005537AC /* RecordsUITests.xctest */;
-			productType = "com.apple.product-type.bundle.ui-testing";
+			productName = RecordsWidget;
+			productReference = C33297F975A29C890A2B63FD /* RecordsWidget.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
-		E72F0F2630849E0C005537AC /* Project object */ = {
+		F318AC7B9E208287BED6358B /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				BuildIndependentTargetsInParallel = 1;
-				LastSwiftUpdateCheck = 2710;
-				LastUpgradeCheck = 2710;
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
 				TargetAttributes = {
-					E72F0F2D30849E0C005537AC = {
-						CreatedOnToolsVersion = 27.1;
+					8BBC55351781245E17B9721F = {
+						DevelopmentTeam = CY4LJR5KMM;
+						ProvisioningStyle = Automatic;
 					};
-					E72F0F3C30849E0D005537AC = {
-						CreatedOnToolsVersion = 27.1;
-						TestTargetID = E72F0F2D30849E0C005537AC;
-					};
-					E72F0F4630849E0D005537AC = {
-						CreatedOnToolsVersion = 27.1;
-						TestTargetID = E72F0F2D30849E0C005537AC;
+					F4603F4AFA3C693EE3C0B39F = {
+						DevelopmentTeam = CY4LJR5KMM;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
-			buildConfigurationList = E72F0F2930849E0C005537AC /* Build configuration list for PBXProject "Records" */;
+			buildConfigurationList = 225B11333D89703301DC95D2 /* Build configuration list for PBXProject "Records" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
 				Base,
+				en,
 			);
-			mainGroup = E72F0F2530849E0C005537AC;
+			mainGroup = 06CE9FCDE9BD0BC37ADD324B;
 			minimizedProjectReferenceProxies = 1;
 			preferredProjectObjectVersion = 77;
-			productRefGroup = E72F0F2F30849E0C005537AC /* Products */;
+			productRefGroup = 33C7714C3C540960E908CAAA /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				E72F0F2D30849E0C005537AC /* Records */,
-				E72F0F3C30849E0D005537AC /* RecordsTests */,
-				E72F0F4630849E0D005537AC /* RecordsUITests */,
+				8BBC55351781245E17B9721F /* Records */,
+				F4603F4AFA3C693EE3C0B39F /* RecordsWidget */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		E72F0F2C30849E0C005537AC /* Resources */ = {
+		7BAEC0DE5DF83F3E9ED0CBF1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
+				16991DD74B4D0200A03E101A /* Assets.xcassets in Resources */,
 			);
-		};
-		E72F0F3B30849E0D005537AC /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			files = (
-			);
-		};
-		E72F0F4530849E0D005537AC /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			files = (
-			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		E72F0F2A30849E0C005537AC /* Sources */ = {
+		63DA1005C8BF2A72529D9F9F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
+				9D54F51755BC2B1C0CC040BE /* MediaCatalogClient.swift in Sources */,
+				23F96605AE1848C22DCF4A38 /* MediaEntry.swift in Sources */,
+				530954FC2DCFBE1FBF6CEC1E /* PlayAlbumIntent.swift in Sources */,
+				A1DE54C7E330CE74F6E7E188 /* PlaybackEngine.swift in Sources */,
+				0F1C4913C9C3C7553D5FEEE5 /* PlaybackMonitor.swift in Sources */,
+				96D11C978F9779DE1C59DBC3 /* PlaylistPlayer.swift in Sources */,
+				DE2065EC093BEE33CA9F3AD3 /* RecordsApp.swift in Sources */,
+				0CF026DEAB147084CF77898B /* RegistrationView.swift in Sources */,
+				695479100C2EE21BB2BC229C /* ShelfStore.swift in Sources */,
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
-		E72F0F3930849E0D005537AC /* Sources */ = {
+		CEC889D2FB4145BCC48760DF /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
 			files = (
+				3AE88F7791886ECA8B115137 /* MediaCatalogClient.swift in Sources */,
+				900EBF1D1C1DC838943C9A96 /* MediaEntry.swift in Sources */,
+				D9DB5DB83EBF1BC413B9EC8C /* PlayAlbumIntent.swift in Sources */,
+				B9CA1FCF3F36287C72B7279E /* PlaybackEngine.swift in Sources */,
+				FC3E54327AC7D1A1A18B5B4B /* PlaylistPlayer.swift in Sources */,
+				A466F202C214F53B441110A5 /* RecordShelfWidget.swift in Sources */,
+				164BE9EEDC60C50DF52501A4 /* RecordsWidgetBundle.swift in Sources */,
+				A892D697B2BDC3E8479EA64D /* ShelfStore.swift in Sources */,
 			);
-		};
-		E72F0F4330849E0D005537AC /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			files = (
-			);
+			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
-		E72F0F3F30849E0D005537AC /* PBXTargetDependency */ = {
+		D8840B5661A063352E3A6087 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = E72F0F2D30849E0C005537AC /* Records */;
-			targetProxy = E72F0F3E30849E0D005537AC /* PBXContainerItemProxy */;
-		};
-		E72F0F4930849E0D005537AC /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = E72F0F2D30849E0C005537AC /* Records */;
-			targetProxy = E72F0F4830849E0D005537AC /* PBXContainerItemProxy */;
+			target = F4603F4AFA3C693EE3C0B39F /* RecordsWidget */;
+			targetProxy = DC48F0DAD4F661D40268491E /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
-		E72F0F4D30849E0D005537AC /* Debug configuration for PBXProject "Records" */ = {
+		0725B4940BE528DC0318B99B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = WidgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "レコードシェルフ";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Records.widget;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		0F8662617FEB32C6B54F34C5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = WidgetExtension/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = "レコードシェルフ";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@executable_path/../../../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Records.widget;
+				SDKROOT = macosx;
+				SKIP_INSTALL = YES;
+			};
+			name = Release;
+		};
+		205B818AAB34F06E217CB1D8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Records;
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Apple Musicのカタログからアルバムとプレイリストを取得し、再生するために使用します。";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Records;
+				PRODUCT_NAME = Records;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		CC4B64A73D422CDF2AE31CCB /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -276,19 +344,20 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = CY4LJR5KMM;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = (
-					"DEBUG=1",
 					"$(inherited)",
+					"DEBUG=1",
 				);
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -296,23 +365,27 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
-				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Debug;
 		};
-		E72F0F4E30849E0D005537AC /* Release configuration for PBXProject "Records" */ = {
+		D59F4B62988683600279BA58 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
 				CLANG_ANALYZER_NONNULL = YES;
 				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
-				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CLANG_ENABLE_OBJC_WEAK = YES;
@@ -338,13 +411,14 @@
 				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = CY4LJR5KMM;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
-				ENABLE_USER_SCRIPT_SANDBOXING = YES;
-				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
@@ -352,240 +426,67 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
 				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
 			};
 			name = Release;
 		};
-		E72F0F5030849E0D005537AC /* Debug configuration for PBXNativeTarget "Records" */ = {
+		F677165F8FF10405ADA39D13 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CY4LJR5KMM;
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
+				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 1.0;
+				INFOPLIST_KEY_CFBundleDisplayName = Records;
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Apple Musicのカタログからアルバムとプレイリストを取得し、再生するために使用します。";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Records;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
-				SDKROOT = auto;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				XROS_DEPLOYMENT_TARGET = 27.0;
-			};
-			name = Debug;
-		};
-		E72F0F5130849E0D005537AC /* Release configuration for PBXNativeTarget "Records" */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CY4LJR5KMM;
-				ENABLE_APP_SANDBOX = YES;
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_PREVIEWS = YES;
-				ENABLE_USER_SELECTED_FILES = readonly;
-				GENERATE_INFOPLIST_FILE = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphoneos*]" = YES;
-				"INFOPLIST_KEY_UILaunchScreen_Generation[sdk=iphonesimulator*]" = YES;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphoneos*]" = UIStatusBarStyleDefault;
-				"INFOPLIST_KEY_UIStatusBarStyle[sdk=iphonesimulator*]" = UIStatusBarStyleDefault;
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
-				LD_RUNPATH_SEARCH_PATHS = "@executable_path/Frameworks";
-				"LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]" = "@executable_path/../Frameworks";
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Records;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				REGISTER_APP_GROUPS = YES;
-				SDKROOT = auto;
-				STRING_CATALOG_GENERATE_SYMBOLS = YES;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
-				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				XROS_DEPLOYMENT_TARGET = 27.0;
-			};
-			name = Release;
-		};
-		E72F0F5330849E0D005537AC /* Debug configuration for PBXNativeTarget "RecordsTests" */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CY4LJR5KMM;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.RecordsTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Records.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Records";
-				XROS_DEPLOYMENT_TARGET = 27.0;
-			};
-			name = Debug;
-		};
-		E72F0F5430849E0D005537AC /* Release configuration for PBXNativeTarget "RecordsTests" */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				BUNDLE_LOADER = "$(TEST_HOST)";
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CY4LJR5KMM;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.RecordsTests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Records.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Records";
-				XROS_DEPLOYMENT_TARGET = 27.0;
-			};
-			name = Release;
-		};
-		E72F0F5630849E0D005537AC /* Debug configuration for PBXNativeTarget "RecordsUITests" */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CY4LJR5KMM;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.RecordsUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = Records;
-				XROS_DEPLOYMENT_TARGET = 27.0;
-			};
-			name = Debug;
-		};
-		E72F0F5730849E0D005537AC /* Release configuration for PBXNativeTarget "RecordsUITests" */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = CY4LJR5KMM;
-				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 27.0;
-				MACOSX_DEPLOYMENT_TARGET = 27.0;
-				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.RecordsUITests;
-				PRODUCT_NAME = "$(TARGET_NAME)";
-				SDKROOT = auto;
-				STRING_CATALOG_GENERATE_SYMBOLS = NO;
-				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator macosx xros xrsimulator";
-				SWIFT_APPROACHABLE_CONCURRENCY = YES;
-				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
-				SWIFT_VERSION = 5.0;
-				TARGETED_DEVICE_FAMILY = "1,2,7";
-				TEST_TARGET_NAME = Records;
-				XROS_DEPLOYMENT_TARGET = 27.0;
+				PRODUCT_NAME = Records;
+				SDKROOT = macosx;
 			};
 			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		E72F0F2930849E0C005537AC /* Build configuration list for PBXProject "Records" */ = {
+		225B11333D89703301DC95D2 /* Build configuration list for PBXProject "Records" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				E72F0F4D30849E0D005537AC /* Debug configuration for PBXProject "Records" */,
-				E72F0F4E30849E0D005537AC /* Release configuration for PBXProject "Records" */,
+				CC4B64A73D422CDF2AE31CCB /* Debug */,
+				D59F4B62988683600279BA58 /* Release */,
 			);
-			defaultConfigurationName = Release;
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
 		};
-		E72F0F4F30849E0D005537AC /* Build configuration list for PBXNativeTarget "Records" */ = {
+		9EDEA6BFB11C49E36355B6F2 /* Build configuration list for PBXNativeTarget "Records" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				E72F0F5030849E0D005537AC /* Debug configuration for PBXNativeTarget "Records" */,
-				E72F0F5130849E0D005537AC /* Release configuration for PBXNativeTarget "Records" */,
+				205B818AAB34F06E217CB1D8 /* Debug */,
+				F677165F8FF10405ADA39D13 /* Release */,
 			);
-			defaultConfigurationName = Release;
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
 		};
-		E72F0F5230849E0D005537AC /* Build configuration list for PBXNativeTarget "RecordsTests" */ = {
+		B9FBFAB259E69F878C033D5C /* Build configuration list for PBXNativeTarget "RecordsWidget" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				E72F0F5330849E0D005537AC /* Debug configuration for PBXNativeTarget "RecordsTests" */,
-				E72F0F5430849E0D005537AC /* Release configuration for PBXNativeTarget "RecordsTests" */,
+				0725B4940BE528DC0318B99B /* Debug */,
+				0F8662617FEB32C6B54F34C5 /* Release */,
 			);
-			defaultConfigurationName = Release;
-		};
-		E72F0F5530849E0D005537AC /* Build configuration list for PBXNativeTarget "RecordsUITests" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				E72F0F5630849E0D005537AC /* Debug configuration for PBXNativeTarget "RecordsUITests" */,
-				E72F0F5730849E0D005537AC /* Release configuration for PBXNativeTarget "RecordsUITests" */,
-			);
-			defaultConfigurationName = Release;
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
 	};
-	rootObject = E72F0F2630849E0C005537AC /* Project object */;
-	validationLevel = 1;
+	rootObject = F318AC7B9E208287BED6358B /* Project object */;
 }
