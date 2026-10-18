@@ -33,9 +33,33 @@ struct WindowConfigurator: NSViewRepresentable {
     /// makeNSView時点ではview.windowがnilのことがあるため、
     /// viewDidMoveToWindowでwindow確定後にconfigureする。
     final class View: NSView {
+        private var observers: [NSObjectProtocol] = []
+
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             WindowConfigurator.configure(window)
+            WindowConfigurator.updateTrafficLightVisibility(window)
+            // Musicのミニプレーヤー同様、ウィンドウが非アクティブなら
+            // 信号ボタンを隠す。key状態の変化を監視して切り替える。
+            observers.forEach { NotificationCenter.default.removeObserver($0) }
+            observers = []
+            // デタッチ時(window=nil)にobject=nilで登録すると全ウィンドウ
+            // (設定画面など)のkey通知を拾って他窓の信号ボタンまで切り替えてしまう
+            guard let window else { return }
+            let keyNames = [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification]
+            observers = keyNames.map { name in
+                NotificationCenter.default.addObserver(
+                    forName: name, object: window, queue: .main
+                ) { notification in
+                    WindowConfigurator.updateTrafficLightVisibility(
+                        notification.object as? NSWindow
+                    )
+                }
+            }
+        }
+
+        deinit {
+            observers.forEach { NotificationCenter.default.removeObserver($0) }
         }
     }
 
@@ -45,27 +69,50 @@ struct WindowConfigurator: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         Self.configure(nsView.window)
+        // フルスクリーン出入り等でAppKitがタイトルバークロームを再構築すると
+        // isHiddenが巻き戻ることがあるため、更新のたびに冪等に再適用する
+        Self.updateTrafficLightVisibility(nsView.window)
     }
 
     private static func configure(_ window: NSWindow?) {
         guard let window else { return }
-        // 冪等: すでに設定済みなら何もしない(updateNSView毎のログ重複防止)
-        let configured = window.styleMask.contains(.fullSizeContentView)
+        let flagsConfigured = window.styleMask.contains(.fullSizeContentView)
             && !window.isOpaque
             && window.backgroundColor == .clear
             && window.titlebarAppearsTransparent
             && window.titleVisibility == .hidden
             && window.titlebarSeparatorStyle == .none
-        guard !configured else { return }
+        if !flagsConfigured {
+            // コンテンツをタイトルバー領域まで拡張し、ウィンドウ全面をガラスにする。
+            // separatorStyle=.noneでタイトルバー下の境界線を消し、帯と同色に見せる
+            window.styleMask.insert(.fullSizeContentView)
+            window.isOpaque = false
+            window.backgroundColor = .clear
+            window.titlebarAppearsTransparent = true
+            window.titleVisibility = .hidden
+            window.titlebarSeparatorStyle = .none
+            logger.notice("glass window configured: transparent + hidden title + fullSizeContentView + no separator")
+        }
+    }
 
-        // コンテンツをタイトルバー領域まで拡張し、ウィンドウ全面をガラスにする。
-        // separatorStyle=.noneでタイトルバー下の境界線を消し、帯と同色に見せる
-        window.styleMask.insert(.fullSizeContentView)
-        window.isOpaque = false
-        window.backgroundColor = .clear
-        window.titlebarAppearsTransparent = true
-        window.titleVisibility = .hidden
-        window.titlebarSeparatorStyle = .none
-        logger.notice("glass window configured: transparent + hidden title + fullSizeContentView + no separator")
+    /// 信号ボタン(閉じる/最小化/ズーム)の表示をウィンドウのアクティブ状態に合わせる。
+    /// 非アクティブ時はMusicのミニプレーヤーと同じく3つとも隠す。
+    static func updateTrafficLightVisibility(_ window: NSWindow?) {
+        guard let window else { return }
+        let hidden = !window.isKeyWindow
+        var changed = false
+        for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            // クローム再構築の途中ではボタンが取れないことがある。
+            // その場合は次のviewDidMoveToWindow/updateNSViewで再適用される
+            guard let button = window.standardWindowButton(kind),
+                  button.isHidden != hidden else { continue }
+            button.isHidden = hidden
+            changed = true
+        }
+        // 状態変化があったときだけログ(key通知のたびに出るのを防ぐ)。
+        // windowNumberは将来の複数窓でログを見分けるため。
+        if changed {
+            logger.notice("traffic lights \(hidden ? "hidden" : "shown", privacy: .public) (windowNumber=\(window.windowNumber, privacy: .public) isKeyWindow=\(window.isKeyWindow, privacy: .public))")
+        }
     }
 }

@@ -22,7 +22,6 @@ struct ShelfView: View {
                 // ignoresSafeAreaでタイトルバー帯の下までガラスを伸ばす
                 GlassBackgroundView()
                     .ignoresSafeArea()
-                WindowConfigurator()
             }
         // 再生状態はAlbumSlotViewが個別にmonitorを監視するので、ここでは監視せず
         // 開始/停止だけ行う(画面全体の2秒おき再描画を避ける)
@@ -33,39 +32,52 @@ struct ShelfView: View {
     // グリッドの間隔・余白。ウィンドウサイズはこれらと設定値から厳密に計算する。
     private static let columnSpacing: CGFloat = 12
     private static let rowSpacing: CGFloat = 14
-    private static let sidePadding: CGFloat = 18
-    // タイトルバー非表示+fullSizeContentViewで信号ボタンが
-    // コンテンツ上に浮くため、上だけ広めに取って1段目を避ける
-    private static let topPadding: CGFloat = 34
-    private static let bottomPadding: CGFloat = 18
+    // タイトルバー帯(32pt)が上マージンを兼ねる。コンテンツ側の上パディングは
+    // 0にし、他の3辺は帯と同じ32ptに揃えて四辺等しい見た目にする
+    private static let edgePadding: CGFloat = 32
+    private static let topPadding: CGFloat = 0
+
+    /// グリッドの1スロット。ForEachの安定ID用。
+    /// 空きは位置ベース("empty-N")、エントリは自身のidで同一性を取る。
+    /// (位置ベースだけにすると削除でセルが詰まった際に@Stateが別エントリへ
+    ///  引き継がれ、一瞬旧ジャケットが残る)
+    private struct Slot: Identifiable {
+        let id: String
+        let entry: MediaEntry?
+    }
 
     private var shelfGrid: some View {
         let settings = store.settings
         let cell = settings.artworkSize.points
         let columnCount = settings.capacity.columns
         let rowCount = settings.capacity.rows
-        let slots = store.paddedSlots()
+        // entry.idは数値列または"pl.xxx"なので"empty-N"と衝突しない
+        let slots = store.paddedSlots().enumerated().map { offset, entry in
+            Slot(id: entry?.id ?? "empty-\(offset)", entry: entry)
+        }
         let columns = Array(
             repeating: GridItem(.fixed(cell), spacing: Self.columnSpacing),
             count: columnCount
         )
         let width = CGFloat(columnCount) * cell
             + CGFloat(columnCount - 1) * Self.columnSpacing
-            + Self.sidePadding * 2
+            + Self.edgePadding * 2
         let height = CGFloat(rowCount) * cell
             + CGFloat(rowCount - 1) * Self.rowSpacing
-            + Self.topPadding + Self.bottomPadding
+            + Self.topPadding + Self.edgePadding
 
         // ウィンドウはwindowResizability(.contentSize)なので、
-        // この固定フレームがそのままmin=maxのウィンドウサイズになる。
+        // この固定フレーム+タイトルバー帯(上マージンを兼ねる、コンテンツ側の
+        // 上パディングは0)がそのままmin=maxのウィンドウサイズになる。
         // 設定変更でstore.settingsが変わると自動的に追従する。
         return LazyVGrid(columns: columns, spacing: Self.rowSpacing) {
-            ForEach(Array(slots.enumerated()), id: \.offset) { _, entry in
+            ForEach(slots) { slot in
                 Group {
-                    if let entry {
+                    if let entry = slot.entry {
                         AlbumSlotView(entry: entry)
                     } else {
-                        emptySlot
+                        // 空きスロットは何も描かず、スペースだけ確保する
+                        Color.clear
                     }
                 }
                 .frame(width: cell, height: cell)
@@ -73,22 +85,13 @@ struct ShelfView: View {
         }
         .padding(EdgeInsets(
             top: Self.topPadding,
-            leading: Self.sidePadding,
-            bottom: Self.bottomPadding,
-            trailing: Self.sidePadding
+            leading: Self.edgePadding,
+            bottom: Self.edgePadding,
+            trailing: Self.edgePadding
         ))
         .frame(width: width, height: height)
-    }
-
-    private var emptySlot: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 4)
-                .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [5, 4]))
-                .foregroundStyle(Color.secondary.opacity(0.4))
-                .aspectRatio(1, contentMode: .fit)
-            Image(systemName: "music.note")
-                .font(.title3)
-                .foregroundStyle(Color.secondary.opacity(0.4))
+        .background {
+            WindowConfigurator()
         }
     }
 }
