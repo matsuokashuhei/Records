@@ -74,6 +74,7 @@
 		C33297F975A29C890A2B63FD /* RecordsWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RecordsWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackMonitor.swift; sourceTree = "<group>"; };
 		D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaCatalogClient.swift; sourceTree = "<group>"; };
+		DF2D3BC002A3848E845F20C7 /* RecordsWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RecordsWidget.entitlements; sourceTree = "<group>"; };
 		FA871A2E0C8D11E6A15AB79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		FAB464F15B4376012996DEAC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfSettings.swift; sourceTree = "<group>"; };
@@ -98,6 +99,7 @@
 			children = (
 				FC9F54D2996B01C2DD3798E7 /* Info.plist */,
 				68BFF1E8A1B88CC674C4145B /* RecordShelfWidget.swift */,
+				DF2D3BC002A3848E845F20C7 /* RecordsWidget.entitlements */,
 				FCC8F94A676CF5F3A3A0D9BF /* RecordsWidgetBundle.swift */,
 			);
 			path = WidgetExtension;
@@ -319,6 +321,7 @@
 		0725B4940BE528DC0318B99B /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = WidgetExtension/RecordsWidget.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WidgetExtension/Info.plist;
@@ -337,6 +340,7 @@
 		0F8662617FEB32C6B54F34C5 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = WidgetExtension/RecordsWidget.entitlements;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = WidgetExtension/Info.plist;

@@ -40,6 +40,7 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: レコードシェルフ
         SKIP_INSTALL: YES
+        CODE_SIGN_ENTITLEMENTS: WidgetExtension/RecordsWidget.entitlements
     info:
       path: WidgetExtension/Info.plist
       properties:

@@ -163,23 +163,9 @@ struct ShelfGridView: View {
     }
 
     private func emptySleeve(size: CGFloat) -> some View {
-        VStack(spacing: 3) {
-            ZStack {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color(white: 0.5).opacity(0.08))
-                Image(systemName: "music.note")
-                    .font(.system(size: size * 0.25))
-                    .foregroundStyle(Color(white: 0.5).opacity(0.3))
-            }
-            .frame(width: size, height: size)
-            .overlay(
-                RoundedRectangle(cornerRadius: 2)
-                    .strokeBorder(style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                    .foregroundStyle(Color(white: 0.5).opacity(0.25))
-            )
-            RoundedRectangle(cornerRadius: 2)
-                .fill(Color(white: 1.0).opacity(0.5))
-                .frame(width: size * 1.14, height: 4.5)
-        }
+        // 空きスロットは何も描かず、レイアウト保持のためスペースだけ確保する
+        // (幅はレール分のsize*1.14、高さはアート+隙間+レール分)
+        Color.clear
+            .frame(width: size * 1.14, height: size + 3 + 4.5)
     }
 }
