@@ -12,12 +12,17 @@ final class ShelfStore: ObservableObject {
 
     nonisolated private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Shelf")
 
-    nonisolated static let capacity = 20
     static let shared = ShelfStore()
 
     @Published private(set) var entries: [MediaEntry]
+    /// 表示設定(登録枚数・アートワークサイズ)。settings.json に永続化される。
+    @Published private(set) var settings: ShelfSettings
     /// アートワークがダウンロードされるたびに増加(ビュー再描画のトリガー)
     @Published private(set) var artworkRevision = 0
+
+    /// 現在の設定での表示スロット数。entries自体はこれを超えて保持しうる
+    /// (縮小しても登録は消さず、先頭からcapacity分だけ表示する)。
+    var capacity: Int { settings.capacity.rawValue }
 
     /// デコード済みジャケット画像のキャッシュ(entry.id → NSImage)。
     /// セルの body が走るたびに同期ディスク読み込み+デコードしないためのもの。
@@ -25,6 +30,7 @@ final class ShelfStore: ObservableObject {
 
     private init() {
         Self.ensureDirectories()
+        settings = ShelfSettings.loadFromDisk()
         entries = Self.readFromDisk()
         ensureArtworkDownloaded()
     }
@@ -123,7 +129,7 @@ final class ShelfStore: ObservableObject {
     }
 
     func add(_ entry: MediaEntry) -> Bool {
-        guard entries.count < Self.capacity, !contains(entry.id) else { return false }
+        guard entries.count < capacity, !contains(entry.id) else { return false }
         entries.append(entry)
         save()
         return true
@@ -147,18 +153,32 @@ final class ShelfStore: ObservableObject {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
+    /// 表示設定を更新してsettings.jsonに保存する。同じ値なら何もしない。
+    /// 登録データ(albums.json)は触らないので、枚数を縮小しても登録は残る。
+    func updateSettings(_ newSettings: ShelfSettings) {
+        guard newSettings != settings else { return }
+        Self.logger.notice("settings changed: capacity \(self.settings.capacity.rawValue, privacy: .public)→\(newSettings.capacity.rawValue, privacy: .public) artworkSize \(self.settings.artworkSize.rawValue, privacy: .public)→\(newSettings.artworkSize.rawValue, privacy: .public)")
+        settings = newSettings
+        ShelfSettings.saveToDisk(newSettings)
+        // ウィジェットのグリッド構成も設定に追従するため再読み込みさせる
+        WidgetCenter.shared.reloadAllTimelines()
+    }
+
     // MARK: - 表示用
 
-    /// 常に20スロットに満たす。空きは nil。
+    /// 常に設定枚数分のスロットに満たす。空きは nil。
+    /// entriesがcapacityを超えていても先頭capacity件のみ返す(登録自体は保持)。
     func paddedSlots() -> [MediaEntry?] {
         var slots: [MediaEntry?] = entries
-        while slots.count < Self.capacity { slots.append(nil) }
-        return Array(slots.prefix(Self.capacity))
+        while slots.count < capacity { slots.append(nil) }
+        return Array(slots.prefix(capacity))
     }
 
     /// メインアクター外(ウィジェット拡張のTimelineProvider等)からの読み取り用。
     /// 共有インスタンスを介さず、毎回ディスクから読む。
-    nonisolated static func paddedSlotsFromDisk() -> [MediaEntry?] {
+    /// 容量は呼び出し側でsettings.jsonから読んだ値を渡す
+    /// (ここで再度読むとatomic writeの隙間にスロット数とグリッド構成がずれうる)。
+    nonisolated static func paddedSlotsFromDisk(capacity: Int) -> [MediaEntry?] {
         var slots: [MediaEntry?] = readFromDisk()
         while slots.count < capacity { slots.append(nil) }
         return Array(slots.prefix(capacity))

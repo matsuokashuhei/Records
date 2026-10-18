@@ -50,9 +50,10 @@ struct RecordsApp: App {
     }
 
     var body: some Scene {
+        // ウィンドウサイズはShelfViewが設定(枚数・アートワークサイズ)から
+        // 計算した固定フレームで決まる。contentSizeでmin=max扱い。
         WindowGroup {
             ShelfView()
-                .frame(minWidth: 560, minHeight: 460)
         }
         .windowResizability(.contentSize)
 

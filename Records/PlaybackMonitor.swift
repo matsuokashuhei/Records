@@ -119,6 +119,20 @@ final class PlaybackMonitor: ObservableObject {
         }
     }
 
+    /// 登録枚数の縮小などでアクティブなエントリが非表示になった場合に
+    /// in-app再生(プレイリスト)を止める。
+    /// 非表示スロットには停止UIが無いため、放置するとアプリを終了するまで
+    /// 止められない。Musicアプリ側のアルバム再生はMusicアプリから止められるので対象外。
+    func stopIfActiveEntryHidden() {
+        guard inAppPlaying, let id = activeEntryID else { return }
+        let visibleIDs = ShelfStore.shared.paddedSlots().compactMap { $0?.id }
+        guard !visibleIDs.contains(id) else { return }
+        Self.logger.notice("active entry \(id, privacy: .public) is now hidden; stopping in-app playback")
+        PlaylistPlayer.stop()
+        activeEntryID = nil
+        Task { await refresh() }
+    }
+
     /// クリックで再生/停止を切り替える
     func toggle(_ entry: MediaEntry) async throws {
         guard !isToggling else {

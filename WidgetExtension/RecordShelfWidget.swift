@@ -14,22 +14,39 @@ import AppKit
 struct ShelfEntry: TimelineEntry {
     let date: Date
     let slots: [MediaEntry?]
+    /// 設定(settings.json)のグリッド構成。読めない場合は5×4。
+    let columns: Int
+    let rows: Int
 }
 
 struct Provider: TimelineProvider {
+    /// スロットとグリッド構成をディスクから読む。設定が無い/読めない場合は
+    /// ShelfSettings.default(20枚=5×4)にフォールバックする。
+    /// settings.jsonはここで1回だけ読み、その値をスロット生成にも渡す
+    /// (二重読み込みだとatomic writeの隙間に容量とグリッド構成がずれうる)。
+    private static func makeEntry() -> ShelfEntry {
+        let settings = ShelfSettings.loadFromDisk()
+        return ShelfEntry(
+            date: .now,
+            slots: ShelfStore.paddedSlotsFromDisk(capacity: settings.capacity.rawValue),
+            columns: settings.capacity.columns,
+            rows: settings.capacity.rows
+        )
+    }
+
     func placeholder(in context: Context) -> ShelfEntry {
-        ShelfEntry(date: .now, slots: ShelfStore.paddedSlotsFromDisk())
+        Self.makeEntry()
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ShelfEntry) -> Void) {
-        completion(ShelfEntry(date: .now, slots: ShelfStore.paddedSlotsFromDisk()))
+        completion(Self.makeEntry())
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ShelfEntry>) -> Void) {
         // 内容はplaceholder/getSnapshotと同じく毎回ディスクから読む。
         // 共有インスタンスのメモリ値は拡張プロセスの寿命中そのままなので、
         // アプリ側の編集→reloadAllTimelines()後にstaleな内容を返しうる。
-        let entry = ShelfEntry(date: .now, slots: ShelfStore.paddedSlotsFromDisk())
+        let entry = Self.makeEntry()
         // 不足アートワークのダウンロード開始という従来の副作用は維持する。
         // (ShelfStoreは@MainActorのためTaskでホップ。fire-and-forgetでよい)
         Task { @MainActor in
@@ -45,10 +62,10 @@ struct Provider: TimelineProvider {
 struct RecordShelfWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "RecordShelf", provider: Provider()) { entry in
-            ShelfGridView(slots: entry.slots)
+            ShelfGridView(slots: entry.slots, columns: entry.columns, rows: entry.rows)
         }
         .configurationDisplayName("レコードシェルフ")
-        .description("登録したアルバム20枚を壁のレコードシェルフのように表示します。ジャケットをクリックするとMusicアプリで再生されます。")
+        .description("登録したアルバムを壁のレコードシェルフのように表示します。ジャケットをクリックするとMusicアプリで再生されます。")
         .supportedFamilies([.systemExtraLarge, .systemLarge])
     }
 }
@@ -57,9 +74,10 @@ struct RecordShelfWidget: Widget {
 
 struct ShelfGridView: View {
     let slots: [MediaEntry?]
-
-    private let columns = 5
-    private let rows = 4
+    /// 設定のグリッド構成。アートワークサイズ設定は適用しない
+    /// (ウィジェットは自身のbounds内で自動サイズ調整のまま)。
+    let columns: Int
+    let rows: Int
 
     var body: some View {
         GeometryReader { geo in
