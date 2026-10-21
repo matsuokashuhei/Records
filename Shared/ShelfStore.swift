@@ -73,8 +73,17 @@ final class ShelfStore: ObservableObject {
     // MARK: - ストレージ
 
     nonisolated static var baseDirectory: URL {
-        let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return support.appendingPathComponent("Records", isDirectory: true)
+        // ウィジェット拡張はsandboxのため urls(for:) はコンテナ内を指してしまい
+        // 共有データに届かない。実ホーム(getpwuidはsandboxでも実パスを返す)基準で
+        // 統一し、拡張側は entitlements の home-relative-path 例外で読み書きする。
+        let homePath: String
+        if let pw = getpwuid(getuid()) {
+            homePath = String(cString: pw.pointee.pw_dir)
+        } else {
+            homePath = NSHomeDirectory()
+        }
+        return URL(fileURLWithPath: homePath, isDirectory: true)
+            .appendingPathComponent("Library/Application Support/Records", isDirectory: true)
     }
 
     nonisolated static var artworkDirectory: URL {

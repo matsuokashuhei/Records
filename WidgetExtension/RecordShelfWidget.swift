@@ -8,6 +8,7 @@
 import WidgetKit
 import SwiftUI
 import AppKit
+import os
 
 // MARK: - データ
 
@@ -19,41 +20,57 @@ struct ShelfEntry: TimelineEntry {
     let rows: Int
 }
 
-struct Provider: TimelineProvider {
-    /// スロットとグリッド構成をディスクから読む。設定が無い/読めない場合は
-    /// ShelfSettings.default(20枚=5×4)にフォールバックする。
-    /// settings.jsonはここで1回だけ読み、その値をスロット生成にも渡す
-    /// (二重読み込みだとatomic writeの隙間に容量とグリッド構成がずれうる)。
-    private static func makeEntry() -> ShelfEntry {
-        let settings = ShelfSettings.loadFromDisk()
-        return ShelfEntry(
+struct Provider: AppIntentTimelineProvider {
+
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Widget")
+
+    /// インテントで選択された容量を解決する。
+    /// 「アプリ設定に従う」(.appDefault)のときだけsettings.jsonを読み、
+    /// 明示選択時はその容量を使う。読めない場合はShelfSettings.default(20枚)に
+    /// フォールバックする。
+    private static func resolveCapacity(for configuration: RecordShelfConfigurationIntent) -> ShelfSettings.Capacity {
+        if let capacity = configuration.capacity.shelfCapacity {
+            return capacity
+        }
+        return ShelfSettings.loadFromDisk().capacity
+    }
+
+    /// スロットとグリッド構成をディスクから読む。
+    /// 容量は呼び出し側で1回だけ決めて渡し、スロット生成とグリッド構成の
+    /// 両方に使う(二重読み込みだとatomic writeの隙間にずれうる)。
+    private static func makeEntry(capacity: ShelfSettings.Capacity) -> ShelfEntry {
+        ShelfEntry(
             date: .now,
-            slots: ShelfStore.paddedSlotsFromDisk(capacity: settings.capacity.rawValue),
-            columns: settings.capacity.columns,
-            rows: settings.capacity.rows
+            slots: ShelfStore.paddedSlotsFromDisk(capacity: capacity.rawValue),
+            columns: capacity.columns,
+            rows: capacity.rows
         )
     }
 
     func placeholder(in context: Context) -> ShelfEntry {
-        Self.makeEntry()
+        // プレースホルダは設定未確定なのでアプリ設定(なければ既定20枚)で描く
+        Self.makeEntry(capacity: ShelfSettings.loadFromDisk().capacity)
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (ShelfEntry) -> Void) {
-        completion(Self.makeEntry())
+    func snapshot(for configuration: RecordShelfConfigurationIntent, in context: Context) async -> ShelfEntry {
+        Self.makeEntry(capacity: Self.resolveCapacity(for: configuration))
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<ShelfEntry>) -> Void) {
-        // 内容はplaceholder/getSnapshotと同じく毎回ディスクから読む。
+    func timeline(for configuration: RecordShelfConfigurationIntent, in context: Context) async -> Timeline<ShelfEntry> {
+        // 内容はplaceholder/snapshotと同じく毎回ディスクから読む。
         // 共有インスタンスのメモリ値は拡張プロセスの寿命中そのままなので、
         // アプリ側の編集→reloadAllTimelines()後にstaleな内容を返しうる。
-        let entry = Self.makeEntry()
+        let capacity = Self.resolveCapacity(for: configuration)
+        Self.logger.notice("timeline: capacity=\(capacity.rawValue, privacy: .public) (option=\(configuration.capacity.rawValue, privacy: .public))")
+        let entry = Self.makeEntry(capacity: capacity)
         // 不足アートワークのダウンロード開始という従来の副作用は維持する。
         // (ShelfStoreは@MainActorのためTaskでホップ。fire-and-forgetでよい)
         Task { @MainActor in
             ShelfStore.shared.ensureArtworkDownloaded()
         }
-        // 内容の更新はアプリ側の保存時に WidgetCenter からリロードされる
-        completion(Timeline(entries: [entry], policy: .never))
+        // 内容の更新はアプリ側の保存時に WidgetCenter からリロードされる。
+        // インテント設定の変更時はシステムがこのメソッドを自動で呼び直す。
+        return Timeline(entries: [entry], policy: .never)
     }
 }
 
@@ -61,7 +78,7 @@ struct Provider: TimelineProvider {
 
 struct RecordShelfWidget: Widget {
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "RecordShelf", provider: Provider()) { entry in
+        AppIntentConfiguration(kind: "RecordShelf", intent: RecordShelfConfigurationIntent.self, provider: Provider()) { entry in
             ShelfGridView(slots: entry.slots, columns: entry.columns, rows: entry.rows)
         }
         .configurationDisplayName("レコードシェルフ")
@@ -86,7 +103,7 @@ struct ShelfGridView: View {
 
             let availableWidth = geo.size.width - padding * 2 - gap * CGFloat(columns - 1)
             let availableHeight = geo.size.height - padding * 2 - gap * CGFloat(rows - 1)
-            let cellSide = min(availableWidth / CGFloat(columns), (availableHeight - 10) / CGFloat(rows))
+            let cellSide = min(availableWidth / CGFloat(columns), availableHeight / CGFloat(rows))
 
             VStack(spacing: gap) {
                 ForEach(0..<rows, id: \.self) { row in
@@ -102,16 +119,9 @@ struct ShelfGridView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(padding)
         }
-        .containerBackground(for: .widget) {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.96, green: 0.95, blue: 0.93),
-                    Color(red: 0.88, green: 0.86, blue: 0.83),
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        }
+        // アプリ本体はNSGlassEffectView(壁紙が透けるリキッドグラス)を敷いている。
+        // ウィジェットではマテリアルが最も近い見た目になる。不透明な色塗りにしない。
+        .containerBackground(.regularMaterial, for: .widget)
     }
 
     @ViewBuilder
@@ -127,45 +137,45 @@ struct ShelfGridView: View {
         }
     }
 
-    private func sleeveView(_ entry: MediaEntry, size: CGFloat) -> some View {
-        VStack(spacing: 3) {
-            Group {
-                if let image = NSImage(contentsOfFile: ShelfStore.artworkFileURL(for: entry).path) {
-                    Image(nsImage: image)
-                        .resizable()
-                        .interpolation(.high)
-                        .scaledToFit()
-                } else {
-                    ZStack {
-                        Rectangle().fill(Color(white: 0.82))
-                        Image(systemName: "music.note")
-                            .font(.system(size: size * 0.3))
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-            .frame(width: size, height: size)
-            .clipShape(RoundedRectangle(cornerRadius: 2))
-            .shadow(color: .black.opacity(0.35), radius: 3, x: 0, y: 2)
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Widget")
 
-            // シェルフの透明なレール
-            RoundedRectangle(cornerRadius: 2)
-                .fill(
-                    LinearGradient(
-                        colors: [Color(white: 1.0).opacity(0.95), Color(white: 0.76)],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                )
-                .frame(width: size * 1.14, height: 4.5)
-                .shadow(color: .black.opacity(0.22), radius: 1.5, x: 0, y: 1)
+    private func sleeveView(_ entry: MediaEntry, size: CGFloat) -> some View {
+        // アプリ側のAlbumSlotViewと同じ見た目: ジャケット画像のみ(レール無し)、
+        // 角丸4 + 薄い影。未読込時は薄いグレーのプレースホルダのみ
+        // (ウィジェットは非同期で再描画されるのでProgressViewは不要)。
+        // sandboxed拡張では NSImage(contentsOfFile:) がコンテナ外のファイルを
+        // 読めないため、実績のあるData読み込み経路(temporary-exception対象)で
+        // バイト列を取り、メモリ上でデコードする。
+        let artworkURL = ShelfStore.artworkFileURL(for: entry)
+        let image = (try? Data(contentsOf: artworkURL)).flatMap { NSImage(data: $0) }
+        if let image {
+            Self.logger.debug("artwork loaded id=\(entry.id, privacy: .public) size=\(image.size.width, privacy: .public)x\(image.size.height, privacy: .public)")
+            // widgetAccentedRenderingMode はImage型専用でresizable等と
+            // 併用できないため、表示サイズはNSImage.sizeで直接指定する。
+            image.size = NSSize(width: size, height: size)
+        } else {
+            Self.logger.notice("artwork load failed id=\(entry.id, privacy: .public) path=\(artworkURL.path, privacy: .public) exists=\(FileManager.default.fileExists(atPath: artworkURL.path), privacy: .public)")
         }
+        return Group {
+            if let image {
+                // 非アクティブ時の減退(accented)描画でもジャケットをフルカラーで
+                // 維持する(Apple公式: アルバムアート等のメディア画像向け)。
+                Image(nsImage: image)
+                    .widgetAccentedRenderingMode(.fullColor)
+            } else {
+                // 未読込はグレーの下地だけ残す
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.secondary.opacity(0.15))
+            }
+        }
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .shadow(color: .black.opacity(0.25), radius: 3, x: 0, y: 2)
     }
 
     private func emptySleeve(size: CGFloat) -> some View {
-        // 空きスロットは何も描かず、レイアウト保持のためスペースだけ確保する
-        // (幅はレール分のsize*1.14、高さはアート+隙間+レール分)
+        // 空きスロットは何も描かず、正方形セルとしてスペースだけ確保する
         Color.clear
-            .frame(width: size * 1.14, height: size + 3 + 4.5)
+            .frame(width: size, height: size)
     }
 }

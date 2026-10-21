@@ -62,6 +62,8 @@ open .build/Build/Products/Debug/Records.app
 - JSONの解析にはpythonではなく `jq` を使う(ユーザー指示)
 - appの場所を移すとウィジェット登録が壊れることがある → `lsregister -f <app>`、
   `pluginkit -e use -i <bundleid>`、`killall Dock` で復旧できる(実測)
+- ウィジェット拡張はsandbox必須(外すとpkdが "plug-ins must be sandboxed" で
+  拡張の登録を拒否する、実測)。entitlementsのapp-sandboxを外さないこと
 
 ## アーキテクチャと検証済み事実(2026-10-18 実機)
 
@@ -97,12 +99,46 @@ open .build/Build/Products/Debug/Records.app
 
 - 登録データ: `~/Library/Application Support/Records/albums.json`
 - アートワーク: `~/Library/Application Support/Records/Artwork/<id>.jpg`
-- アプリとウィジェット拡張は非サンドボックスで、このディレクトリを共有する
+- アプリは非サンドボックス、ウィジェット拡張は app-sandbox +
+  `temporary-exception.files.home-relative-path.read-write`
+  (`/Library/Application Support/Records/`)でこのディレクトリを共有する
 
 ## 構成
 
 - `Shared/` — アプリとウィジェット拡張の両方にリンクされる層
   (MediaEntry/MediaURLParser, MediaCatalogClient, ShelfStore, PlaybackEngine, PlaylistPlayer, PlayAlbumIntent)
 - `Records/` — アプリ本体(ShelfView, SettingsView, WindowGlass, PlaybackMonitor)
-- `WidgetExtension/` — WidgetKit拡張(RecordShelfWidget, extraLarge 5×4=20枚)
+- `WidgetExtension/` — WidgetKit拡張(RecordShelfWidget, extraLarge 5×4=20枚)。
+  AppIntentConfiguration(RecordShelfConfigurationIntent)でウィジェットごとの
+  容量を選べる(アプリ設定に従う/6/12/20)。容量→列×行はShelfSettings.Capacity
+  のマッピングを共用
 - `project.yml` — xcodegen定義(ターゲット変更はここを編集)
+
+## ウィジェット拡張の検証済み事実(2026-10-20 実機・長期デバッグの成果)
+
+- **sandbox必須**: `com.apple.security.app-sandbox` が無いと pkd が
+  `plug-ins must be sandboxed` で登録拒否する
+- **sandboxed拡張では `urls(for: .applicationSupportDirectory)` はコンテナ内パスを返す**
+  → 共有データに届かず albums.json 読み取り失敗→プリセット3件にフォールバックする罠。
+  `ShelfStore.baseDirectory` は `getpwuid(getuid())->pw_dir` で実ホームを解決している
+  (sandboxでも実パスを返す)。entitlements の home-relative-path 例外とセットで使う
+- **拡張のコンテナパスは `~/Library/Containers/com.cacheandbuffer.Records.widget/`**。
+  `Data/SystemData/com.apple.chrono/` に描画アーカイブ(timelines/snapshots/placeholders)が
+  溜まる。**壊れた描画が残るとNotificationCenterが「同じもの」として再利用し続ける**
+  → コンテナごとFinderで削除するのが最も確実なリセット(TCCでターミナルからは消せない)
+- **ウィジェットの `kind` 名は絶対に変えない** — 設置済みインスタンスが旧kindを参照し
+  `CHSErrorDomain 1100 "No matching descriptor"` で永久に壊れる
+- **デスクトップ非アクティブ時は accented(減退)レンダリングになる**。
+  非accentableなコンテンツはグレーの塊になる。画像を保持するには
+  **`Image` 専用修飾子 `.widgetAccentedRenderingMode(.fullColor)`** を付ける
+  (Apple公式「アルバムアート等のメディア画像向け」。Image専用なので
+  `.resizable()` 等とチェーンできず、表示サイズは `NSImage.size` で指定する)
+- **`lsregister`/`pluginkit -a` だけでは設置済みウィジェットの描画は更新されない**
+  → 再描画のトリガーは「ウィジェット削除→追加」か「アプリ側で設定保存
+  (reloadAllTimelines)」
+- **XcodeでDerivedDataにビルドすると `.build` 版と二重登録されて古い描画が出る**
+  → 動かすのは `.build/Build/Products/Debug/Records.app` のみにする
+- chronodログの調査: `log show --predicate 'process == "chronod" AND
+  eventMessage CONTAINS "cacheandbuffer"'` で `extensionNotFound`(1300)/
+  `unsupportedEntryKey`/`No matching descriptor`(1100) が出たら
+  拡張レコードかコンテナの不整合を疑う

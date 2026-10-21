@@ -29,6 +29,7 @@
 		B9CA1FCF3F36287C72B7279E /* PlaybackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */; };
 		BD77655F3C211E60D1C764F0 /* ShelfSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */; };
 		D9DB5DB83EBF1BC413B9EC8C /* PlayAlbumIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1D0010FFF6ECF75D6E6281 /* PlayAlbumIntent.swift */; };
+		DDE57A24E1B3428FCB080FD4 /* RecordShelfConfigurationIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 49DD33741B9CF22539E2E5E1 /* RecordShelfConfigurationIntent.swift */; };
 		DE2065EC093BEE33CA9F3AD3 /* RecordsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */; };
 		F161C579BE4930784F54DF03 /* ShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D593FE3DA37740B77984F0 /* ShelfView.swift */; };
 		FC3E54327AC7D1A1A18B5B4B /* PlaylistPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5326779F8829EBA05B501896 /* PlaylistPlayer.swift */; };
@@ -64,6 +65,7 @@
 		26E722075A65DABCA285C2CC /* WindowGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowGlass.swift; sourceTree = "<group>"; };
 		29D593FE3DA37740B77984F0 /* ShelfView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfView.swift; sourceTree = "<group>"; };
 		43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordsApp.swift; sourceTree = "<group>"; };
+		49DD33741B9CF22539E2E5E1 /* RecordShelfConfigurationIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordShelfConfigurationIntent.swift; sourceTree = "<group>"; };
 		4D1D0010FFF6ECF75D6E6281 /* PlayAlbumIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayAlbumIntent.swift; sourceTree = "<group>"; };
 		50F2FB1DE51231F752D3FE91 /* RecordsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RecordsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5326779F8829EBA05B501896 /* PlaylistPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistPlayer.swift; sourceTree = "<group>"; };
@@ -98,6 +100,7 @@
 			isa = PBXGroup;
 			children = (
 				FC9F54D2996B01C2DD3798E7 /* Info.plist */,
+				49DD33741B9CF22539E2E5E1 /* RecordShelfConfigurationIntent.swift */,
 				68BFF1E8A1B88CC674C4145B /* RecordShelfWidget.swift */,
 				DF2D3BC002A3848E845F20C7 /* RecordsWidget.entitlements */,
 				FCC8F94A676CF5F3A3A0D9BF /* RecordsWidgetBundle.swift */,
@@ -300,6 +303,7 @@
 				D9DB5DB83EBF1BC413B9EC8C /* PlayAlbumIntent.swift in Sources */,
 				B9CA1FCF3F36287C72B7279E /* PlaybackEngine.swift in Sources */,
 				FC3E54327AC7D1A1A18B5B4B /* PlaylistPlayer.swift in Sources */,
+				DDE57A24E1B3428FCB080FD4 /* RecordShelfConfigurationIntent.swift in Sources */,
 				A466F202C214F53B441110A5 /* RecordShelfWidget.swift in Sources */,
 				164BE9EEDC60C50DF52501A4 /* RecordsWidgetBundle.swift in Sources */,
 				53C40CE87FECD5FF353F0E8E /* ShelfSettings.swift in Sources */,
@@ -441,7 +445,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = CY4LJR5KMM;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -508,7 +512,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_STYLE = Automatic;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				DEVELOPMENT_TEAM = CY4LJR5KMM;
 				ENABLE_NS_ASSERTIONS = NO;
