@@ -1,9 +1,9 @@
-# AGENTS.md — Records(レコードシェルフウィジェット)開発メモ
+# AGENTS.md — Records(レコードシェルフ)開発メモ
 
 ## このプロジェクト
 
-macOSデスクトップウィジェット+管理アプリ。Apple Musicのアルバム/プレイリスト20個を
-壁のレコードシェルフ風に表示し、クリックで再生する。
+macOSアプリ。Apple Musicのアルバム/プレイリスト20個を壁のレコードシェルフ風に
+表示し、クリックで再生する。
 
 ## 鉄則(必ず守る)
 
@@ -60,8 +60,7 @@ open .build/Build/Products/Debug/Records.app
 - `xcode-select` はCLT向きなので、xcodebuild/xcodegenには必ず `DEVELOPER_DIR` を付ける
 - テストで音を出すときは事前に音量を0にし、終わったら戻す
 - JSONの解析にはpythonではなく `jq` を使う(ユーザー指示)
-- appの場所を移すとウィジェット登録が壊れることがある → `lsregister -f <app>`、
-  `pluginkit -e use -i <bundleid>`、`killall Dock` で復旧できる(実測)
+- appの場所を移すとLS/pkd登録が壊れることがある → `lsregister -f <app>` で復旧できる(実測)
 
 ## アーキテクチャと検証済み事実(2026-10-18 実機)
 
@@ -97,12 +96,26 @@ open .build/Build/Products/Debug/Records.app
 
 - 登録データ: `~/Library/Application Support/Records/albums.json`
 - アートワーク: `~/Library/Application Support/Records/Artwork/<id>.jpg`
-- アプリとウィジェット拡張は非サンドボックスで、このディレクトリを共有する
+- アプリは非サンドボックスでこのディレクトリを使う
 
 ## 構成
 
-- `Shared/` — アプリとウィジェット拡張の両方にリンクされる層
-  (MediaEntry/MediaURLParser, MediaCatalogClient, ShelfStore, PlaybackEngine, PlaylistPlayer, PlayAlbumIntent)
+- `Shared/` — アプリにリンクされる共有層
+  (MediaEntry/MediaURLParser, MediaCatalogClient, ShelfStore, PlaybackEngine, PlaylistPlayer)
 - `Records/` — アプリ本体(ShelfView, SettingsView, WindowGlass, PlaybackMonitor)
-- `WidgetExtension/` — WidgetKit拡張(RecordShelfWidget, extraLarge 5×4=20枚)
 - `project.yml` — xcodegen定義(ターゲット変更はここを編集)
+
+## ウィジェット拡張について(2026-10-24 撤去済み)
+
+WidgetKit拡張(RecordsWidget)は**撤去した**。正方形ウィジェット枠内で
+アプリ同等の均一余白が実現できず、見た目の要件を満たせなかったため。
+
+もし復活させる場合の重要な知見(詳細はgit履歴参照):
+
+- 拡張は app-sandbox 必須。sandbox内で `urls(for:.applicationSupportDirectory)` は
+  コンテナを指すため共有データには `getpwuid` 実ホーム解決が必要
+- デスクトップ非アクティブ時の減退描画で画像を保つには
+  `Image.widgetAccentedRenderingMode(.fullColor)`(Image専用)
+- 設置済みウィジェットのkind名を変えると `No matching descriptor` で壊れる
+- 描画が壊れたときのリセットは `~/Library/Containers/com.cacheandbuffer.Records.widget/`
+  コンテナごとFinderで削除(TCCでターミナルからは消せない)
