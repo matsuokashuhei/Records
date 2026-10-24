@@ -103,8 +103,8 @@ struct ShelfView: View {
     private var shelfGrid: some View {
         let settings = store.settings
         let cell = settings.artworkSize.points
-        let columnCount = settings.capacity.columns
-        let rowCount = settings.capacity.rows
+        let columnCount = settings.columns
+        let rowCount = settings.rows
         // entry.idは数値列または"pl.xxx"なので"empty-N"と衝突しない
         let slots = store.paddedSlots().enumerated().map { offset, entry in
             Slot(id: entry?.id ?? "empty-\(offset)", index: offset, entry: entry)
@@ -120,11 +120,22 @@ struct ShelfView: View {
             + CGFloat(rowCount - 1) * Self.rowSpacing
             + Self.topPadding + Self.edgePadding
 
+        // 最大構成(10列×10行・L=216pt)ではコンテンツが約2332×2278ptに
+        // なり、多くのディスプレイのvisibleFrameを超える。
+        // windowResizability(.contentSize)でmin=max固定なので、そのままだと
+        // 画面からはみ出すウィンドウが生成される。ここでフレームを
+        // NSScreen.main.visibleFrame にクランプし、はみ出た分は
+        // ScrollViewで到達可能にする(選択肢そのものは削らない)。
+        let maxSize = Self.maxContentSize()
+        let frameW = min(width, maxSize.width)
+        let frameH = min(height, maxSize.height)
+        let clamped = frameW < width || frameH < height
+
         // ウィンドウはwindowResizability(.contentSize)なので、
         // この固定フレーム+タイトルバー帯(上マージンを兼ねる、コンテンツ側の
         // 上パディングは0)がそのままmin=maxのウィンドウサイズになる。
         // 設定変更でstore.settingsが変わると自動的に追従する。
-        return LazyVGrid(columns: columns, spacing: Self.rowSpacing) {
+        let grid = LazyVGrid(columns: columns, spacing: Self.rowSpacing) {
             ForEach(slots) { slot in
                 Group {
                     if let entry = slot.entry {
@@ -185,10 +196,59 @@ struct ShelfView: View {
             bottom: Self.edgePadding,
             trailing: Self.edgePadding
         ))
-        .frame(width: width, height: height)
+        // クランプ時だけScrollViewで包み、フレームを画面内に収める。
+        // グリッド座標系(スロット矩形・ゴースト位置)はコンテンツ基準のまま
+        // 変わらない。マウス位置→グリッド座標の変換だけ
+        // mouseGridPoint内でスクロールオフセットを足して補正する。
+        return Group {
+            if clamped {
+                ScrollView([.horizontal, .vertical]) { grid }
+            } else {
+                grid
+            }
+        }
+        .frame(width: frameW, height: frameH)
+        // クランプ状態の遷移時だけログ(body評価のたびに出るのを防ぐ)
+        .onAppear {
+            if clamped {
+                Self.logClamp(natural: CGSize(width: width, height: height),
+                              clamped: CGSize(width: frameW, height: frameH))
+            }
+        }
+        .onChange(of: clamped) { _, newValue in
+            if newValue {
+                Self.logClamp(natural: CGSize(width: width, height: height),
+                              clamped: CGSize(width: frameW, height: frameH))
+            }
+        }
         .background {
             WindowConfigurator()
         }
+    }
+
+    /// ウィンドウが画面からはみ出さないためのコンテンツサイズ上限。
+    /// NSScreen.main.visibleFrame からタイトルバー帯と安全マージンを引いた値。
+    /// スクリーン情報が取れない場合はクランプしない。
+    private static func maxContentSize() -> CGSize {
+        guard let visible = NSScreen.main?.visibleFrame else {
+            return CGSize(
+                width: CGFloat.greatestFiniteMagnitude,
+                height: CGFloat.greatestFiniteMagnitude
+            )
+        }
+        let safety: CGFloat = 16
+        // コンテンツ側の上パディングは0でタイトルバー帯が上マージンを兼ねる
+        // 構成のため、ウィンドウ高には帯の分も必要。控えめに40pt引く。
+        let titlebarAllowance: CGFloat = 40
+        return CGSize(
+            width: max(320, visible.width - safety * 2),
+            height: max(240, visible.height - safety * 2 - titlebarAllowance)
+        )
+    }
+
+    /// クランプ発動のログ(発動時のみ呼ばれる)
+    private static func logClamp(natural: CGSize, clamped: CGSize) {
+        logger.notice("window frame clamped to screen: natural=\(Int(natural.width), privacy: .public)x\(Int(natural.height), privacy: .public) clamped=\(Int(clamped.width), privacy: .public)x\(Int(clamped.height), privacy: .public) visibleFrame=\(NSStringFromRect(NSScreen.main?.visibleFrame ?? .zero), privacy: .public)")
     }
 
     /// セル半分のドロップゾーン。after=falseなら直前、trueなら直後に挿入。
@@ -334,25 +394,44 @@ struct ShelfView: View {
     /// 現在のマウス位置をグリッド座標系(グリッド左上=0,0)に変換。
     /// タイトルバー帯の高さはcontentLayoutRectとframeの差から出す
     /// (content.convertの座標変換はfullSizeContentView構成でYが狂う
-    ///  ためframe基準で自分で計算する — 2026-10-24実測)
+    ///  ためframe基準で自分で計算する — 2026-10-24実測)。
+    /// ウィンドウが画面収まりにクランプされてグリッドがScrollView内に
+    /// ある場合は、見えている矩形の原点(スクロール量)を足して補正する。
     private func mouseGridPoint() -> CGPoint? {
         guard let window = NSApp.keyWindow ?? NSApp.windows.first else {
             return nil
         }
         let inWindow = window.convertPoint(fromScreen: NSEvent.mouseLocation)
         let titlebarHeight = window.frame.height - window.contentLayoutRect.height
+        // ScrollViewはグリッドが画面より大きいときだけ存在する。
+        // SwiftUIのスクロールコンテンツはflippedなので、
+        // documentVisibleRect.originが左上基準のスクロール量になる。
+        let scrollOffset = Self.findScrollView(in: window.contentView)?
+            .documentVisibleRect.origin ?? .zero
         return CGPoint(
-            x: inWindow.x - Self.edgePadding,
+            x: inWindow.x - Self.edgePadding + scrollOffset.x,
             y: window.frame.height - inWindow.y - titlebarHeight - Self.topPadding
+                + scrollOffset.y
         )
+    }
+
+    /// ビュー階層から最初のNSScrollViewを探す(グリッド用ScrollViewは
+    /// このウィンドウに1つだけ)
+    private static func findScrollView(in view: NSView?) -> NSScrollView? {
+        guard let view else { return nil }
+        if let scrollView = view as? NSScrollView { return scrollView }
+        for sub in view.subviews {
+            if let found = findScrollView(in: sub) { return found }
+        }
+        return nil
     }
 
     /// index番スロットのグリッド座標系での矩形(LazyVGridのpaddingより内側)
     private func slotRect(index: Int) -> CGRect {
         let settings = store.settings
         let cell = settings.artworkSize.points
-        let column = index % settings.capacity.columns
-        let row = index / settings.capacity.columns
+        let column = index % settings.columns
+        let row = index / settings.columns
         return CGRect(
             x: CGFloat(column) * (cell + Self.columnSpacing),
             y: CGFloat(row) * (cell + Self.rowSpacing),
