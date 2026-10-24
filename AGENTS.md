@@ -60,7 +60,7 @@ open .build/Build/Products/Debug/Records.app
 - `xcode-select` はCLT向きなので、xcodebuild/xcodegenには必ず `DEVELOPER_DIR` を付ける
 - テストで音を出すときは事前に音量を0にし、終わったら戻す
 - JSONの解析にはpythonではなく `jq` を使う(ユーザー指示)
-- appの場所を移すとLS/pkd登録が壊れることがある → `lsregister -f <app>` で復旧できる(実測)
+- appの場所を移すとLaunch Services登録が壊れることがある → `lsregister -f <app>` で復旧できる(実測)
 
 ## アーキテクチャと検証済み事実(2026-10-18 実機)
 
@@ -101,7 +101,7 @@ open .build/Build/Products/Debug/Records.app
 ## 構成
 
 - `Shared/` — アプリにリンクされる共有層
-  (MediaEntry/MediaURLParser, MediaCatalogClient, ShelfStore, PlaybackEngine, PlaylistPlayer)
+  (MediaEntry/MediaURLParser, MediaCatalogClient, ShelfStore, ShelfSettings, PlaybackEngine, PlaylistPlayer)
 - `Records/` — アプリ本体(ShelfView, SettingsView, WindowGlass, PlaybackMonitor)
 - `project.yml` — xcodegen定義(ターゲット変更はここを編集)
 

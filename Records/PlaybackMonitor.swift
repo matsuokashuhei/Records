@@ -37,8 +37,8 @@ final class PlaybackMonitor: ObservableObject {
     private var visibilityObservers: [NSObjectProtocol] = []
 
     private init() {
-        // NSApp.hide(nil)(ウィジェットの再生インテント経路)はビューの.onDisappearを
-        // 発火させない。そのままだと非表示中も2秒おきにosascriptをspawnし続けるため、
+        // NSApp.hide(nil)はビューの.onDisappearを発火させない。
+        // そのままだと非表示中も2秒おきにosascriptをspawnし続けるため、
         // アプリのhide/unhideにポーリングを連動させる。
         // (単一ウィンドウ前提の簡易実装。隠蔽中にウィンドウが閉じられても
         //  .onDisappear→stopPollingでwantsPolling=falseになるためunhideで再開しない)
