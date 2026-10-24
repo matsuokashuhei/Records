@@ -9,54 +9,19 @@
 /* Begin PBXBuildFile section */
 		0372597F5055167CEA8D5DDF /* RecordsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 065945501B73341956B54777 /* RecordsTests.swift */; };
 		0F1C4913C9C3C7553D5FEEE5 /* PlaybackMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */; };
-		164BE9EEDC60C50DF52501A4 /* RecordsWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCC8F94A676CF5F3A3A0D9BF /* RecordsWidgetBundle.swift */; };
 		16991DD74B4D0200A03E101A /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FAB464F15B4376012996DEAC /* Assets.xcassets */; };
 		212C17A7890590CB02408BB8 /* MediaEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */; };
 		23F96605AE1848C22DCF4A38 /* MediaEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */; };
 		27A82E51697CE7DF2125EC23 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA871A2E0C8D11E6A15AB79F /* SettingsView.swift */; };
-		3AE88F7791886ECA8B115137 /* MediaCatalogClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */; };
-		530954FC2DCFBE1FBF6CEC1E /* PlayAlbumIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1D0010FFF6ECF75D6E6281 /* PlayAlbumIntent.swift */; };
-		53C40CE87FECD5FF353F0E8E /* ShelfSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */; };
-		562358C1A5C25FFFB51EE2FC /* RecordsWidget.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = C33297F975A29C890A2B63FD /* RecordsWidget.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		695479100C2EE21BB2BC229C /* ShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54EF98EA96353F7782B148F9 /* ShelfStore.swift */; };
 		7C42B8D43EDC2D7DEB273951 /* WindowGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26E722075A65DABCA285C2CC /* WindowGlass.swift */; };
-		900EBF1D1C1DC838943C9A96 /* MediaEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */; };
 		96D11C978F9779DE1C59DBC3 /* PlaylistPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5326779F8829EBA05B501896 /* PlaylistPlayer.swift */; };
 		9D54F51755BC2B1C0CC040BE /* MediaCatalogClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */; };
 		A1DE54C7E330CE74F6E7E188 /* PlaybackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */; };
-		A466F202C214F53B441110A5 /* RecordShelfWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68BFF1E8A1B88CC674C4145B /* RecordShelfWidget.swift */; };
-		A892D697B2BDC3E8479EA64D /* ShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54EF98EA96353F7782B148F9 /* ShelfStore.swift */; };
-		B9CA1FCF3F36287C72B7279E /* PlaybackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */; };
 		BD77655F3C211E60D1C764F0 /* ShelfSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */; };
-		D9DB5DB83EBF1BC413B9EC8C /* PlayAlbumIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1D0010FFF6ECF75D6E6281 /* PlayAlbumIntent.swift */; };
 		DE2065EC093BEE33CA9F3AD3 /* RecordsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */; };
 		F161C579BE4930784F54DF03 /* ShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D593FE3DA37740B77984F0 /* ShelfView.swift */; };
-		FC3E54327AC7D1A1A18B5B4B /* PlaylistPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5326779F8829EBA05B501896 /* PlaylistPlayer.swift */; };
 /* End PBXBuildFile section */
-
-/* Begin PBXContainerItemProxy section */
-		DC48F0DAD4F661D40268491E /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = F318AC7B9E208287BED6358B /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = F4603F4AFA3C693EE3C0B39F;
-			remoteInfo = RecordsWidget;
-		};
-/* End PBXContainerItemProxy section */
-
-/* Begin PBXCopyFilesBuildPhase section */
-		A8041AFBFE8C6EFF962FE909 /* Embed Foundation Extensions */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
-			files = (
-				562358C1A5C25FFFB51EE2FC /* RecordsWidget.appex in Embed Foundation Extensions */,
-			);
-			name = "Embed Foundation Extensions";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		065945501B73341956B54777 /* RecordsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordsTests.swift; sourceTree = "<group>"; };
@@ -64,22 +29,16 @@
 		26E722075A65DABCA285C2CC /* WindowGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowGlass.swift; sourceTree = "<group>"; };
 		29D593FE3DA37740B77984F0 /* ShelfView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfView.swift; sourceTree = "<group>"; };
 		43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordsApp.swift; sourceTree = "<group>"; };
-		4D1D0010FFF6ECF75D6E6281 /* PlayAlbumIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayAlbumIntent.swift; sourceTree = "<group>"; };
 		50F2FB1DE51231F752D3FE91 /* RecordsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RecordsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5326779F8829EBA05B501896 /* PlaylistPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistPlayer.swift; sourceTree = "<group>"; };
 		54EF98EA96353F7782B148F9 /* ShelfStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfStore.swift; sourceTree = "<group>"; };
-		68BFF1E8A1B88CC674C4145B /* RecordShelfWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordShelfWidget.swift; sourceTree = "<group>"; };
 		79AF5BE0A651670867B2A9B0 /* Records.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Records.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackEngine.swift; sourceTree = "<group>"; };
-		C33297F975A29C890A2B63FD /* RecordsWidget.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = RecordsWidget.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackMonitor.swift; sourceTree = "<group>"; };
 		D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaCatalogClient.swift; sourceTree = "<group>"; };
-		DF2D3BC002A3848E845F20C7 /* RecordsWidget.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = RecordsWidget.entitlements; sourceTree = "<group>"; };
 		FA871A2E0C8D11E6A15AB79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		FAB464F15B4376012996DEAC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfSettings.swift; sourceTree = "<group>"; };
-		FC9F54D2996B01C2DD3798E7 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		FCC8F94A676CF5F3A3A0D9BF /* RecordsWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordsWidgetBundle.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -89,20 +48,8 @@
 				7C284EC47CDF82DD758A63E3 /* Records */,
 				B3A47FD1C832777FFFAAFFA8 /* RecordsTests */,
 				7176005FC98D09CCE848EB6C /* Shared */,
-				2EAE6B1F85C59E6F95D8CC99 /* WidgetExtension */,
 				33C7714C3C540960E908CAAA /* Products */,
 			);
-			sourceTree = "<group>";
-		};
-		2EAE6B1F85C59E6F95D8CC99 /* WidgetExtension */ = {
-			isa = PBXGroup;
-			children = (
-				FC9F54D2996B01C2DD3798E7 /* Info.plist */,
-				68BFF1E8A1B88CC674C4145B /* RecordShelfWidget.swift */,
-				DF2D3BC002A3848E845F20C7 /* RecordsWidget.entitlements */,
-				FCC8F94A676CF5F3A3A0D9BF /* RecordsWidgetBundle.swift */,
-			);
-			path = WidgetExtension;
 			sourceTree = "<group>";
 		};
 		33C7714C3C540960E908CAAA /* Products */ = {
@@ -110,7 +57,6 @@
 			children = (
 				79AF5BE0A651670867B2A9B0 /* Records.app */,
 				50F2FB1DE51231F752D3FE91 /* RecordsTests.xctest */,
-				C33297F975A29C890A2B63FD /* RecordsWidget.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -120,7 +66,6 @@
 			children = (
 				D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */,
 				1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */,
-				4D1D0010FFF6ECF75D6E6281 /* PlayAlbumIntent.swift */,
 				B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */,
 				5326779F8829EBA05B501896 /* PlaylistPlayer.swift */,
 				FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */,
@@ -159,12 +104,10 @@
 			buildPhases = (
 				63DA1005C8BF2A72529D9F9F /* Sources */,
 				7BAEC0DE5DF83F3E9ED0CBF1 /* Resources */,
-				A8041AFBFE8C6EFF962FE909 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				D8840B5661A063352E3A6087 /* PBXTargetDependency */,
 			);
 			name = Records;
 			packageProductDependencies = (
@@ -190,23 +133,6 @@
 			productReference = 50F2FB1DE51231F752D3FE91 /* RecordsTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		F4603F4AFA3C693EE3C0B39F /* RecordsWidget */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = B9FBFAB259E69F878C033D5C /* Build configuration list for PBXNativeTarget "RecordsWidget" */;
-			buildPhases = (
-				CEC889D2FB4145BCC48760DF /* Sources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = RecordsWidget;
-			packageProductDependencies = (
-			);
-			productName = RecordsWidget;
-			productReference = C33297F975A29C890A2B63FD /* RecordsWidget.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -221,10 +147,6 @@
 						ProvisioningStyle = Automatic;
 					};
 					BA0F5C7B6CA41B02A7368650 = {
-						DevelopmentTeam = CY4LJR5KMM;
-						ProvisioningStyle = Automatic;
-					};
-					F4603F4AFA3C693EE3C0B39F = {
 						DevelopmentTeam = CY4LJR5KMM;
 						ProvisioningStyle = Automatic;
 					};
@@ -245,7 +167,6 @@
 			projectRoot = "";
 			targets = (
 				8BBC55351781245E17B9721F /* Records */,
-				F4603F4AFA3C693EE3C0B39F /* RecordsWidget */,
 				BA0F5C7B6CA41B02A7368650 /* RecordsTests */,
 			);
 		};
@@ -269,7 +190,6 @@
 			files = (
 				9D54F51755BC2B1C0CC040BE /* MediaCatalogClient.swift in Sources */,
 				23F96605AE1848C22DCF4A38 /* MediaEntry.swift in Sources */,
-				530954FC2DCFBE1FBF6CEC1E /* PlayAlbumIntent.swift in Sources */,
 				A1DE54C7E330CE74F6E7E188 /* PlaybackEngine.swift in Sources */,
 				0F1C4913C9C3C7553D5FEEE5 /* PlaybackMonitor.swift in Sources */,
 				96D11C978F9779DE1C59DBC3 /* PlaylistPlayer.swift in Sources */,
@@ -291,71 +211,9 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		CEC889D2FB4145BCC48760DF /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				3AE88F7791886ECA8B115137 /* MediaCatalogClient.swift in Sources */,
-				900EBF1D1C1DC838943C9A96 /* MediaEntry.swift in Sources */,
-				D9DB5DB83EBF1BC413B9EC8C /* PlayAlbumIntent.swift in Sources */,
-				B9CA1FCF3F36287C72B7279E /* PlaybackEngine.swift in Sources */,
-				FC3E54327AC7D1A1A18B5B4B /* PlaylistPlayer.swift in Sources */,
-				A466F202C214F53B441110A5 /* RecordShelfWidget.swift in Sources */,
-				164BE9EEDC60C50DF52501A4 /* RecordsWidgetBundle.swift in Sources */,
-				53C40CE87FECD5FF353F0E8E /* ShelfSettings.swift in Sources */,
-				A892D697B2BDC3E8479EA64D /* ShelfStore.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 /* End PBXSourcesBuildPhase section */
 
-/* Begin PBXTargetDependency section */
-		D8840B5661A063352E3A6087 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = F4603F4AFA3C693EE3C0B39F /* RecordsWidget */;
-			targetProxy = DC48F0DAD4F661D40268491E /* PBXContainerItemProxy */;
-		};
-/* End PBXTargetDependency section */
-
 /* Begin XCBuildConfiguration section */
-		0725B4940BE528DC0318B99B /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = WidgetExtension/RecordsWidget.entitlements;
-				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = WidgetExtension/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "レコードシェルフ";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@executable_path/../../../../Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Records.widget;
-				SDKROOT = macosx;
-				SKIP_INSTALL = YES;
-			};
-			name = Debug;
-		};
-		0F8662617FEB32C6B54F34C5 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				CODE_SIGN_ENTITLEMENTS = WidgetExtension/RecordsWidget.entitlements;
-				COMBINE_HIDPI_IMAGES = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = WidgetExtension/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = "レコードシェルフ";
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/../Frameworks",
-					"@executable_path/../../../../Frameworks",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Records.widget;
-				SDKROOT = macosx;
-				SKIP_INSTALL = YES;
-			};
-			name = Release;
-		};
 		205B818AAB34F06E217CB1D8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -577,15 +435,6 @@
 			buildConfigurations = (
 				205B818AAB34F06E217CB1D8 /* Debug */,
 				F677165F8FF10405ADA39D13 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Debug;
-		};
-		B9FBFAB259E69F878C033D5C /* Build configuration list for PBXNativeTarget "RecordsWidget" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				0725B4940BE528DC0318B99B /* Debug */,
-				0F8662617FEB32C6B54F34C5 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

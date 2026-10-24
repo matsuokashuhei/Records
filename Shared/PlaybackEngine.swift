@@ -49,16 +49,6 @@ enum PlaybackEngine {
         logger.notice("play() requested OK")
     }
 
-    /// 登録リストのIDから再生
-    static func play(entryID: String) async throws {
-        // ShelfStore は @MainActor(ウィジェットのインテント経由など非メインから呼ばれるためawait)
-        let entries = await ShelfStore.shared.entries
-        guard let entry = entries.first(where: { $0.id == entryID }) else {
-            throw PlaybackError.failed("登録済みリストに見つかりません: \(entryID)")
-        }
-        try await play(entry)
-    }
-
     /// 停止
     static func stop(_ entry: MediaEntry) async throws {
         logger.notice("stop() kind=\(entry.kind.rawValue, privacy: .public)")

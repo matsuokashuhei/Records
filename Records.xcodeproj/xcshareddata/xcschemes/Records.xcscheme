@@ -21,20 +21,6 @@
                ReferencedContainer = "container:Records.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "F4603F4AFA3C693EE3C0B39F"
-               BuildableName = "RecordsWidget.appex"
-               BlueprintName = "RecordsWidget"
-               ReferencedContainer = "container:Records.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction

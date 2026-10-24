@@ -1,12 +1,10 @@
 import Foundation
-import WidgetKit
 import AppKit
 import os
 
-/// アプリとウィジェット拡張で共有する「シェルフの内容」。
-/// 非サンドボックスの個人ビルドのため、Application Support 下のファイルで共有する。
-/// 可変状態(entries等)はメインアクター上でのみ扱う。ウィジェット拡張など
-/// メインアクター外からは nonisolated のディスク読み取りAPIを使うこと。
+/// アプリの「シェルフの内容」。
+/// 非サンドボックスの個人ビルドのため、Application Support 下のファイルで永続化する。
+/// 可変状態(entries等)はメインアクター上でのみ扱う。
 @MainActor
 final class ShelfStore: ObservableObject {
 
@@ -150,7 +148,6 @@ final class ShelfStore: ObservableObject {
         } catch {
             Self.logger.error("save failed: \(error.localizedDescription, privacy: .public)")
         }
-        WidgetCenter.shared.reloadAllTimelines()
     }
 
     /// 表示設定を更新してsettings.jsonに保存する。同じ値なら何もしない。
@@ -160,8 +157,6 @@ final class ShelfStore: ObservableObject {
         Self.logger.notice("settings changed: capacity \(self.settings.capacity.rawValue, privacy: .public)→\(newSettings.capacity.rawValue, privacy: .public) artworkSize \(self.settings.artworkSize.rawValue, privacy: .public)→\(newSettings.artworkSize.rawValue, privacy: .public)")
         settings = newSettings
         ShelfSettings.saveToDisk(newSettings)
-        // ウィジェットのグリッド構成も設定に追従するため再読み込みさせる
-        WidgetCenter.shared.reloadAllTimelines()
     }
 
     // MARK: - 表示用
@@ -170,16 +165,6 @@ final class ShelfStore: ObservableObject {
     /// entriesがcapacityを超えていても先頭capacity件のみ返す(登録自体は保持)。
     func paddedSlots() -> [MediaEntry?] {
         var slots: [MediaEntry?] = entries
-        while slots.count < capacity { slots.append(nil) }
-        return Array(slots.prefix(capacity))
-    }
-
-    /// メインアクター外(ウィジェット拡張のTimelineProvider等)からの読み取り用。
-    /// 共有インスタンスを介さず、毎回ディスクから読む。
-    /// 容量は呼び出し側でsettings.jsonから読んだ値を渡す
-    /// (ここで再度読むとatomic writeの隙間にスロット数とグリッド構成がずれうる)。
-    nonisolated static func paddedSlotsFromDisk(capacity: Int) -> [MediaEntry?] {
-        var slots: [MediaEntry?] = readFromDisk()
         while slots.count < capacity { slots.append(nil) }
         return Array(slots.prefix(capacity))
     }
@@ -213,7 +198,7 @@ final class ShelfStore: ObservableObject {
         return destination
     }
 
-    /// 不足しているアートワークをバックグラウンドで取得(アプリ/ウィジェットどちらでも)。
+    /// 不足しているアートワークをバックグラウンドで取得する。
     /// このクラスは@MainActorなのでTask内もメインアクターで走り、
     /// ネットワーク取得(nonisolated)のawait中だけメインを離れる。
     func ensureArtworkDownloaded() {
@@ -232,7 +217,6 @@ final class ShelfStore: ObservableObject {
                 // ダウンロード毎ではなく最後に1回だけ増やす。
                 // (毎回増やすと20枚全部の.taskがそのたびに再起動する)
                 artworkRevision += 1
-                WidgetCenter.shared.reloadAllTimelines()
             }
         }
     }

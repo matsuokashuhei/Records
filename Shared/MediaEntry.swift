@@ -1,6 +1,6 @@
 import Foundation
 
-/// ウィジェットのシェルフに並ぶ1項目(アルバム or プレイリスト)。
+/// シェルフに並ぶ1項目(アルバム or プレイリスト)。
 struct MediaEntry: Codable, Identifiable, Equatable {
     enum Kind: String, Codable {
         case album

@@ -2,10 +2,8 @@ import Foundation
 import os
 
 /// シェルフの表示設定(登録枚数とアートワークサイズ)。
-/// アプリとウィジェット拡張の両方が読む必要があるため UserDefaults ではなく
 /// ShelfStore.baseDirectory 下の settings.json に JSON で保存する。
-/// 読み書きはすべて nonisolated(ウィジェットのTimelineProvider等
-/// メインアクター外から使えるように)。
+/// 読み書きはすべて nonisolated。
 struct ShelfSettings: Codable, Equatable {
 
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Settings")
