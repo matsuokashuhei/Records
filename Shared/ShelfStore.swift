@@ -138,6 +138,11 @@ final class ShelfStore: ObservableObject {
         // 削除したエントリのデコード済み画像もキャッシュから落とす
         // (同じIDを後で追加し直した場合に古い画像が残らないように)
         Self.imageCache.removeValue(forKey: id)
+        // 参照されなくなったアートワークファイルも消す
+        // (再追加時はdownloadArtworkが取り直す)
+        let file = Self.artworkDirectory.appendingPathComponent("\(id).jpg")
+        try? FileManager.default.removeItem(at: file)
+        Self.logger.notice("entry removed: id=\(id, privacy: .public) remaining=\(self.entries.count, privacy: .public)")
         save()
     }
 
