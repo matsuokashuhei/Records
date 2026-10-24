@@ -10,11 +10,15 @@ import AppKit
 import os
 
 /// メインウィンドウ。アルバムのジャケットだけをグリッド表示する。
-/// ホバーで再生/停止オーバーレイ、タップで再生/停止。
+/// ホバーで再生/停止オーバーレイ、タップで再生/停止、右クリックで削除。
 /// 登録フォームは設定画面(SettingsView、Cmd+,)に移動した。
 struct ShelfView: View {
 
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
     @ObservedObject private var store = ShelfStore.shared
+    /// 削除確認ダイアログに出している対象。非nilの間ダイアログを表示する。
+    @State private var pendingDelete: MediaEntry?
 
     var body: some View {
         shelfGrid
@@ -23,10 +27,32 @@ struct ShelfView: View {
                 GlassBackgroundView()
                     .ignoresSafeArea()
             }
+        // 右クリックメニュー選択後の確認。「Remove "<name>"?」+ Delete Record/Cancel。
+            .alert(
+                "Remove “\(pendingDelete?.title ?? "")”?",
+                isPresented: Binding(
+                    get: { pendingDelete != nil },
+                    set: { if !$0 { pendingDelete = nil } }
+                ),
+                presenting: pendingDelete
+            ) { entry in
+                Button("Delete Record", role: .destructive) { delete(entry) }
+                Button("Cancel", role: .cancel) {
+                    Self.logger.notice("delete cancelled for '\(entry.title, privacy: .public)'")
+                }
+            }
         // 再生状態はAlbumSlotViewが個別にmonitorを監視するので、ここでは監視せず
         // 開始/停止だけ行う(画面全体の2秒おき再描画を避ける)
             .onAppear { PlaybackMonitor.shared.start() }
             .onDisappear { PlaybackMonitor.shared.stopPolling() }
+    }
+
+    /// 確認済みの削除。storeから外し、アプリ内再生中のプレイリストなら止める
+    /// (削除でスロットが非表示になると停止UIが無くなるため)。
+    private func delete(_ entry: MediaEntry) {
+        Self.logger.notice("record deleted: '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
+        store.remove(entry.id)
+        PlaybackMonitor.shared.stopIfActiveEntryHidden()
     }
 
     // グリッドの間隔・余白。ウィンドウサイズはこれらと設定値から厳密に計算する。
@@ -81,6 +107,14 @@ struct ShelfView: View {
                     }
                 }
                 .frame(width: cell, height: cell)
+                .contextMenu {
+                    if let entry = slot.entry {
+                        Button("Delete Record", role: .destructive) {
+                            Self.logger.notice("delete requested for '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
+                            pendingDelete = entry
+                        }
+                    }
+                }
             }
         }
         .padding(EdgeInsets(

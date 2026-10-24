@@ -27,7 +27,7 @@ struct SettingsView: View {
                     // (capacity縮小で「15 / 6枚」のような表示になるのを防ぐ)
                     Text("登録 \(store.entries.count)件 / 表示 \(min(store.entries.count, store.capacity))枚")
                 }
-                Text("この並びがアプリのウィンドウに表示されます。ジャケットにマウスを乗せると再生/停止アイコンが表示され、クリックで切り替わります。")
+                Text("この並びがアプリのウィンドウに表示されます。ジャケットにマウスを乗せると再生/停止アイコンが表示され、クリックで切り替わります。右クリックのメニューから削除できます。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

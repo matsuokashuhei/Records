@@ -46,7 +46,10 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
   -derivedDataPath .build build
 
 # 起動(/Applications にはインストールしないこと — ユーザー指示)
-open .build/Build/Products/Debug/Records.app
+# 注意: open は起動中のインスタンスを再表示するだけで新ビルドを起動しない。
+# 必ず pkill で旧プロセスを落としてから open すること(旧バイナリで
+# 検証したつもりになる事故が実際に起きた — 2026-10-24)
+pkill -x Records; open .build/Build/Products/Debug/Records.app
 
 # CLI検証(UIを触らずMusicKit取得/再生を試す。結果はログへ)
 .build/Build/Products/Debug/Records.app/Contents/MacOS/Records \
@@ -72,6 +75,13 @@ open .build/Build/Products/Debug/Records.app
   (`ApplicationMusicPlayer.Queue(for: [playlist])`、PlaylistはPlayableMusicItem適合)
 - **macOSのMusicKitに `SystemMusicPlayer` は存在しない**(iOS専用。`@available(macOS, unavailable)`)
 - `music://` ディープリンクは再生せずページを開くだけ(3形式で実測)
+- レコード削除は右クリック。LazyVGridスロットの `.frame` 後ろに付けた
+  `.contextMenu` で「Delete Record」を出し、確認アラートで削除(実機確認済み)
+- エージェントの動作確認手段: `screencapture -R x,y,w,h` で画面撮影→readで視認、
+  CGEvent(`mouseEventSource` で rightMouseDown/Up をpost)で右クリック合成、
+  System Eventsでウィンドウ位置取得 — すべて動作確認済み(2026-10-24)
+  ※開いたNSMenu内の項目選択は合成クリックでは拾えなかった。
+   メニューが出ること+項目アクションは別々に検証するのが現実的
 - Apple Events / `shortcuts run` CLI は **GUIアプリプロセスからspawnすると
   ショートカット名解決に失敗する**(ターミナルからは成功するのに)。URLスキーム経由なら問題ない
 - `SystemSettings → プライバシーとセキュリティ → オートメーション → Records → Shortcuts Events`
