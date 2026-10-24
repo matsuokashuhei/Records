@@ -13,14 +13,14 @@ final class ShelfStore: ObservableObject {
     static let shared = ShelfStore()
 
     @Published private(set) var entries: [MediaEntry]
-    /// 表示設定(登録枚数・アートワークサイズ)。settings.json に永続化される。
+    /// 表示設定(列数×行数・アートワークサイズ)。settings.json に永続化される。
     @Published private(set) var settings: ShelfSettings
     /// アートワークがダウンロードされるたびに増加(ビュー再描画のトリガー)
     @Published private(set) var artworkRevision = 0
 
-    /// 現在の設定での表示スロット数。entries自体はこれを超えて保持しうる
+    /// 現在の設定での表示スロット数(列×行)。entries自体はこれを超えて保持しうる
     /// (縮小しても登録は消さず、先頭からcapacity分だけ表示する)。
-    var capacity: Int { settings.capacity.rawValue }
+    var capacity: Int { settings.capacity }
 
     /// デコード済みジャケット画像のキャッシュ(entry.id → NSImage)。
     /// セルの body が走るたびに同期ディスク読み込み+デコードしないためのもの。
@@ -183,7 +183,7 @@ final class ShelfStore: ObservableObject {
     /// 登録データ(albums.json)は触らないので、枚数を縮小しても登録は残る。
     func updateSettings(_ newSettings: ShelfSettings) {
         guard newSettings != settings else { return }
-        Self.logger.notice("settings changed: capacity \(self.settings.capacity.rawValue, privacy: .public)→\(newSettings.capacity.rawValue, privacy: .public) artworkSize \(self.settings.artworkSize.rawValue, privacy: .public)→\(newSettings.artworkSize.rawValue, privacy: .public)")
+        Self.logger.notice("settings changed: \(self.settings.columns, privacy: .public)x\(self.settings.rows, privacy: .public)(\(self.settings.capacity, privacy: .public)枚)→\(newSettings.columns, privacy: .public)x\(newSettings.rows, privacy: .public)(\(newSettings.capacity, privacy: .public)枚) artworkSize \(self.settings.artworkSize.rawValue, privacy: .public)→\(newSettings.artworkSize.rawValue, privacy: .public)")
         settings = newSettings
         ShelfSettings.saveToDisk(newSettings)
     }

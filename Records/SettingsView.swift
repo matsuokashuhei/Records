@@ -33,9 +33,14 @@ struct SettingsView: View {
             }
 
             Section("表示") {
-                Picker("登録枚数", selection: capacitySelection) {
-                    ForEach(ShelfSettings.Capacity.allCases) { capacity in
-                        Text(capacity.label).tag(capacity)
+                Picker("列数", selection: columnsSelection) {
+                    ForEach(1...ShelfSettings.maxDimension, id: \.self) { n in
+                        Text("\(n)列").tag(n)
+                    }
+                }
+                Picker("行数", selection: rowsSelection) {
+                    ForEach(1...ShelfSettings.maxDimension, id: \.self) { n in
+                        Text("\(n)行").tag(n)
                     }
                 }
                 Picker("アートワークサイズ", selection: artworkSizeSelection) {
@@ -44,7 +49,7 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                Text("登録枚数を減らしても登録済みのアルバムは削除されません。先頭から表示枚数分だけが表示されます。")
+                Text("表示枚数(列数×行数)を減らしても登録済みのアルバムは削除されません。先頭から表示枚数分だけが表示されます。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
@@ -95,17 +100,22 @@ struct SettingsView: View {
 
     // MARK: - 表示設定
 
-    private var capacitySelection: Binding<ShelfSettings.Capacity> {
+    private var columnsSelection: Binding<Int> {
         Binding(
-            get: { store.settings.capacity },
+            get: { store.settings.columns },
             set: { newValue in
-                Self.logger.notice("settings: capacity picker changed to \(newValue.rawValue, privacy: .public)")
-                store.updateSettings(ShelfSettings(
-                    capacity: newValue,
-                    artworkSize: store.settings.artworkSize
-                ))
-                // 縮小で非表示になった再生中プレイリストは停止UIが消えるためここで止める
-                PlaybackMonitor.shared.stopIfActiveEntryHidden()
+                Self.logger.notice("settings: columns picker changed to \(newValue, privacy: .public)")
+                updateDisplaySettings(columns: newValue, rows: store.settings.rows)
+            }
+        )
+    }
+
+    private var rowsSelection: Binding<Int> {
+        Binding(
+            get: { store.settings.rows },
+            set: { newValue in
+                Self.logger.notice("settings: rows picker changed to \(newValue, privacy: .public)")
+                updateDisplaySettings(columns: store.settings.columns, rows: newValue)
             }
         )
     }
@@ -116,11 +126,23 @@ struct SettingsView: View {
             set: { newValue in
                 Self.logger.notice("settings: artwork size picker changed to \(newValue.rawValue, privacy: .public)")
                 store.updateSettings(ShelfSettings(
-                    capacity: store.settings.capacity,
+                    columns: store.settings.columns,
+                    rows: store.settings.rows,
                     artworkSize: newValue
                 ))
             }
         )
+    }
+
+    /// 列数/行数の変更を設定に反映する。
+    /// 縮小で非表示になった再生中プレイリストは停止UIが消えるためここで止める。
+    private func updateDisplaySettings(columns: Int, rows: Int) {
+        store.updateSettings(ShelfSettings(
+            columns: columns,
+            rows: rows,
+            artworkSize: store.settings.artworkSize
+        ))
+        PlaybackMonitor.shared.stopIfActiveEntryHidden()
     }
 
     // MARK: - アクション
