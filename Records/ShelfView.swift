@@ -19,6 +19,13 @@ struct ShelfView: View {
     @ObservedObject private var store = ShelfStore.shared
     /// 削除確認ダイアログに出している対象。非nilの間ダイアログを表示する。
     @State private var pendingDelete: MediaEntry?
+    /// ドロップで実際に順番が変わる位置にカーソルが乗っているスロット
+    /// (半透明表示用。ドロップゾーンのisTargetedがセット/クリアする)
+    @State private var dropTargetSlotID: String?
+    /// 現在ドラッグ中のエントリ。onDragの開始コールバックでセットし、
+    /// 「ドロップで順番が変わるか」の判定とアプリ内ドラッグの判別に使う
+    /// (キャンセル時は次のドラッグ開始まで残るが、参照されるのはドラッグ中のみ)
+    @State private var draggedID: String?
 
     var body: some View {
         shelfGrid
@@ -62,6 +69,8 @@ struct ShelfView: View {
     // 0にし、他の3辺は帯と同じ32ptに揃えて四辺等しい見た目にする
     private static let edgePadding: CGFloat = 32
     private static let topPadding: CGFloat = 0
+    /// ドラッグ中にドロップ先となったレコードの透明度(0.0=透明 〜 1.0=不透明)
+    private static let dropTargetOpacity: CGFloat = 0.5
 
     /// グリッドの1スロット。ForEachの安定ID用。
     /// 空きは位置ベース("empty-N")、エントリは自身のidで同一性を取る。
@@ -69,6 +78,8 @@ struct ShelfView: View {
     ///  引き継がれ、一瞬旧ジャケットが残る)
     private struct Slot: Identifiable {
         let id: String
+        /// 表示順での位置(並び替えの挿入位置計算に使う)
+        let index: Int
         let entry: MediaEntry?
     }
 
@@ -79,7 +90,7 @@ struct ShelfView: View {
         let rowCount = settings.capacity.rows
         // entry.idは数値列または"pl.xxx"なので"empty-N"と衝突しない
         let slots = store.paddedSlots().enumerated().map { offset, entry in
-            Slot(id: entry?.id ?? "empty-\(offset)", entry: entry)
+            Slot(id: entry?.id ?? "empty-\(offset)", index: offset, entry: entry)
         }
         let columns = Array(
             repeating: GridItem(.fixed(cell), spacing: Self.columnSpacing),
@@ -100,13 +111,31 @@ struct ShelfView: View {
             ForEach(slots) { slot in
                 Group {
                     if let entry = slot.entry {
+                        // ドラッグで並び替え。開始時にドラッグ元を記録する
                         AlbumSlotView(entry: entry)
+                            .onDrag {
+                                self.draggedID = entry.id
+                                self.dropTargetSlotID = nil
+                                return NSItemProvider(object: entry.id as NSString)
+                            }
                     } else {
                         // 空きスロットは何も描かず、スペースだけ確保する
                         Color.clear
                     }
                 }
                 .frame(width: cell, height: cell)
+                // ドロップで順番が変わる位置にドラッグが乗っている間だけ半透明
+                .opacity(dropTargetSlotID == slot.id ? Self.dropTargetOpacity : 1)
+                .animation(.easeInOut(duration: 0.12), value: dropTargetSlotID)
+                .background {
+                    // ドロップゾーンをセルの左右半分に分ける(左=直前、右=直後)。
+                    // ジャケットの背面に置くのでタップ/ホバー/右クリックを潰さない。
+                    // ドロップ先の登録はヒットテストではなくビューの枠で決まる。
+                    HStack(spacing: 0) {
+                        dropZone(slot: slot, after: false)
+                        dropZone(slot: slot, after: true)
+                    }
+                }
                 .contextMenu {
                     if let entry = slot.entry {
                         Button("Delete Record", role: .destructive) {
@@ -127,6 +156,45 @@ struct ShelfView: View {
         .background {
             WindowConfigurator()
         }
+    }
+
+    /// セル半分のドロップゾーン。after=falseなら直前、trueなら直後に挿入。
+    /// 半透明にするのは「ドロップで実際に順番が変わる半分」にカーソルが
+    /// 乗っている間だけ。isTargetedはドラッグ終了時にフレームワークが
+    /// 必ずfalseで呼ぶので、ハイライトが残ることはない。
+    private func dropZone(slot: Slot, after: Bool) -> some View {
+        Color.clear
+            .contentShape(Rectangle())
+            .dropDestination(for: String.self) { items, _ in
+                guard draggedID != nil, let droppedID = items.first else { return false }
+                Self.logger.notice("record dropped: dragged=\(droppedID, privacy: .public) slot=\(slot.index, privacy: .public) target='\(slot.entry?.title ?? "", privacy: .public)' after=\(after, privacy: .public)")
+                store.move(droppedID, toIndex: slot.index + (after ? 1 : 0))
+                return true
+            } isTargeted: { targeted in
+                let movable = self.willMove(slot: slot, after: after)
+                Self.logger.debug("isTargeted slot=\(slot.index, privacy: .public) after=\(after, privacy: .public) targeted=\(targeted, privacy: .public) willMove=\(movable, privacy: .public)")
+                if targeted, self.draggedID != nil, movable {
+                    dropTargetSlotID = slot.id
+                } else if dropTargetSlotID == slot.id {
+                    dropTargetSlotID = nil
+                }
+            }
+    }
+
+    /// draggedIDをslotの直前(after=false)/直後(true)へ挿入したとき
+    /// 実際に順番が変わるか。変わらないのは: 自分自身のセル、
+    /// 右隣セルの左半分、左隣セルの右半分、末尾から空きスロットへのドロップ。
+    private func willMove(slot: Slot, after: Bool) -> Bool {
+        guard let draggedID,
+              let from = store.entries.firstIndex(where: { $0.id == draggedID }) else {
+            return false
+        }
+        let to = ShelfStore.resolvedInsertionIndex(
+            from: from,
+            rawIndex: slot.index + (after ? 1 : 0),
+            count: store.entries.count
+        )
+        return to != from
     }
 }
 

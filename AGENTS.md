@@ -77,6 +77,15 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
 - `music://` ディープリンクは再生せずページを開くだけ(3形式で実測)
 - レコード削除は右クリック。LazyVGridスロットの `.frame` 後ろに付けた
   `.contextMenu` で「Delete Record」を出し、確認アラートで削除(実機確認済み)
+- レコードの並び替えはドラッグ&ドロップ。`.onDrag`(開始時にdraggedID記録)
+  + 各セル背面の左右半分に分けた `.dropDestination(for: String.self)` ゾーン
+  (左=直前、右=直後に挿入、空きスロットは末尾移動)。
+  半透明表示(dropTargetOpacity)はisTargeted && willMove(実際に順番が変わる半分)のみ。
+  `ShelfStore.move(_:toIndex:)` がalbums.jsonを更新。
+  ※DropDelegate(onDrop)はdropExitedが呼ばれない経路がありハイライトが残った。
+    pressedMouseButtonsポーリングも3本指/タップドラッグでは検知不能。
+    isTargetedはセッション終了時にフレームワークが必ずfalseを送るので
+    状態の手動掃除が要らない構造にした(2026-10-24)
 - エージェントの動作確認手段: `screencapture -R x,y,w,h` で画面撮影→readで視認、
   CGEvent(`mouseEventSource` で rightMouseDown/Up をpost)で右クリック合成、
   System Eventsでウィンドウ位置取得 — すべて動作確認済み(2026-10-24)
