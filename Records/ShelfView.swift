@@ -128,12 +128,14 @@ private struct AlbumSlotView: View {
         .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
         .overlay {
             if isHovered {
+                // ボタンはセルサイズ比例(S=96ptで従来の44pt/17pt相当)
+                let cell = store.settings.artworkSize.points
                 ZStack {
                     Circle()
                         .fill(.black.opacity(0.55))
-                        .frame(width: 44, height: 44)
+                        .frame(width: cell * 0.45, height: cell * 0.45)
                     Image(systemName: monitor.isCurrent(entry) ? "stop.fill" : "play.fill")
-                        .font(.system(size: 17, weight: .bold))
+                        .font(.system(size: cell * 0.18, weight: .bold))
                         .foregroundStyle(.white)
                         .shadow(radius: 2)
                 }

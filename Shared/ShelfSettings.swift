@@ -35,11 +35,13 @@ struct ShelfSettings: Codable, Equatable {
         var label: String { "\(rawValue)枚 (\(columns)×\(rows))" }
     }
 
-    /// アートワーク(セル)1辺のサイズ。S=現在のセル相当、M=Sの1.5倍、L=Mの1.5倍。
+    /// アートワーク(セル)1辺のサイズ。S=現在のセル相当、以降1.5倍ずつ。
+    /// XL=320ptはMusicアプリのミニプレーヤーと同サイズ(2026-10-24実測)。
     enum ArtworkSize: String, Codable, CaseIterable, Identifiable {
         case s
         case m
         case l
+        case xl
 
         var id: String { rawValue }
 
@@ -48,6 +50,7 @@ struct ShelfSettings: Codable, Equatable {
             case .s: return 96
             case .m: return 144
             case .l: return 216
+            case .xl: return 320
             }
         }
 
