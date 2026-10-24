@@ -133,6 +133,30 @@ final class ShelfStore: ObservableObject {
         return true
     }
 
+    /// ドラッグ&ドロップの並び替え。rawIndexは除去前の並びでの挿入位置
+    /// (レコードのセルなら左半分=index、右半分=index+1、空きはそのindex)。
+    /// 除去によるずれをresolvedInsertionIndexで吸収し、albums.jsonに保存する。
+    func move(_ id: String, toIndex rawIndex: Int) {
+        guard let from = entries.firstIndex(where: { $0.id == id }) else {
+            Self.logger.error("reorder failed: id=\(id, privacy: .public) not found")
+            return
+        }
+        let to = Self.resolvedInsertionIndex(from: from, rawIndex: rawIndex, count: entries.count)
+        guard from != to else { return }
+        let entry = entries.remove(at: from)
+        entries.insert(entry, at: to)
+        Self.logger.notice("entry moved: '\(entry.title, privacy: .public)' \(from, privacy: .public)→\(to, privacy: .public)")
+        save()
+    }
+
+    /// rawIndex(除去前の並びでの挿入位置)を除去後のindexに換算する。
+    /// ドロップで実際に順番が変わるかの事前判定にも使う(=fromなら変化なし)。
+    nonisolated static func resolvedInsertionIndex(from: Int, rawIndex: Int, count: Int) -> Int {
+        var to = min(max(rawIndex, 0), count)
+        if from < to { to -= 1 }
+        return to
+    }
+
     func remove(_ id: String) {
         entries.removeAll { $0.id == id }
         // 削除したエントリのデコード済み画像もキャッシュから落とす
