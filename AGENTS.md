@@ -82,6 +82,26 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   (左=直前、右=直後に挿入、空きスロットは末尾移動)。
   半透明表示(dropTargetOpacity)はisTargeted && willMove(実際に順番が変わる半分)のみ。
   `ShelfStore.move(_:toIndex:)` がalbums.jsonを更新。
+  ドラッグ表示は自前ゴースト(GhostOverlayView=NSViewオーバーレイ)に
+  一本化。`.onDrag(preview:)`に透明1pxを渡してシステムのドラッグ画像を
+  無効化してある(可視のままだとドロップ時に元位置へ滑り戻る
+  スライドバックが走り二重表示になる — 2026-10-24実測)。
+  - ドラッグ元セルはdraggedID/ghostEntryIDの間はopacity 0で非表示
+  - 追従: leftMouseDraggedはドラッグセッションに吸収されてモニタに
+    届かないので、60fpsタイマーでNSEvent.mouseLocationをポーリング
+    (.commonモード登録)。ゴーストはNSViewを命令的に動かす
+    ※@Stateで位置を持って毎イベントbody再評価すると、走行中セッション
+      配下のクロージャが破棄されEXC_BAD_ACCESSで繰り返しクラッシュした。
+      ドラッグ中の高頻度なSwiftUI状態更新は禁止(2026-10-24実機)
+  - ドロップ: ゴーストを着地スロット中心へ0.25sで飛ばし、着地で実セルと交代
+  - キャンセル: ゴーストを元スロットへ自前で滑り戻す
+  - 終了検知: onDragに終了コールバック無し。leftMouseUp/mouseMovedの
+    ローカルモニタで検知するが、mouseUpはperformより先に届くので
+    判定は50ms遅延(即判定するとドロップをキャンセル誤認して以降の
+    ドロップが全滅する — 2026-10-24実測)
+  ※NSEvent.mouseLocationのwindow→content座標変換はfullSizeContentView
+    構成のこのウィンドウではYが~280pt狂う。window.frame.heightと
+    contentLayoutRect.heightの差(タイトルバー分)を引く式で変換すること。
   ※DropDelegate(onDrop)はdropExitedが呼ばれない経路がありハイライトが残った。
     pressedMouseButtonsポーリングも3本指/タップドラッグでは検知不能。
     isTargetedはセッション終了時にフレームワークが必ずfalseを送るので
