@@ -58,6 +58,13 @@ struct ShelfView: View {
     /// メタデータだけなので害はない。結果Taskはdictに残し、
     /// 同じアルバムの再ドラッグでも再利用する
     @State private var prefetchedEntries: [String: Task<MediaEntry, Error>] = [:]
+    /// 外部ドラッグ中のアルバム/プレイリストID。アートワークの非同期
+    /// 読み込みが終わった時点で「まだ同じドラッグをホバーしているか」を
+    /// 判定するために持つ(離れた後にモーフィングすると画像が残る)
+    @State private var externalHoverID: String?
+    /// ドラッグ画像のモーフィングをオーバーレイのNSViewへ命令する窓口。
+    /// SwiftUIの状態としてNSViewを直接持たず、weak参照の箱を介する
+    @State private var overlayHandle = ExternalDropOverlayHandle()
     /// ドロップで実際に順番が変わる位置にカーソルが乗っているスロット
     /// (半透明表示用。ドロップゾーンのisTargetedがセット/クリアする)
     @State private var dropTargetSlotID: String?
@@ -339,6 +346,8 @@ struct ShelfView: View {
         // 内部ドラッグはplain-textのみなのでこのオーバーレイは候補外。
         .overlay {
             ExternalDropOverlayRep(
+                handle: overlayHandle,
+                shelfID: shelfID,
                 onEntered: { self.externalDragEntered(url: $0) },
                 onHover: { self.externalDragMoved(to: $0) },
                 onLeave: { self.externalDragEnded() },
@@ -635,12 +644,24 @@ struct ShelfView: View {
     /// オーバーレイへのドラッグ進入通知。ペーストボードのURLを
     /// parseできたらカタログ取得を先回りして開始し、ドロップ位置を
     /// 選んでいる間にfetchを終わらせる(ドロップ時の待ち時間を消す)。
-    /// 登録済み・prefetch済みのidは起動しない
+    /// 同時にドラッグ画像をこのシェルフのレコードサイズへモーフィングする。
+    /// 登録済み・prefetch済みのidはfetchを起動しない
     private func externalDragEntered(url: URL?) {
         guard let url, let parsed = MediaURLParser.parse(url.absoluteString) else {
-            Self.logger.notice("external drag entered: no parseable URL, prefetch skipped")
+            externalHoverID = nil
+            Self.logger.notice("external drag entered: no parseable URL, prefetch/morph skipped")
             return
         }
+        externalHoverID = parsed.id
+        // モーフィングは重複ガードより先に起動すること。後ろに置くと
+        // 登録済みレコードをドラッグした2回目以降で画像がリサイズされない
+        prefetchIfNeeded(parsed)
+        morphDragImage(for: parsed.id)
+    }
+
+    /// カタログ取得+アートワーク取得の先回り。登録済み・取得中/取得済みは
+    /// 何もしない(ドロップ時はprefetchedEntriesの結果を再利用する)
+    private func prefetchIfNeeded(_ parsed: MediaURLParser.Parsed) {
         guard !store.contains(parsed.id) else {
             Self.logger.notice("prefetch skipped: already registered id=\(parsed.id, privacy: .public)")
             return
@@ -668,6 +689,38 @@ struct ShelfView: View {
         }
     }
 
+    /// ドラッグ画像をこのシェルフのレコードサイズへモーフィングする。
+    /// ジャケットはキャッシュ/ディスクから読むので非同期。読み込み中に
+    /// ドラッグが離れた・別のレコードに変わった場合は何もしない
+    private func morphDragImage(for id: String) {
+        let cell = store.settings.artworkSize.points
+        Task { @MainActor in
+            guard let image = await self.dragImage(for: id) else {
+                Self.logger.notice("drag image morph skipped: artwork unavailable id=\(id, privacy: .public)")
+                return
+            }
+            guard self.externalHoverID == id else {
+                Self.logger.debug("drag image morph skipped: hover changed id=\(id, privacy: .public)")
+                return
+            }
+            // モーフィング開始のログはオーバーレイ側(morphTo)が
+            // id・元サイズ・目標サイズを1行で出す(重複ログを避ける)
+            self.overlayHandle.morphTo(image: image, id: id, size: cell)
+        }
+    }
+
+    /// モーフィングに使うジャケット画像。登録済みならそのアートワーク、
+    /// 未登録なら先回り取得の結果(取得完了まで待つ)から読む。
+    /// 取得できなければnil(モーフィングしない=Musicの画像のまま)
+    private func dragImage(for id: String) async -> NSImage? {
+        if let entry = store.entries.first(where: { $0.id == id }) {
+            return await ShelfStore.artworkImage(for: entry)
+        }
+        guard let prefetch = prefetchedEntries[id],
+              let entry = try? await prefetch.value else { return nil }
+        return await ShelfStore.artworkImage(for: entry)
+    }
+
     /// オーバーレイ上のホバー通知。ポインタ下のスロットを挿入位置として
     /// 半透明にする(dropTargetSlotIDは既存機構をそのまま利用)。
     /// 高頻度で呼ばれるのでログはスロットが変わったときだけ出す
@@ -684,9 +737,11 @@ struct ShelfView: View {
         }
     }
 
-    /// オーバーレイのドラッグ終了/離脱通知。挿入位置ハイライトを戻す
+    /// オーバーレイのドラッグ終了/離脱通知。挿入位置ハイライトと
+    /// ホバー中のIDを戻す(自前パネルはオーバーレイ側で片付ける)
     private func externalDragEnded() {
         dropTargetSlotID = nil
+        externalHoverID = nil
     }
 
     /// オーバーレイへのドロップ。セル上ならその前後、グリッド外
@@ -958,6 +1013,16 @@ private final class GhostController {
         panel.moveImage(center: screenPoint)
     }
 
+    /// サイズを変えて中心を合わせ直す(外部ドラッグのモーフィング用)。
+    /// screenPointは画面座標
+    func resize(to cell: CGFloat, at screenPoint: CGPoint) {
+        guard trackingEnabled else { return }
+        panel.resize(cell: cell, centeredAt: screenPoint)
+    }
+
+    /// パネルの現在のframe(ログ用)
+    var panelFrame: CGRect { panel.frame }
+
     func fly(to screenPoint: CGPoint, completion: @escaping () -> Void) {
         guard panel.isVisible else {
             completion()
@@ -1025,7 +1090,8 @@ private final class GhostPanel: NSPanel {
         imageView.image = image
         imageView.frame = CGRect(origin: .zero, size: CGSize(width: cell, height: cell))
         setFrame(frame(centeredAt: screenPoint), display: false)
-        orderFront(nil)
+        // 非アクティブ(外部アプリのドラッグ中)でも必ず前面に出す
+        orderFrontRegardless()
         Self.logger.notice("ghost shown at frame=\(NSStringFromRect(self.frame), privacy: .public)")
     }
 
@@ -1033,6 +1099,14 @@ private final class GhostPanel: NSPanel {
     func moveImage(center: CGPoint) {
         guard isVisible else { return }
         setFrameOrigin(frame(centeredAt: center).origin)
+    }
+
+    /// サイズを変えて中心を合わせ直す(外部ドラッグのモーフィング用)
+    func resize(cell: CGFloat, centeredAt center: CGPoint) {
+        guard isVisible else { return }
+        cellSize = cell
+        imageView.frame = CGRect(origin: .zero, size: CGSize(width: cell, height: cell))
+        setFrame(frame(centeredAt: center), display: true)
     }
 
     /// 指定位置まで0.25s easeOutで飛ばし、完了したらcompletionを呼ぶ
@@ -1063,8 +1137,25 @@ private final class GhostPanel: NSPanel {
 /// ためドロップは届く(GhostOverlayViewと同じ構造)。
 /// public.urlのみ登録してあるので、public.plain-textだけを積む
 /// アプリ内並び替えドラッグはこのオーバーレイの送り先候補にならない。
+///
+/// あわせて、ドラッグ中の画像を「ドロップ可能になった時点」で
+/// このシェルフのレコードサイズへモーフィングする(Musicアプリが
+/// ウィンドウの内外でドラッグ画像の大きさを変えるのと同じ体験)。
+/// 実装は「システムのドラッグ画像を隠し、自前のパネル(GhostPanel)で
+/// セルサイズぴったりに描く」方式。setDraggingFrameで大きさを変える
+/// 方法は実測で駄目だった: 指定値を233ptにしても432ptにしても、
+/// 実際の描画は元画像と同じ約128pt角のまま(frameは変わるが描画が
+/// 従わない。contentsの差し替えだけは反映される — 2026-10-25実測)。
+/// 自前パネルならウィンドウ内ドラッグと同じ描画・同じ角丸・同じ影で、
+/// サイズもアニメーションも完全に制御できる。
 private final class ExternalDropOverlayView: NSView {
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
+    /// モーフィングの所要時間(秒)
+    private static let morphDuration: CFTimeInterval = 0.2
+
+    /// このオーバーレイが属するシェルフID(自前パネルの所有権判定に使う)
+    var shelfID: String = ""
 
     /// draggingEnteredで呼ぶ(引数はペーストボードから抽出したURL。
     /// 取れなければnil)。ドロップ前にカタログ取得を先回りするために使う
@@ -1075,6 +1166,46 @@ private final class ExternalDropOverlayView: NSView {
     var onLeave: (() -> Void)?
     /// performDragOperationで呼ぶ。戻り値がそのまま受理可否になる
     var onDrop: ((URL, CGPoint) -> Bool)?
+
+    // MARK: ドラッグ画像のモーフィング状態
+
+    /// 進行中のドラッグのinfo。セッション中だけ有効なので、終了経路
+    /// (draggingExited/concludeDragOperation/draggingEnded)では
+    /// 必ず同期的にnilへ戻す。NSDraggingItem/NSDraggingImageComponentは
+    /// 列挙ブロックの外で保持してはいけない(寿命がブロック内だけで、
+    /// 後から触るとクラッシュする)ので、保持するのはこのinfoと、
+    /// 数値(フレーム)とNSImageだけにする
+    private var currentInfo: NSDraggingInfo?
+    /// 進入時点の先頭アイテムのフレーム(退出時の復元サイズと、
+    /// モーフィング開始時の元サイズに使う。復元の各アイテムの位置は
+    /// 再列挙してその場のdraggingFrameから出すので保持しない)。
+    /// Musicのアルバム/プレイリストは単一アイテム前提
+    private var originalFrame: CGRect?
+    /// モーフィングに使うジャケット画像(ShelfViewが読み込んで渡す)
+    private var morphImage: NSImage?
+    /// モーフィングの目標サイズ(1辺・pt)。nil=モーフィングしていない
+    private var morphTargetSide: CGFloat?
+    /// アニメーション開始時のサイズ(1辺・pt)と開始時刻
+    private var morphStartSide: CGFloat = 0
+    private var morphStartTime: CFTimeInterval = 0
+    /// 自前パネルのサイズ補間とポインタ追従を回す60fpsタイマー
+    private var morphTimer: Timer?
+    /// システムのドラッグ画像を隠したか(退出時に戻すため)
+    private var systemImageHidden = false
+    /// 元のドラッグ画像の中心がポインタからどれだけずれているか(画面座標)。
+    /// パネルを同じ位置に出すことで、切り替わり時のジャンプを防ぐ
+    private var panelCenterOffset: CGSize = .zero
+    /// 自前パネルを表示済みか。同じセッションで二重にshowしないための
+    /// ガードで、morphToは状態を代入する前にこれを見る
+    private var panelShown = false
+    /// 最後にdraggingEntered/Updatedを受けた時刻。ドラッグ終了通知が
+    /// 来ない経路(Escape等)に備えたウォッチドッグ用
+    private var lastDragActivityTime: CFTimeInterval = 0
+    /// 直前のtickで見たポインタ位置(静止中でも動きを検知するため)
+    private var lastTickMouseLocation: CGPoint = .zero
+    /// パネルを出したままにする最大時間(秒)。終了通知が来なくても
+    /// ここを超えたら片付ける(ジャケットが画面に残り続けるのを防ぐ)
+    private static let panelWatchdogTimeout: CFTimeInterval = 60
 
     override var isFlipped: Bool { true }
     // ドロップ解決はframe登録ベースなのでnilを返してもDnDは届く。
@@ -1087,6 +1218,19 @@ private final class ExternalDropOverlayView: NSView {
     }
 
     required init?(coder: NSCoder) { fatalError() }
+
+    /// ドラッグ中にウィンドウが閉じた/このビューがウィンドウから外れた場合は
+    /// 終了通知(draggingExited/conclude/draggingEnded)が来ないので、ここで
+    /// セッションを片付ける。放置すると GhostController.owner に shelfID が
+    /// 残り、以後のウィンドウ内ドラッグでゴーストが出なくなる。
+    /// 別ウィンドウへの移動・タブ移動は newWindow != nil なので誤発火しない
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        guard newWindow == nil,
+              currentInfo != nil || morphTimer != nil || panelShown else { return }
+        Self.logger.notice("external drop view removed from window: ending drag session")
+        endSession(restoreImage: false, reason: "viewRemoved")
+    }
 
     /// draggingLocation(ウィンドウ座標・左下原点)をビューローカルへ。
     /// isFlippedなので変換後はグリッドと同じ左上原点になる
@@ -1114,21 +1258,250 @@ private final class ExternalDropOverlayView: NSView {
         return nil
     }
 
+    // MARK: - モーフィング(自前パネル)
+
+    /// ドラッグ画像を1辺size(pt)の正方形へ0.2秒easeOutでモーフィングする。
+    /// ジャケット画像の読み込みが終わったShelfViewから呼ぶ。
+    /// システムのドラッグ画像は隠し、GhostPanel(ウィンドウ内ドラッグと
+    /// 同じ描画)でこのシェルフのレコードサイズに描く。
+    /// Musicのアルバム/プレイリストは単一アイテム前提で、サイズ・位置は
+    /// item[0]に合わせる(複数アイテムのドラッグでも先頭基準で扱う)
+    func morphTo(image: NSImage, id: String, size: CGFloat) {
+        guard currentInfo != nil else {
+            Self.logger.notice("drag image morph ignored: no active external drag id=\(id, privacy: .public)")
+            return
+        }
+        // システムのドラッグ画像を列挙できなかった場合は、隠すことも
+        // 元の大きさ(と中心のずれ)を知ることもできない。その状態で
+        // 自前パネルを出すと画像が二重に見えるのでモーフィングしない
+        guard let originalFrame else {
+            Self.logger.notice("drag image morph skipped: no enumerable dragging items id=\(id, privacy: .public)")
+            return
+        }
+        // 1セッション1モーフ(morphToはdraggingEntered経由でしか呼ばない)。
+        // このガードは状態の代入より前に置くこと: 後ろに置くと2回目の
+        // 呼び出しで開始サイズが元サイズへ巻き戻り、次tickから
+        // 「一瞬縮んで再モーフ」する
+        guard !panelShown else { return }
+        // 元画像の大きさ(=システムが描いていた大きさ)から始める
+        let original = max(originalFrame.width, originalFrame.height)
+        morphImage = image
+        morphTargetSide = size
+        morphStartSide = original
+        morphStartTime = CACurrentMediaTime()
+        Self.logger.notice("drag image morph: id=\(id, privacy: .public) \(original, privacy: .public)pt -> \(size, privacy: .public)pt")
+        hideSystemImage()
+        GhostController.shared.show(
+            image,
+            at: panelCenter(),
+            cell: original,
+            parent: window,
+            owner: shelfID
+        )
+        panelShown = true
+        // ドラッグ中はイベントトラッキングモードなので.commonで登録する
+        // (defaultモードでは発火しない)。補間が終わった後もポインタ追従の
+        // ためにドラッグ終了まで回し続ける
+        if morphTimer == nil {
+            // ビューが先に破棄された場合、RunLoopがタイマーを保持したまま
+            // 空回りし続けるので、自分でinvalidateして止める
+            let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] timer in
+                guard let self else {
+                    timer.invalidate()
+                    return
+                }
+                self.morphTick()
+            }
+            RunLoop.main.add(timer, forMode: .common)
+            morphTimer = timer
+        }
+    }
+
+    /// パネルの中心にしたい画面座標。元のドラッグ画像の中心とポインタの
+    /// ずれを保ったまま追従させる(ビュー座標は上下反転なのでYは符号反転)
+    private func panelCenter() -> CGPoint {
+        let mouse = NSEvent.mouseLocation
+        return CGPoint(
+            x: mouse.x + panelCenterOffset.width,
+            y: mouse.y - panelCenterOffset.height
+        )
+    }
+
+    /// システムのドラッグ画像を隠す(contents=nilで非表示になる)。
+    /// これをしないと自前パネルと二重に見える
+    private func hideSystemImage() {
+        guard !systemImageHidden, let info = currentInfo else { return }
+        systemImageHidden = true
+        info.enumerateDraggingItems(
+            options: [], for: self, classes: [NSPasteboardItem.self], searchOptions: [:]
+        ) { item, _, _ in
+            item.setDraggingFrame(item.draggingFrame, contents: nil)
+        }
+        Self.logger.notice("system drag image hidden: showing own panel")
+    }
+
+    /// 60fpsのtick。サイズをeaseOut(1-(1-t)^3)で補間しつつ、
+    /// パネルをポインタ位置へ追従させる。補間が終わった後はサイズ変更が
+    /// 不要なので、原点移動だけにして毎tickの画像再設定を避ける
+    private func morphTick() {
+        guard currentInfo != nil, let target = morphTargetSide else {
+            stopMorphTimer()
+            return
+        }
+        // ポインタが動いていればセッションは生きているとみなす
+        // (draggingUpdatedは静止中に来ないため)
+        let mouse = NSEvent.mouseLocation
+        if mouse != lastTickMouseLocation {
+            lastTickMouseLocation = mouse
+            lastDragActivityTime = CACurrentMediaTime()
+        }
+        // 終了通知が来ない経路の保険。一定時間やり取りが無ければ片付ける。
+        // ただしボタンが押されたままならドラッグは生きている(ポインタが
+        // 静止しているだけ)ので、その場合は片付けない — 片付けると
+        // 隠したシステム画像が戻らずドラッグ中に画像が消えたままになる。
+        // 発火時は restoreImage: false(生きたドラッグだった場合に画像が
+        // 隠れたままになるのは承知の上。終了済みの NSDraggingInfo を
+        // 触る危険を避けるため復元はしない)
+        if NSEvent.pressedMouseButtons == 0,
+           CACurrentMediaTime() - lastDragActivityTime > Self.panelWatchdogTimeout {
+            Self.logger.notice("drag panel watchdog fired: no drag activity for \(Self.panelWatchdogTimeout, privacy: .public)s")
+            endSession(restoreImage: false, reason: "watchdog")
+            return
+        }
+        // 追従の中心はモーフィング中も完了後も同じ計算を使う
+        let center = panelCenter()
+        // 補間済み(morphStartSide==target)。サイズは変えず原点だけ動かす
+        if morphStartSide == target {
+            GhostController.shared.move(to: center)
+            return
+        }
+        let elapsed = CACurrentMediaTime() - morphStartTime
+        let progress = min(1, elapsed / Self.morphDuration)
+        guard progress < 1 else {
+            // 最終tickは目標サイズぴったりで確定させる
+            GhostController.shared.resize(to: target, at: center)
+            morphStartSide = target
+            Self.logger.notice("morph done: panel size=\(target, privacy: .public) frame=\(NSStringFromRect(GhostController.shared.panelFrame), privacy: .public)")
+            return
+        }
+        let eased = 1 - pow(1 - progress, 3)
+        let side = morphStartSide + (target - morphStartSide) * CGFloat(eased)
+        GhostController.shared.resize(to: side, at: center)
+    }
+
+    private func stopMorphTimer() {
+        morphTimer?.invalidate()
+        morphTimer = nil
+    }
+
+    // MARK: - セッション
+
+    /// ドラッグ進入時。アイテム構成を記録し、退出時に戻せるよう
+    /// 先頭アイテムのフレームを控える(itemsはこのブロック内だけで触る)。
+    /// あわせて元画像の中心とポインタのずれを求めておく
+    private func beginSession(_ info: NSDraggingInfo) {
+        currentInfo = info
+        originalFrame = nil
+        morphImage = nil
+        morphTargetSide = nil
+        morphStartSide = 0
+        systemImageHidden = false
+        panelShown = false
+        // 前のセッションのずれを引き継がない(アイテムを列挙できなかった
+        // ときに古いオフセットでパネルが出るのを防ぐ)
+        panelCenterOffset = .zero
+        var index = 0
+        info.enumerateDraggingItems(
+            options: [], for: self, classes: [NSPasteboardItem.self], searchOptions: [:]
+        ) { item, _, _ in
+            // サイズ・位置の基準は先頭アイテムだけ(複数アイテムのときは
+            // item[0]に合わせる。Musicのアルバム/プレイリストは単一前提)
+            if index == 0 {
+                let frame = item.draggingFrame
+                self.originalFrame = frame
+                let cursor = self.localPoint(info)
+                self.panelCenterOffset = CGSize(
+                    width: frame.midX - cursor.x,
+                    height: frame.midY - cursor.y
+                )
+            }
+            index += 1
+        }
+        Self.logger.notice("drag image source: items=\(index, privacy: .public) firstFrame=\(self.originalFrame.map(NSStringFromRect) ?? "none", privacy: .public) offset=(\(self.panelCenterOffset.width, privacy: .public), \(self.panelCenterOffset.height, privacy: .public))")
+    }
+
+    /// ドラッグセッション終了。タイマーを止め、状態を同期的に片付ける
+    /// (currentInfoをnilにした後にtickが古いinfoを触ると危険なので、
+    /// タイマー停止→パネル片付け→復元→クリアの順で行う)。
+    /// restoreImage=trueのとき、隠したシステム画像を元の大きさに近い
+    /// 正方形で戻す(ウィンドウ外へ出たときに画像が消えないように)。
+    /// Music本来の画像には戻せない(contentsがNSImageではない)ため、
+    /// 最後のジャケットを元サイズで表示する。
+    /// 複数アイテムのドラッグでも、サイズはitem[0]基準の1辺を全アイテムに
+    /// 同じ画像・同じサイズで適用する(Musicは単一アイテム前提)
+    private func endSession(restoreImage: Bool, reason: String) {
+        stopMorphTimer()
+        if GhostController.shared.owner == shelfID {
+            GhostController.shared.hide()
+        }
+        panelShown = false
+        defer {
+            currentInfo = nil
+            originalFrame = nil
+            morphImage = nil
+            morphTargetSide = nil
+            morphStartSide = 0
+            systemImageHidden = false
+        }
+        guard restoreImage,
+              systemImageHidden,
+              let info = currentInfo,
+              let image = morphImage,
+              let originalFrame else {
+            Self.logger.debug("drag session end (\(reason, privacy: .public)): panel hidden, no restore")
+            return
+        }
+        let side = max(originalFrame.width, originalFrame.height)
+        var index = 0
+        info.enumerateDraggingItems(
+            options: [], for: self, classes: [NSPasteboardItem.self], searchOptions: [:]
+        ) { item, _, _ in
+            let frame = item.draggingFrame
+            item.setDraggingFrame(
+                CGRect(
+                    x: frame.midX - side / 2,
+                    y: frame.midY - side / 2,
+                    width: side,
+                    height: side
+                ),
+                contents: image
+            )
+            index += 1
+        }
+        Self.logger.notice("system drag image restored (\(reason, privacy: .public)) side=\(side, privacy: .public) items=\(index, privacy: .public)")
+    }
+
     override func draggingEntered(_ info: NSDraggingInfo) -> NSDragOperation {
         // Musicアプリ等が実際に何を供給するかの調査も兼ねて毎回記録する
         let types = info.draggingPasteboard.types?.map(\.rawValue).joined(separator: ", ") ?? "none"
         Self.logger.notice("external drag entered: types=\(types, privacy: .public)")
+        // onEntered(モーフィング開始)より先にセッション状態を整える
+        beginSession(info)
+        lastDragActivityTime = CACurrentMediaTime()
         onEntered?(extractURL(from: info))
         onHover?(localPoint(info))
         return offeredOperation(info)
     }
 
     override func draggingUpdated(_ info: NSDraggingInfo) -> NSDragOperation {
+        currentInfo = info
+        lastDragActivityTime = CACurrentMediaTime()
         onHover?(localPoint(info))
         return offeredOperation(info)
     }
 
     override func draggingExited(_ sender: NSDraggingInfo?) {
+        endSession(restoreImage: true, reason: "exited")
         onLeave?()
     }
 
@@ -1137,6 +1510,9 @@ private final class ExternalDropOverlayView: NSView {
         // (これが有効だとドロップしたレコード画像が左下へ流れて見える)
         info.animatesToDestination = false
         let p = localPoint(info)
+        // ドロップが成立したらセッションは終わる。モーフィング状態は
+        // 戻さずに捨てる(この後conclude/draggingEndedが来ても無害)
+        endSession(restoreImage: false, reason: "drop")
         guard let url = extractURL(from: info) else {
             Self.logger.notice("external overlay drop: no URL in pasteboard point=(\(p.x, privacy: .public), \(p.y, privacy: .public))")
             return false
@@ -1146,12 +1522,26 @@ private final class ExternalDropOverlayView: NSView {
     }
 
     override func concludeDragOperation(_ sender: NSDraggingInfo?) {
+        endSession(restoreImage: false, reason: "concluded")
         onLeave?()
     }
 
     // performがfalseやキャンセルでもハイライトが残らないよう念のため
     override func draggingEnded(_ sender: NSDraggingInfo) {
+        endSession(restoreImage: false, reason: "ended")
         onLeave?()
+    }
+}
+
+/// ドラッグ画像のモーフィング命令をShelfViewからExternalDropOverlayViewへ
+/// 渡すための薄い窓口。SwiftUIの状態(@State)がこの箱を持ち、
+/// NSViewRepresentableが実体をweakで差し込む(SwiftUIの状態として
+/// NSViewを直接保持しないための定石)
+private final class ExternalDropOverlayHandle {
+    weak var view: ExternalDropOverlayView?
+
+    func morphTo(image: NSImage, id: String, size: CGFloat) {
+        view?.morphTo(image: image, id: id, size: size)
     }
 }
 
@@ -1159,6 +1549,8 @@ private final class ExternalDropOverlayView: NSView {
 /// コールバックはmake/updateの両方で流し込む(再評価で最新の
 /// クロージャに差し替える)
 private struct ExternalDropOverlayRep: NSViewRepresentable {
+    var handle: ExternalDropOverlayHandle
+    var shelfID: String
     var onEntered: (URL?) -> Void
     var onHover: (CGPoint) -> Void
     var onLeave: () -> Void
@@ -1166,18 +1558,22 @@ private struct ExternalDropOverlayRep: NSViewRepresentable {
 
     func makeNSView(context: Context) -> ExternalDropOverlayView {
         let view = ExternalDropOverlayView()
+        view.shelfID = shelfID
         view.onEntered = onEntered
         view.onHover = onHover
         view.onLeave = onLeave
         view.onDrop = onDrop
+        handle.view = view
         return view
     }
 
     func updateNSView(_ nsView: ExternalDropOverlayView, context: Context) {
+        nsView.shelfID = shelfID
         nsView.onEntered = onEntered
         nsView.onHover = onHover
         nsView.onLeave = onLeave
         nsView.onDrop = onDrop
+        handle.view = nsView
     }
 }
 
