@@ -11,7 +11,7 @@ import os
 
 /// メインウィンドウ。アルバムのジャケットだけをグリッド表示する。
 /// ホバーで再生/停止オーバーレイ、タップで再生/停止、右クリックで削除。
-/// 登録フォームは設定画面(SettingsView、Cmd+,)に移動した。
+/// 登録はシェルフへのドラッグ&ドロップで行う。
 struct ShelfView: View {
 
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
