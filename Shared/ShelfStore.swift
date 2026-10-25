@@ -126,8 +126,8 @@ final class ShelfStore: ObservableObject {
         entries.contains { $0.id == id }
     }
 
-    /// 追加パイプラインの結果。設定画面のフォームとシェルフへの
-    /// ドラッグ&ドロップの両方がこれで成否を分岐する
+    /// 追加パイプラインの結果。シェルフへのドラッグ&ドロップが
+    /// これで成否を分岐する
     enum AddOutcome {
         case added(MediaEntry)
         case duplicate
@@ -263,7 +263,7 @@ final class ShelfStore: ObservableObject {
         if FileManager.default.fileExists(atPath: destination.path) { return destination }
 
         guard !entry.artworkURL.isEmpty, let url = URL(string: entry.artworkURL) else {
-            throw PlaybackEngine.PlaybackError.failed("アートワークURLがありません")
+            throw PlaybackEngine.PlaybackError.failed(String(localized: "No artwork URL."))
         }
         let (data, _) = try await URLSession.shared.data(from: url)
         try data.write(to: destination, options: .atomic)

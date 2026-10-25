@@ -57,7 +57,7 @@ struct RecordsApp: App {
         }
         .windowResizability(.contentSize)
 
-        // Cmd+, で開く設定画面。シェルフへの追加フォームはこちら。
+        // Cmd+, で開く設定画面。シェルフの表示設定のみ扱う。
         Settings {
             SettingsView()
         }

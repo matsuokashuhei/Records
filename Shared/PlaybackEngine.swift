@@ -28,11 +28,11 @@ enum PlaybackEngine {
             switch self {
             case .shortcutMissing(let visible):
                 let names = visible.isEmpty
-                    ? "(shortcutsコマンドからショートカットが1つも見えません)"
-                    : "見つかったショートカット: \(visible.joined(separator: ", "))"
-                return "再生用ショートカット(\(shortcutNameCandidates.joined(separator: " / ")))が見つかりません。\n\(names)"
+                    ? String(localized: "(No shortcuts are visible to the shortcuts command.)")
+                    : String(localized: "Found shortcuts: \(visible.joined(separator: ", "))")
+                return String(localized: "Playback shortcut (\(shortcutNameCandidates.joined(separator: " / "))) not found.\n\(names)")
             case .failed(let detail):
-                return "再生に失敗しました: \(detail)"
+                return String(localized: "Playback failed: \(detail)")
             }
         }
     }
@@ -113,7 +113,7 @@ enum PlaybackEngine {
         do {
             installed = try await listShortcutNames()
         } catch {
-            throw PlaybackError.failed("ショートカット一覧の取得に失敗: \(error.localizedDescription)")
+            throw PlaybackError.failed(String(localized: "Failed to list shortcuts: \(error.localizedDescription)"))
         }
         logger.notice("installed shortcuts: \(installed.joined(separator: " | "), privacy: .public)")
 
@@ -125,7 +125,7 @@ enum PlaybackEngine {
         // shortcuts://run-shortcut?name=<enc>&input=<enc>
         let encoded = "shortcuts://run-shortcut?name=\(percentEncoded(name))&input=\(percentEncoded(entry.url))"
         guard let target = URL(string: encoded) else {
-            throw PlaybackError.failed("ショートカットURLの生成に失敗しました")
+            throw PlaybackError.failed(String(localized: "Failed to build the shortcut URL."))
         }
         logger.notice("opening \(encoded, privacy: .public)")
 
@@ -232,7 +232,7 @@ enum PlaybackEngine {
                         kill(process.processIdentifier, SIGKILL)
                     }
                 }
-                resumeOnce(with: .failure(PlaybackError.failed("\(toolPath) がタイムアウトしました")))
+                resumeOnce(with: .failure(PlaybackError.failed(String(localized: "\(toolPath) timed out."))))
             }
 
             do {

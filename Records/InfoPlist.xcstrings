@@ -1,0 +1,31 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSAppleMusicUsageDescription" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : { "state" : "translated", "value" : "Used to fetch albums and playlists from the Apple Music catalog and play them." }
+        },
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "Apple Musicのカタログからアルバムとプレイリストを取得し、再生するために使用します。" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Se usa para obtener álbumes y playlists del catálogo de Apple Music y reproducirlos." }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "用于从 Apple Music 目录获取专辑和播放列表并进行播放。" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "Apple Music 카탈로그에서 앨범과 재생목록을 가져와 재생하는 데 사용합니다." }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Utilisé pour récupérer des albums et des playlists du catalogue Apple Music et les lire." }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Dient zum Abrufen und Abspielen von Alben und Playlists aus dem Apple-Music-Katalog." }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

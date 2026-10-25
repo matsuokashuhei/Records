@@ -15,11 +15,11 @@ enum MediaCatalogClient {
         var errorDescription: String? {
             switch self {
             case .notAuthorized:
-                return "Apple Musicへのアクセスが許可されていません。システム設定 → プライバシーとセキュリティ → メディアとApple Music で Records を許可してください。"
+                return String(localized: "Access to Apple Music is not allowed. Allow Records in System Settings → Privacy & Security → Media & Apple Music.")
             case .invalidInput:
-                return "URLまたはIDの形式を認識できませんでした。アルバムまたはプレイリストのURLを入力してください。"
+                return String(localized: "The URL or ID format was not recognized. Enter an album or playlist URL.")
             case .notFound:
-                return "Apple Musicに見つかりませんでした。"
+                return String(localized: "Not found on Apple Music.")
             }
         }
     }

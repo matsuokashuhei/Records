@@ -1,0 +1,688 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "%lld columns" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld列" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld columnas" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld列" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld열" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld colonnes" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld Spalten" }
+        }
+      }
+    },
+    "%lld rows" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld行" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld filas" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld行" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld행" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld lignes" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "%lld Zeilen" }
+        }
+      }
+    },
+    "%@ timed out." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "%@ がタイムアウトしました" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "%@ agotó el tiempo de espera." }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "%@ 已超时。" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "%@ 시간이 초과되었습니다." }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "%@ a expiré." }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Zeitüberschreitung bei %@." }
+        }
+      }
+    },
+    "(No shortcuts are visible to the shortcuts command.)" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "(shortcutsコマンドからショートカットが1つも見えません)" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "(El comando shortcuts no muestra ningún atajo.)" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "(shortcuts 命令看不到任何快捷指令)" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "(shortcuts 명령에서 단축어가 하나도 보이지 않습니다)" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "(La commande shortcuts ne voit aucun raccourci.)" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "(Der Befehl shortcuts sieht keine Kurzbefehle.)" }
+        }
+      }
+    },
+    "Access to Apple Music is not allowed. Allow Records in System Settings → Privacy & Security → Media & Apple Music." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "Apple Musicへのアクセスが許可されていません。システム設定 → プライバシーとセキュリティ → メディアとApple Music で Records を許可してください。" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "No se permite el acceso a Apple Music. Permite Records en Ajustes del Sistema → Privacidad y seguridad → Contenido multimedia y Apple Music." }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "未允许访问 Apple Music。请在“系统设置 → 隐私与安全性 → 媒体与 Apple Music”中允许 Records。" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "Apple Music 접근이 허용되지 않았습니다. 시스템 설정 → 개인 정보 보호 및 보안 → 미디어 및 Apple Music에서 Records를 허용하세요." }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "L’accès à Apple Music n’est pas autorisé. Autorisez Records dans Réglages Système → Confidentialité et sécurité → Médias et Apple Music." }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Der Zugriff auf Apple Music ist nicht erlaubt. Erlaube Records unter Systemeinstellungen → Datenschutz & Sicherheit → Medien & Apple Music." }
+        }
+      }
+    },
+    "album" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "アルバム" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "álbum" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "专辑" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "앨범" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "album" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Album" }
+        }
+      }
+    },
+    "Artwork Size" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "アートワークサイズ" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Tamaño de ilustración" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "插图大小" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "아트워크 크기" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Taille de l’illustration" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Covergröße" }
+        }
+      }
+    },
+    "Cancel" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "キャンセル" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Cancelar" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "取消" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "취소" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Annuler" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Abbrechen" }
+        }
+      }
+    },
+    "Columns" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "列数" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Columnas" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "列数" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "열 수" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Colonnes" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Spalten" }
+        }
+      }
+    },
+    "Couldn't Add Record" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "追加できませんでした" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "No se pudo añadir" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "无法添加" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "추가할 수 없습니다" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Ajout impossible" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Hinzufügen fehlgeschlagen" }
+        }
+      }
+    },
+    "Delete Record" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "レコードを削除" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Eliminar disco" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "删除唱片" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "레코드 삭제" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Supprimer le disque" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Eintrag löschen" }
+        }
+      }
+    },
+    "Display" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "表示" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Visualización" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "显示" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "표시" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Affichage" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Anzeige" }
+        }
+      }
+    },
+    "Failed to build the shortcut URL." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "ショートカットURLの生成に失敗しました" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "No se pudo generar la URL del atajo." }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "无法生成快捷指令 URL。" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "단축어 URL을 생성하지 못했습니다." }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Impossible de générer l’URL du raccourci." }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Die Kurzbefehl-URL konnte nicht erstellt werden." }
+        }
+      }
+    },
+    "Failed to list shortcuts: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "ショートカット一覧の取得に失敗: %@" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "No se pudo obtener la lista de atajos: %@" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "获取快捷指令列表失败：%@" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "단축어 목록을 가져오지 못했습니다: %@" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Impossible de lister les raccourcis : %@" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Kurzbefehle konnten nicht aufgelistet werden: %@" }
+        }
+      }
+    },
+    "Found shortcuts: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "見つかったショートカット: %@" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Atajos encontrados: %@" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "找到的快捷指令：%@" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "발견된 단축어: %@" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Raccourcis trouvés : %@" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Gefundene Kurzbefehle: %@" }
+        }
+      }
+    },
+    "OK" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "OK" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Aceptar" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "好" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "확인" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "OK" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "OK" }
+        }
+      }
+    },
+    "No artwork URL." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "アートワークURLがありません" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "No hay URL de ilustración." }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "没有插图 URL。" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "아트워크 URL이 없습니다." }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Aucune URL d’illustration." }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Keine Cover-URL." }
+        }
+      }
+    },
+    "Not found on Apple Music." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "Apple Musicに見つかりませんでした。" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "No se encontró en Apple Music." }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "在 Apple Music 中未找到。" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "Apple Music에서 찾을 수 없습니다." }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Introuvable sur Apple Music." }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Auf Apple Music nicht gefunden." }
+        }
+      }
+    },
+    "Playback failed: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "再生に失敗しました: %@" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Error de reproducción: %@" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "播放失败：%@" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "재생에 실패했습니다: %@" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Échec de la lecture : %@" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Wiedergabe fehlgeschlagen: %@" }
+        }
+      }
+    },
+    "Playback shortcut (%@) not found.\n%@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "再生用ショートカット(%@)が見つかりません。\n%@" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "No se encontró el atajo de reproducción (%@).\n%@" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "未找到播放快捷指令(%@)。\n%@" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "재생용 단축어(%@)를 찾을 수 없습니다.\n%@" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Raccourci de lecture (%@) introuvable.\n%@" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Wiedergabe-Kurzbefehl (%@) nicht gefunden.\n%@" }
+        }
+      }
+    },
+    "playlist" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プレイリスト" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "playlist" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "播放列表" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "재생목록" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "playlist" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Playlist" }
+        }
+      }
+    },
+    "Playlist not found: %@" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "プレイリストが見つかりません: %@" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Playlist no encontrada: %@" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "未找到播放列表：%@" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "재생목록을 찾을 수 없습니다: %@" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Playlist introuvable : %@" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Playlist nicht gefunden: %@" }
+        }
+      }
+    },
+    "Remove “%@”?" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "“%@”を削除しますか?" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "¿Eliminar “%@”?" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "移除“%@”？" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "“%@”을(를) 삭제하시겠습니까?" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Supprimer « %@ » ?" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "„%@“ entfernen?" }
+        }
+      }
+    },
+    "Rows" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "行数" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Filas" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "行数" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "행 수" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Lignes" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Zeilen" }
+        }
+      }
+    },
+    "The shelf is full. You can add up to %lld records." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "登録できるのは%lld枚までです。" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "La estantería está llena. Puedes añadir hasta %lld discos." }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "架子已满，最多可添加 %lld 张唱片。" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "선반이 가득 찼습니다. 최대 %lld개까지 등록할 수 있습니다." }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "L’étagère est pleine. Vous pouvez ajouter jusqu’à %lld disques." }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Das Regal ist voll. Du kannst bis zu %lld Einträge hinzufügen." }
+        }
+      }
+    },
+    "Language" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "言語" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Idioma" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "语言" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "언어" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Langue" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Sprache" }
+        }
+      }
+    },
+    "Restart Required" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "再起動が必要です" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Reinicio necesario" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "需要重新启动" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "재시작 필요" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Redémarrage requis" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Neustart erforderlich" }
+        }
+      }
+    },
+    "System" : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "システム" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Sistema" }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "系统" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "시스템" }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Système" }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "System" }
+        }
+      }
+    },
+    "The new language will take effect after you restart Records." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "新しい言語はRecordsの再起動後に反映されます。" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "El nuevo idioma se aplicará al reiniciar Records." }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "新语言将在重新启动 Records 后生效。" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "새 언어는 Records를 재시작한 후 적용됩니다." }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "La nouvelle langue sera appliquée après le redémarrage de Records." }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Die neue Sprache wird nach einem Neustart von Records wirksam." }
+        }
+      }
+    },
+    "The URL or ID format was not recognized. Enter an album or playlist URL." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "URLまたはIDの形式を認識できませんでした。アルバムまたはプレイリストのURLを入力してください。" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "No se reconoció el formato de la URL o el ID. Introduce la URL de un álbum o playlist." }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "无法识别 URL 或 ID 格式。请输入专辑或播放列表的 URL。" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "URL 또는 ID 형식을 인식할 수 없습니다. 앨범 또는 재생목록 URL을 입력하세요." }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Le format de l’URL ou de l’ID n’a pas été reconnu. Saisissez l’URL d’un album ou d’une playlist." }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Das URL- oder ID-Format wurde nicht erkannt. Gib die URL eines Albums oder einer Playlist ein." }
+        }
+      }
+    },
+    "This %@ is already on the shelf." : {
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : { "state" : "translated", "value" : "この%@はすでに登録されています。" }
+        },
+        "es" : {
+          "stringUnit" : { "state" : "translated", "value" : "Este %@ ya está en la estantería." }
+        },
+        "zh-Hans" : {
+          "stringUnit" : { "state" : "translated", "value" : "此%@已在架上。" }
+        },
+        "ko" : {
+          "stringUnit" : { "state" : "translated", "value" : "이 %@은(는) 이미 등록되어 있습니다." }
+        },
+        "fr" : {
+          "stringUnit" : { "state" : "translated", "value" : "Ce %@ est déjà sur l’étagère." }
+        },
+        "de" : {
+          "stringUnit" : { "state" : "translated", "value" : "Diese %@ ist bereits im Regal." }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

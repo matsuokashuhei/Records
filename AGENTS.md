@@ -142,6 +142,11 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
 - `Shared/` — アプリにリンクされる共有層
   (MediaEntry/MediaURLParser, MediaCatalogClient, ShelfStore, ShelfSettings, PlaybackEngine, PlaylistPlayer)
 - `Records/` — アプリ本体(ShelfView, SettingsView, WindowGlass, PlaybackMonitor)
+  - `Localizable.xcstrings` — UI文字列カタログ。開発言語en、キーは英語リテラル
+    (補間は%@/%lld形式)。対応言語: en/ja/es/zh-Hans/ko/fr/de
+  - `InfoPlist.xcstrings` — NSAppleMusicUsageDescriptionの翻訳
+    (project.ymlのINFOPLIST_KEY値はen表示用のフォールバック。他言語は
+    カタログが生成するInfoPlist.stringsが使われる)
 - `project.yml` — xcodegen定義(ターゲット変更はここを編集)
 
 ## ウィジェット拡張について(2026-10-24 撤去済み)

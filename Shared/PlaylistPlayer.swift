@@ -23,7 +23,7 @@ enum PlaylistPlayer {
         let response = try await request.response()
         logger.notice("catalog response count=\(response.items.count, privacy: .public)")
         guard let playlist = response.items.first else {
-            throw PlaybackEngine.PlaybackError.failed("プレイリストが見つかりません: \(entry.title)")
+            throw PlaybackEngine.PlaybackError.failed(String(localized: "Playlist not found: \(entry.title)"))
         }
 
         let player = ApplicationMusicPlayer.shared
