@@ -8,15 +8,22 @@
 import SwiftUI
 import os
 
-/// 設定画面(Cmd+, で開く)。シェルフの表示設定のみ扱う。
-/// アルバム/プレイリストの追加はシェルフへのドロップで行う。
+/// 設定画面(シェルフの余白の右クリックメニューから開く)。
+/// シェルフの表示設定のみ扱う。アルバム/プレイリストの追加は
+/// シェルフへのドロップで行う。
+/// 表示設定の編集対象は「最後にキーになったシェルフウィンドウ」
+/// (ShelfManager.focusedStore)。言語だけはアプリ全体共通。
 struct SettingsView: View {
 
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
 
-    @ObservedObject private var store = ShelfStore.shared
+    @ObservedObject private var manager = ShelfManager.shared
     /// 言語変更後の再起動促しアラート表示フラグ
     @State private var showRestartAlert = false
+
+    /// 編集対象のシェルフ(最後にフォーカスしたウィンドウ)。
+    /// まだ一度もシェルフがキーになっていなければnil
+    private var store: ShelfStore? { manager.focusedStore }
 
     /// 言語選択肢のタグ値。"system"はOS設定に従う(AppleLanguages未設定)
     private static let languageCodes = ["en", "ja", "es", "zh-Hans", "ko", "fr", "de"]
@@ -30,22 +37,13 @@ struct SettingsView: View {
                         Text(languageName(for: code)).tag(code)
                     }
                 }
-                Picker("Columns", selection: columnsSelection) {
-                    ForEach(1...ShelfSettings.maxDimension, id: \.self) { n in
-                        Text("\(n) columns").tag(n)
-                    }
+                // この3つのピッカーはフォーカス中のシェルフにだけ効く。
+                // 監視するのはstore側(manager.focusedStoreの参照変更だけでは
+                // settingsの更新で再描画されないため)、サブビューに切り出して
+                // @ObservedObjectで購読する
+                if let store {
+                    ShelfPickers(store: store)
                 }
-                Picker("Rows", selection: rowsSelection) {
-                    ForEach(1...ShelfSettings.maxDimension, id: \.self) { n in
-                        Text("\(n) rows").tag(n)
-                    }
-                }
-                Picker("Artwork Size", selection: artworkSizeSelection) {
-                    ForEach(ShelfSettings.ArtworkSize.allCases) { size in
-                        Text(size.label).tag(size)
-                    }
-                }
-                .pickerStyle(.segmented)
             }
         }
         .formStyle(.grouped)
@@ -96,11 +94,42 @@ struct SettingsView: View {
         )
     }
 
+}
+
+/// 列数/行数/アートワークサイズのピッカー群。
+/// @ObservedObjectでstoreを購読するためにSettingsViewから切り出した
+/// (SettingsViewが見るのはmanager.focusedStoreの参照だけなので、
+///  settingsが変わっても再描画されずピッカー表示が古いままになる)
+private struct ShelfPickers: View {
+
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
+    @ObservedObject var store: ShelfStore
+
+    var body: some View {
+        Picker("Columns", selection: columnsSelection) {
+            ForEach(1...ShelfSettings.maxDimension, id: \.self) { n in
+                Text("\(n) columns").tag(n)
+            }
+        }
+        Picker("Rows", selection: rowsSelection) {
+            ForEach(1...ShelfSettings.maxDimension, id: \.self) { n in
+                Text("\(n) rows").tag(n)
+            }
+        }
+        Picker("Artwork Size", selection: artworkSizeSelection) {
+            ForEach(ShelfSettings.ArtworkSize.allCases) { size in
+                Text(size.label).tag(size)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
     private var columnsSelection: Binding<Int> {
         Binding(
             get: { store.settings.columns },
             set: { newValue in
-                Self.logger.notice("settings: columns picker changed to \(newValue, privacy: .public)")
+                Self.logger.notice("settings: columns picker changed to \(newValue, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
                 updateDisplaySettings(columns: newValue, rows: store.settings.rows)
             }
         )
@@ -110,7 +139,7 @@ struct SettingsView: View {
         Binding(
             get: { store.settings.rows },
             set: { newValue in
-                Self.logger.notice("settings: rows picker changed to \(newValue, privacy: .public)")
+                Self.logger.notice("settings: rows picker changed to \(newValue, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
                 updateDisplaySettings(columns: store.settings.columns, rows: newValue)
             }
         )
@@ -120,7 +149,7 @@ struct SettingsView: View {
         Binding(
             get: { store.settings.artworkSize },
             set: { newValue in
-                Self.logger.notice("settings: artwork size picker changed to \(newValue.rawValue, privacy: .public)")
+                Self.logger.notice("settings: artwork size picker changed to \(newValue.rawValue, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
                 store.updateSettings(ShelfSettings(
                     columns: store.settings.columns,
                     rows: store.settings.rows,
@@ -130,7 +159,7 @@ struct SettingsView: View {
         )
     }
 
-    /// 列数/行数の変更を設定に反映する。
+    /// 列数/行数の変更をフォーカス中のシェルフの設定に反映する。
     /// 縮小で非表示になった再生中プレイリストは停止UIが消えるためここで止める。
     private func updateDisplaySettings(columns: Int, rows: Int) {
         store.updateSettings(ShelfSettings(

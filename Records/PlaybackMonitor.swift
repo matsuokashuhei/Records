@@ -29,7 +29,11 @@ final class PlaybackMonitor: ObservableObject {
     @Published private(set) var activeEntryID: String?
 
     private var pollTask: Task<Void, Never>?
-    /// 表示中のビューがポーリングを要求しているか(.onAppear→true/.onDisappear→false)。
+    /// ポーリングを要求しているシェルフウィンドウの数
+    /// (.onAppear→+1/.onDisappear→-1。複数ウィンドウで共有するため
+    ///  片方が閉じても他方が表示中ならポーリングを継続する)
+    private var pollingClients = 0
+    /// 表示中のビューがポーリングを要求しているか。
     /// アプリが隠れている間はポーリングを止め、unhide時にこれがtrueなら再開する。
     private var wantsPolling = false
     /// 再生/停止の切り替え中フラグ(ダブルタップなどの再入防止)
@@ -40,8 +44,8 @@ final class PlaybackMonitor: ObservableObject {
         // NSApp.hide(nil)はビューの.onDisappearを発火させない。
         // そのままだと非表示中も2秒おきにosascriptをspawnし続けるため、
         // アプリのhide/unhideにポーリングを連動させる。
-        // (単一ウィンドウ前提の簡易実装。隠蔽中にウィンドウが閉じられても
-        //  .onDisappear→stopPollingでwantsPolling=falseになるためunhideで再開しない)
+        // (隠蔽中に全ウィンドウが閉じられても、.onDisappear→stopPollingで
+        //  pollingClientsが0になりwantsPolling=falseになるためunhideで再開しない)
         visibilityObservers = [
             NotificationCenter.default.addObserver(
                 forName: NSApplication.didHideNotification, object: nil, queue: .main
@@ -69,6 +73,7 @@ final class PlaybackMonitor: ObservableObject {
     }
 
     func start() {
+        pollingClients += 1
         wantsPolling = true
         startPollingIfNeeded()
     }
@@ -86,6 +91,8 @@ final class PlaybackMonitor: ObservableObject {
     }
 
     func stopPolling() {
+        pollingClients = max(0, pollingClients - 1)
+        guard pollingClients == 0 else { return }
         wantsPolling = false
         pollTask?.cancel()
         pollTask = nil
@@ -123,9 +130,10 @@ final class PlaybackMonitor: ObservableObject {
     /// in-app再生(プレイリスト)を止める。
     /// 非表示スロットには停止UIが無いため、放置するとアプリを終了するまで
     /// 止められない。Musicアプリ側のアルバム再生はMusicアプリから止められるので対象外。
+    /// 複数シェルフがあるので、どれかのシェルフで表示されていれば止めない。
     func stopIfActiveEntryHidden() {
         guard inAppPlaying, let id = activeEntryID else { return }
-        let visibleIDs = ShelfStore.shared.paddedSlots().compactMap { $0?.id }
+        let visibleIDs = ShelfManager.shared.allVisibleEntryIDs
         guard !visibleIDs.contains(id) else { return }
         Self.logger.notice("active entry \(id, privacy: .public) is now hidden; stopping in-app playback")
         PlaylistPlayer.stop()

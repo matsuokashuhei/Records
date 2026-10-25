@@ -21,6 +21,7 @@
 		BB4FFD2FA58D9A500C8DE516 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FF979F49C4844488727111E7 /* InfoPlist.xcstrings */; };
 		BD77655F3C211E60D1C764F0 /* ShelfSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */; };
 		DE2065EC093BEE33CA9F3AD3 /* RecordsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */; };
+		E0475F4FB720E91566573C4B /* ShelfManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 312CF0B9A1FD1E113D0DD7F6 /* ShelfManager.swift */; };
 		F161C579BE4930784F54DF03 /* ShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D593FE3DA37740B77984F0 /* ShelfView.swift */; };
 		F9D1B2EDCE9D0B900030E688 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = BDB56EC137EBA234D33377C5 /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
@@ -30,6 +31,7 @@
 		1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaEntry.swift; sourceTree = "<group>"; };
 		26E722075A65DABCA285C2CC /* WindowGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowGlass.swift; sourceTree = "<group>"; };
 		29D593FE3DA37740B77984F0 /* ShelfView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfView.swift; sourceTree = "<group>"; };
+		312CF0B9A1FD1E113D0DD7F6 /* ShelfManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfManager.swift; sourceTree = "<group>"; };
 		43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordsApp.swift; sourceTree = "<group>"; };
 		50F2FB1DE51231F752D3FE91 /* RecordsTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RecordsTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		5326779F8829EBA05B501896 /* PlaylistPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistPlayer.swift; sourceTree = "<group>"; };
@@ -72,6 +74,7 @@
 				1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */,
 				B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */,
 				5326779F8829EBA05B501896 /* PlaylistPlayer.swift */,
+				312CF0B9A1FD1E113D0DD7F6 /* ShelfManager.swift */,
 				FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */,
 				54EF98EA96353F7782B148F9 /* ShelfStore.swift */,
 			);
@@ -209,6 +212,7 @@
 				96D11C978F9779DE1C59DBC3 /* PlaylistPlayer.swift in Sources */,
 				DE2065EC093BEE33CA9F3AD3 /* RecordsApp.swift in Sources */,
 				27A82E51697CE7DF2125EC23 /* SettingsView.swift in Sources */,
+				E0475F4FB720E91566573C4B /* ShelfManager.swift in Sources */,
 				BD77655F3C211E60D1C764F0 /* ShelfSettings.swift in Sources */,
 				695479100C2EE21BB2BC229C /* ShelfStore.swift in Sources */,
 				F161C579BE4930784F54DF03 /* ShelfView.swift in Sources */,

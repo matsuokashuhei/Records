@@ -2,15 +2,17 @@ import Foundation
 import AppKit
 import os
 
-/// アプリの「シェルフの内容」。
+/// 1シェルフ(=1ウィンドウ)の「シェルフの内容」。
 /// 非サンドボックスの個人ビルドのため、Application Support 下のファイルで永続化する。
+/// シェルフの生成/管理はShelfManagerが行い、ストアはシェルフIDごとに1つ。
 /// 可変状態(entries等)はメインアクター上でのみ扱う。
 @MainActor
 final class ShelfStore: ObservableObject {
 
     nonisolated private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Shelf")
 
-    static let shared = ShelfStore()
+    /// このストアが表すシェルフのID(shelves.jsonに登録されたもの)
+    let shelfID: String
 
     @Published private(set) var entries: [MediaEntry]
     /// 表示設定(列数×行数・アートワークサイズ)。settings.json に永続化される。
@@ -24,12 +26,14 @@ final class ShelfStore: ObservableObject {
 
     /// デコード済みジャケット画像のキャッシュ(entry.id → NSImage)。
     /// セルの body が走るたびに同期ディスク読み込み+デコードしないためのもの。
+    /// アートワークは全シェルフで共有するためキャッシュもstatic共有。
     private static var imageCache: [String: NSImage] = [:]
 
-    private init() {
-        Self.ensureDirectories()
-        settings = ShelfSettings.loadFromDisk()
-        entries = Self.readFromDisk()
+    init(shelfID: String) {
+        self.shelfID = shelfID
+        Self.ensureDirectories(shelfID)
+        settings = ShelfSettings.loadFromDisk(shelfID: shelfID)
+        entries = Self.readFromDisk(shelfID: shelfID)
         ensureArtworkDownloaded()
     }
 
@@ -79,12 +83,21 @@ final class ShelfStore: ObservableObject {
         baseDirectory.appendingPathComponent("Artwork", isDirectory: true)
     }
 
-    nonisolated static var albumFile: URL {
-        baseDirectory.appendingPathComponent("albums.json")
+    /// 全シェルフのデータの親。サブディレクトリ名=シェルフID
+    nonisolated static var shelvesDirectory: URL {
+        baseDirectory.appendingPathComponent("Shelves", isDirectory: true)
     }
 
-    nonisolated static func ensureDirectories() {
-        for dir in [baseDirectory, artworkDirectory] {
+    nonisolated static func shelfDirectory(_ shelfID: String) -> URL {
+        shelvesDirectory.appendingPathComponent(shelfID, isDirectory: true)
+    }
+
+    nonisolated static func albumFile(_ shelfID: String) -> URL {
+        shelfDirectory(shelfID).appendingPathComponent("albums.json")
+    }
+
+    nonisolated static func ensureDirectories(_ shelfID: String) {
+        for dir in [shelfDirectory(shelfID), artworkDirectory] {
             do {
                 try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
             } catch {
@@ -97,26 +110,30 @@ final class ShelfStore: ObservableObject {
         artworkDirectory.appendingPathComponent("\(entry.id).jpg")
     }
 
-    nonisolated static func readFromDisk() -> [MediaEntry] {
+    nonisolated static func readFromDisk(shelfID: String) -> [MediaEntry] {
+        // プリセットはプライマリシェルフ("main")だけに入れる。
+        // 新規シェルフは空で始める(プリセットが毎回出ると邪魔なため)
+        let fallback = shelfID == "main" ? presetEntries : []
+        let file = albumFile(shelfID)
         do {
-            let data = try Data(contentsOf: albumFile)
+            let data = try Data(contentsOf: file)
             do {
                 return try JSONDecoder().decode([MediaEntry].self, from: data)
             } catch {
-                // デコード失敗: ユーザーのファイルを失わないよう退避してからプリセットで起動する
+                // デコード失敗: ユーザーのファイルを失わないよう退避してからフォールバックで起動する
                 // (読めないまま save() が走ると登録データが上書きで消えるため)
-                logger.error("albums.json decode failed: \(error.localizedDescription, privacy: .public)")
-                let backup = albumFile.appendingPathExtension("corrupt")
+                logger.error("albums.json decode failed (\(shelfID, privacy: .public)): \(error.localizedDescription, privacy: .public)")
+                let backup = file.appendingPathExtension("corrupt")
                 try? FileManager.default.removeItem(at: backup)
-                if let _ = try? FileManager.default.copyItem(at: albumFile, to: backup) {
+                if let _ = try? FileManager.default.copyItem(at: file, to: backup) {
                     logger.notice("unreadable albums.json backed up to \(backup.path, privacy: .public)")
                 }
-                return presetEntries
+                return fallback
             }
         } catch {
-            // 初回起動(まだ一度も保存していない)など: プリインストール済みアルバムを表示
-            logger.notice("albums.json not readable, using presets: \(error.localizedDescription, privacy: .public)")
-            return presetEntries
+            // 初回起動(まだ一度も保存していない)など
+            logger.notice("albums.json not readable (\(shelfID, privacy: .public)), using fallback: \(error.localizedDescription, privacy: .public)")
+            return fallback
         }
     }
 
@@ -205,30 +222,34 @@ final class ShelfStore: ObservableObject {
         // 削除したエントリのデコード済み画像もキャッシュから落とす
         // (同じIDを後で追加し直した場合に古い画像が残らないように)
         Self.imageCache.removeValue(forKey: id)
-        // 参照されなくなったアートワークファイルも消す
-        // (再追加時はdownloadArtworkが取り直す)
-        let file = Self.artworkDirectory.appendingPathComponent("\(id).jpg")
-        try? FileManager.default.removeItem(at: file)
-        Self.logger.notice("entry removed: id=\(id, privacy: .public) remaining=\(self.entries.count, privacy: .public)")
+        // 参照されなくなったアートワークファイルも消す。
+        // ただしアートワークは全シェルフ共有なので、他のシェルフが
+        // 同じエントリを持っている場合は残す(再追加時はdownloadArtworkが取り直す)
+        if !ShelfManager.shared.isEntryUsedElsewhere(id, excluding: shelfID) {
+            let file = Self.artworkDirectory.appendingPathComponent("\(id).jpg")
+            try? FileManager.default.removeItem(at: file)
+        }
+        Self.logger.notice("entry removed: shelf=\(self.shelfID, privacy: .public) id=\(id, privacy: .public) remaining=\(self.entries.count, privacy: .public)")
         save()
     }
 
     private func save() {
         do {
             let data = try JSONEncoder().encode(entries)
-            try data.write(to: Self.albumFile, options: .atomic)
+            try data.write(to: Self.albumFile(shelfID), options: .atomic)
         } catch {
             Self.logger.error("save failed: \(error.localizedDescription, privacy: .public)")
         }
     }
 
-    /// 表示設定を更新してsettings.jsonに保存する。同じ値なら何もしない。
-    /// 登録データ(albums.json)は触らないので、枚数を縮小しても登録は残る。
+    /// 表示設定を更新してこのシェルフのsettings.jsonに保存する。
+    /// 同じ値なら何もしない。登録データ(albums.json)は触らないので、
+    /// 枚数を縮小しても登録は残る。
     func updateSettings(_ newSettings: ShelfSettings) {
         guard newSettings != settings else { return }
-        Self.logger.notice("settings changed: \(self.settings.columns, privacy: .public)x\(self.settings.rows, privacy: .public)(\(self.settings.capacity, privacy: .public)枚)→\(newSettings.columns, privacy: .public)x\(newSettings.rows, privacy: .public)(\(newSettings.capacity, privacy: .public)枚) artworkSize \(self.settings.artworkSize.rawValue, privacy: .public)→\(newSettings.artworkSize.rawValue, privacy: .public)")
+        Self.logger.notice("settings changed (shelf=\(self.shelfID, privacy: .public)): \(self.settings.columns, privacy: .public)x\(self.settings.rows, privacy: .public)(\(self.settings.capacity, privacy: .public)枚)→\(newSettings.columns, privacy: .public)x\(newSettings.rows, privacy: .public)(\(newSettings.capacity, privacy: .public)枚) artworkSize \(self.settings.artworkSize.rawValue, privacy: .public)→\(newSettings.artworkSize.rawValue, privacy: .public)")
         settings = newSettings
-        ShelfSettings.saveToDisk(newSettings)
+        ShelfSettings.saveToDisk(newSettings, shelfID: shelfID)
     }
 
     // MARK: - 表示用

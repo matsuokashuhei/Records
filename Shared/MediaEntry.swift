@@ -83,3 +83,30 @@ enum MediaURLParser {
         }
     }
 }
+
+/// アプリ内ドラッグのペーストボード文字列(JSON)。
+/// エントリそのものを載せるので、別シェルフのウィンドウへのドロップは
+/// カタログ再取得なしで移せる(アートワークもシェルフ間共有)。
+/// sourceShelfIDが自分と同じならシェルフ内の並び替え、違うなら
+/// シェルフ間の移動として扱う。
+struct ShelfDragPayload: Codable {
+    let sourceShelfID: String
+    let entry: MediaEntry
+
+    func encode() -> String {
+        guard let data = try? JSONEncoder().encode(self),
+              let text = String(data: data, encoding: .utf8) else {
+            return ""
+        }
+        return text
+    }
+
+    /// ペーストボード文字列を解釈する。外部アプリのテキスト(URL等)は
+    /// この型のキーを持たないのでデコード失敗し、nil=外部扱いになる
+    static func decode(_ text: String) -> ShelfDragPayload? {
+        guard text.hasPrefix("{"), let data = text.data(using: .utf8) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(ShelfDragPayload.self, from: data)
+    }
+}
