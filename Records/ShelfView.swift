@@ -12,13 +12,34 @@ import os
 /// メインウィンドウ。アルバムのジャケットだけをグリッド表示する。
 /// ホバーで再生/停止オーバーレイ、タップで再生/停止、右クリックで削除。
 /// 登録はシェルフへのドラッグ&ドロップで行う。
+/// 1ウィンドウ=1シェルフ(シェルフIDごとにShelfStoreが1つ)。
+/// シェルフ間でもレコードをドラッグ&ドロップで移動できる。
 struct ShelfView: View {
 
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
 
-    @ObservedObject private var store = ShelfStore.shared
+    /// このウィンドウが表示するシェルフのID。
+    /// 起動時にシステムが作る値を持たないウィンドウはプライマリシェルフになる
+    @State private var shelfID: String
+    /// シェルフIDをシーンの値と双方向にする(WindowGroupの値。復元用に書き戻す)
+    private let shelfIDBinding: Binding<String?>
+    /// 起動時の1枚目(値を持たない)ウィンドウか。onAppearで残りの
+    /// シェルフのウィンドウを開き直す係にするためのフラグ
+    @State private var isPrimaryWindow: Bool
+    @ObservedObject private var store: ShelfStore
+    @ObservedObject private var manager = ShelfManager.shared
+    @Environment(\.openWindow) private var openWindow
+    /// このビューが載っているNSWindow(マウス座標変換・シェルフ削除時の
+    /// window.close()用)。@Stateに持つとviewDidMoveToWindow中の代入で
+    /// 「レイアウト中の状態更新」になるため、命令的にだけ書く箱に入れる
+    @StateObject private var windowBox = WindowBox()
     /// 削除確認ダイアログに出している対象。非nilの間ダイアログを表示する。
     @State private var pendingDelete: MediaEntry?
+    /// シェルフ削除の確認ダイアログ表示フラグ
+    @State private var pendingShelfDelete = false
+    /// 重複ウィンドウと判定され、アタッチ次第自分を閉じるフラグ
+    /// (onAppear時点ではwindowBox.windowがまだ無い場合があるため)
+    @State private var isDuplicateWindow = false
     /// ドロップ追加の失敗(重複/満杯/取得エラー)をアラートで出すための
     /// メッセージ。非nilの間ダイアログを表示する。
     @State private var addError: String?
@@ -62,6 +83,14 @@ struct ShelfView: View {
     ///   そのため位置は命令的にNSViewへ流し、SwiftUIの状態に持たせない
     @StateObject private var ghost = GhostController()
 
+    init(shelfID: Binding<String?>) {
+        self.shelfIDBinding = shelfID
+        let resolved = shelfID.wrappedValue ?? ShelfManager.shared.primaryShelfID
+        _shelfID = State(initialValue: resolved)
+        _store = ObservedObject(wrappedValue: ShelfManager.shared.store(for: resolved))
+        _isPrimaryWindow = State(initialValue: shelfID.wrappedValue == nil)
+    }
+
     var body: some View {
         shelfGrid
             .background {
@@ -96,10 +125,69 @@ struct ShelfView: View {
             } message: {
                 Text(addError ?? "")
             }
+        // シェルフ自体の削除確認。コンテキストメニューの「Delete Shelf…」から。
+            .alert(
+                "Delete this shelf?",
+                isPresented: $pendingShelfDelete
+            ) {
+                Button("Delete Shelf", role: .destructive) { deleteShelf() }
+                Button("Cancel", role: .cancel) {
+                    Self.logger.notice("shelf delete cancelled: \(self.shelfID, privacy: .public)")
+                }
+            } message: {
+                Text("The records on this shelf will be removed.")
+            }
         // 再生状態はAlbumSlotViewが個別にmonitorを監視するので、ここでは監視せず
-        // 開始/停止だけ行う(画面全体の2秒おき再描画を避ける)
-            .onAppear { PlaybackMonitor.shared.start() }
-            .onDisappear { PlaybackMonitor.shared.stopPolling() }
+        // 開始/停止だけ行う(画面全体の2秒おき再描画を避ける)。
+        // 複数ウィンドウあるので監視は参照カウント式(片方が閉じても他方で継続)
+            .onAppear {
+                PlaybackMonitor.shared.start()
+                // コマンドや他のシェルフのメニューからも新規ウィンドウを
+                // 開けるよう、環境のopenWindowをmanagerに退避する
+                ShelfManager.shared.openShelfWindow = { id in
+                    openWindow(id: "shelf", value: id)
+                }
+                // 値を持たないウィンドウ(起動時やドックアイコンでシステムが
+                // 作るもの)はプライマリシェルフになる。プライマリが既に
+                // 開いているならこのウィンドウは重複なので自分を閉じる。
+                // ウィンドウが開かれていないシェルフもここで開き直す。
+                // 重複判定はnoteWindowOpenedより先に行うこと
+                if isPrimaryWindow {
+                    isPrimaryWindow = false
+                    if ShelfManager.shared.openShelfIDs.contains(shelfID) {
+                        Self.logger.notice("duplicate value-less window for shelf=\(self.shelfID, privacy: .public); closing self")
+                        isDuplicateWindow = true
+                        windowBox.window?.close()
+                    } else {
+                        // シーンの値にシェルフIDを書き戻して同一性を持たせる
+                        shelfIDBinding.wrappedValue = shelfID
+                        ShelfManager.shared.openMissingShelfWindows { id in
+                            openWindow(id: "shelf", value: id)
+                        }
+                    }
+                }
+                // 重複ウィンドウ(自己クローズする側)は登録しない。
+                // 登録すると、そのonDisappearのnoteWindowClosedが
+                // 本来のプライマリウィンドウの登録まで解除してしまう
+                if !isDuplicateWindow {
+                    ShelfManager.shared.noteWindowOpened(shelfID)
+                }
+            }
+            .onDisappear {
+                // stopPollingはonAppearのstart()と対なので重複ウィンドウ
+                // でも呼ぶ。noteWindowClosedは登録した側だけが呼ぶ
+                PlaybackMonitor.shared.stopPolling()
+                if !isDuplicateWindow {
+                    ShelfManager.shared.noteWindowClosed(shelfID)
+                }
+            }
+    }
+
+    /// 確認済みのシェルフ削除。データを消してウィンドウを閉じる
+    private func deleteShelf() {
+        Self.logger.notice("shelf delete confirmed: \(self.shelfID, privacy: .public)")
+        ShelfManager.shared.deleteShelf(shelfID)
+        windowBox.window?.close()
     }
 
     /// 確認済みの削除。storeから外し、アプリ内再生中のプレイリストなら止める
@@ -170,17 +258,26 @@ struct ShelfView: View {
             ForEach(slots) { slot in
                 Group {
                     if let entry = slot.entry {
-                        // ドラッグで並び替え。開始時にドラッグ元を記録する。
+                        // ドラッグで並び替え/シェルフ間移動。開始時にドラッグ元を記録する。
+                        // ペーストボードにはシェルフID+エントリのJSONを載せ、
+                        // 別シェルフのウィンドウでも再取得なしで挿入できるようにする。
                         // previewを透明にしてシステムのドラッグ画像を消す
                         // (消しておかないとドロップ時に元位置へ滑り戻る
                         //  スライドバックが走り、自前ゴーストと二重表示
                         //  になる — 2026-10-24実測)
-                        AlbumSlotView(entry: entry)
+                        AlbumSlotView(entry: entry, store: store)
                             .onDrag {
                                 self.startDrag(entry)
-                                return NSItemProvider(object: entry.id as NSString)
+                                let payload = ShelfDragPayload(sourceShelfID: self.shelfID, entry: entry)
+                                return NSItemProvider(object: payload.encode() as NSString)
                             } preview: {
                                 Color.clear.frame(width: 1, height: 1)
+                            }
+                            .contextMenu {
+                                Button("Delete Record", role: .destructive) {
+                                    Self.logger.notice("delete requested for '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
+                                    pendingDelete = entry
+                                }
                             }
                     } else {
                         // 空きスロットは何も描かず、スペースだけ確保する
@@ -206,14 +303,6 @@ struct ShelfView: View {
                     HStack(spacing: 0) {
                         dropZone(slot: slot, after: false)
                         dropZone(slot: slot, after: true)
-                    }
-                }
-                .contextMenu {
-                    if let entry = slot.entry {
-                        Button("Delete Record", role: .destructive) {
-                            Self.logger.notice("delete requested for '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
-                            pendingDelete = entry
-                        }
                     }
                 }
             }
@@ -265,17 +354,44 @@ struct ShelfView: View {
         // ExternalDropOverlayViewが受け取るためここでは不要
         .dropDestination(for: String.self) { items, location in
             guard let text = items.first else { return false }
-            // セルゾーンと同じ判定: 内部ドラッグ(draggedIDが残っていて
-            // droppedIDがentriesにある)が余白に落ちたら拒否。
-            // stale draggedID中に来た外部テキストは追加経路へ流す
-            let isInternal = self.draggedID != nil
-                && store.entries.contains { $0.id == text }
-            guard !isInternal else {
-                Self.logger.notice("margin drop rejected: internal drag to non-cell area")
-                return false
+            // アプリ内ドラッグのペイロードを先に判定。自分のシェルフの
+            // レコードが余白に落ちたら拒否(=キャンセル)。別シェルフから
+            // 来たペイロードは末尾への移動として受け取る。
+            // ペイロードでないテキストは外部ドロップとして追加経路へ流す
+            if let payload = ShelfDragPayload.decode(text) {
+                guard payload.sourceShelfID != self.shelfID else {
+                    Self.logger.notice("margin drop rejected: internal drag to non-cell area")
+                    return false
+                }
+                Self.logger.notice("grid margin cross-shelf drop: '\(payload.entry.title, privacy: .public)' from=\(payload.sourceShelfID, privacy: .public)")
+                return self.transferDrop(payload, atIndex: .max)
             }
             Self.logger.notice("grid margin text dropped: '\(text, privacy: .public)' location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
             return self.addDroppedText(text, atIndex: .max)
+        }
+        // レコード以外の場所(余白・空きスロット)の右クリックメニュー。
+        // レコードのメニュー(Delete Record)はセル側にあり、そちらが優先される。
+        // 設定画面はCmd+,ではなくここから開く
+        .contextMenu {
+            // このビュー自身のopenWindow環境で新シェルフのウィンドウを開く
+            Button("New Shelf") {
+                let id = ShelfManager.shared.createShelf()
+                openWindow(id: "shelf", value: id)
+            }
+            Button("Settings…") {
+                Self.logger.notice("settings open requested: shelf=\(self.shelfID, privacy: .public)")
+                // 設定画面は「最後にキーになったシェルフ」を編集する。
+                // 右クリックでウィンドウはkeyになるはずだが、念のため
+                // ここでもフォーカスを明示する
+                ShelfManager.shared.shelfWindowBecameKey(store)
+                openWindow(id: "settings")
+            }
+            Divider()
+            Button("Delete Shelf…", role: .destructive) {
+                Self.logger.notice("shelf delete requested: \(self.shelfID, privacy: .public)")
+                pendingShelfDelete = true
+            }
+            .disabled(manager.shelfIDs.count <= 1)
         }
         // クランプ状態の遷移時だけログ(body評価のたびに出るのを防ぐ)
         .onAppear {
@@ -291,7 +407,13 @@ struct ShelfView: View {
             }
         }
         .background {
-            WindowConfigurator()
+            WindowConfigurator(
+                onWindowReady: {
+                    self.windowBox.window = $0
+                    if self.isDuplicateWindow { $0?.close() }
+                },
+                onBecameKey: { ShelfManager.shared.shelfWindowBecameKey(self.store) }
+            )
         }
     }
 
@@ -335,30 +457,33 @@ struct ShelfView: View {
             // ExternalDropOverlayViewが吸い、オーバーレイを抜けたURLも
             // plain-textフレーバ経由でこのゾーンに届くので問題ない
             .dropDestination(for: String.self) { items, location in
-                guard let droppedID = items.first else { return false }
-                // 内部ドラッグでない、またはdroppedIDがentriesに無い場合は
-                // 外部テキストのドロップ。後者はキャンセル直後にdraggedIDが
-                // 残ったまま外部テキストが落ちたケースで、move失敗ログだけ
-                // 出して受理表示になるのを防ぐため追加経路へフォールスルーする
-                let isInternal = self.draggedID != nil
-                    && store.entries.contains { $0.id == droppedID }
-                guard isInternal else {
-                    Self.logger.notice("external text dropped: '\(droppedID, privacy: .public)' slot=\(slot.index, privacy: .public) after=\(after, privacy: .public) location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
-                    return self.addDroppedText(droppedID, atIndex: insertIndex, slotID: slot.id)
+                guard let dropped = items.first else { return false }
+                // アプリ内ドラッグのペイロードを先に判定。
+                // 自シェルフ=並び替え、別シェルフ=移動。ペイロード以外は
+                // 外部テキストとして追加経路へ流す(キャンセル直後に
+                // draggedIDが残ったまま外部テキストが落ちたケースもここ)
+                if let payload = ShelfDragPayload.decode(dropped) {
+                    guard payload.sourceShelfID == self.shelfID else {
+                        Self.logger.notice("cross-shelf record dropped: '\(payload.entry.title, privacy: .public)' from=\(payload.sourceShelfID, privacy: .public) slot=\(slot.index, privacy: .public) after=\(after, privacy: .public) location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
+                        return self.transferDrop(payload, atIndex: insertIndex)
+                    }
+                    let droppedID = payload.entry.id
+                    Self.logger.notice("record dropped: dragged=\(droppedID, privacy: .public) slot=\(slot.index, privacy: .public) target='\(slot.entry?.title ?? "", privacy: .public)' after=\(after, privacy: .public) location=(\(location.x, privacy: .public), \(location.y, privacy: .public)) zoneRect=\(NSStringFromRect(self.slotRect(index: slot.index)), privacy: .public)")
+                    // ドロップ成立=セッション終了。モニタより先にここで戻す
+                    self.draggedID = nil
+                    self.dropTargetSlotID = nil
+                    store.move(droppedID, toIndex: insertIndex)
+                    // ゴーストはすでにポインタ位置にいるので着地スロットへ飛ばす。
+                    // システム画像は不可視なので待ち不要。飛行中は着地セルが
+                    // ghostEntryIDで隠れたままなので二重表示にならない
+                    if let newIndex = store.entries.firstIndex(where: { $0.id == droppedID }),
+                       self.ghostEntryID == droppedID {
+                        self.flyGhost(toIndex: newIndex)
+                    }
+                    return true
                 }
-                Self.logger.notice("record dropped: dragged=\(droppedID, privacy: .public) slot=\(slot.index, privacy: .public) target='\(slot.entry?.title ?? "", privacy: .public)' after=\(after, privacy: .public) location=(\(location.x, privacy: .public), \(location.y, privacy: .public)) zoneRect=\(NSStringFromRect(self.slotRect(index: slot.index)), privacy: .public)")
-                // ドロップ成立=セッション終了。モニタより先にここで戻す
-                self.draggedID = nil
-                self.dropTargetSlotID = nil
-                store.move(droppedID, toIndex: slot.index + (after ? 1 : 0))
-                // ゴーストはすでにポインタ位置にいるので着地スロットへ飛ばす。
-                // システム画像は不可視なので待ち不要。飛行中は着地セルが
-                // ghostEntryIDで隠れたままなので二重表示にならない
-                if let newIndex = store.entries.firstIndex(where: { $0.id == droppedID }),
-                   self.ghostEntryID == droppedID {
-                    self.flyGhost(toIndex: newIndex)
-                }
-                return true
+                Self.logger.notice("external text dropped: '\(dropped, privacy: .public)' slot=\(slot.index, privacy: .public) after=\(after, privacy: .public) location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
+                return self.addDroppedText(dropped, atIndex: insertIndex, slotID: slot.id)
             } isTargeted: { targeted in
                 let movable = self.willMove(slot: slot, after: after)
                 Self.logger.debug("isTargeted slot=\(slot.index, privacy: .public) after=\(after, privacy: .public) targeted=\(targeted, privacy: .public) willMove=\(movable, privacy: .public)")
@@ -431,14 +556,47 @@ struct ShelfView: View {
         return true
     }
 
+    /// 別シェルフのウィンドウからドラッグされたレコードをこのシェルフへ移す。
+    /// エントリはペイロードに入っているのでカタログ再取得は不要
+    /// (アートワークも全シェルフ共有)。重複・満杯ならfalseを返して
+    /// ドロップを拒否する(=元シェルフにレコードが残る)。
+    /// 元シェルフからの削除はターゲットへの追加が確定してから行う
+    /// (先に消すと失敗時にどちらのシェルフにも無い状態になりうる)
+    private func transferDrop(_ payload: ShelfDragPayload, atIndex: Int) -> Bool {
+        let entry = payload.entry
+        Self.logger.notice("cross-shelf transfer: '\(entry.title, privacy: .public)' \(payload.sourceShelfID, privacy: .public)→\(self.shelfID, privacy: .public) index=\(atIndex, privacy: .public)")
+        if store.contains(entry.id) {
+            Self.logger.notice("cross-shelf transfer rejected: duplicate id=\(entry.id, privacy: .public)")
+            let kindName = String(localized: entry.kind == .album ? "album" : "playlist")
+            addError = String(localized: "This \(kindName) is already on the shelf.")
+            return false
+        }
+        guard store.entries.count < store.capacity else {
+            Self.logger.notice("cross-shelf transfer rejected: shelf full capacity=\(self.store.capacity, privacy: .public)")
+            addError = String(localized: "The shelf is full. You can add up to \(store.capacity) records.")
+            return false
+        }
+        let outcome = store.registerFetched(entry, insertAt: atIndex)
+        guard case .added = outcome else {
+            Self.logger.error("cross-shelf transfer: registerFetched failed outcome=\(String(describing: outcome), privacy: .public)")
+            return false
+        }
+        ShelfManager.shared.store(for: payload.sourceShelfID).remove(entry.id)
+        // 元ウィンドウ側のドラッグ状態(draggedID/ゴースト)は、そちらの
+        // 終了検知モニタがentriesから消えたことを見て片付ける
+        dropTargetSlotID = nil
+        return true
+    }
+
     /// ExternalDropOverlayViewのローカル座標→グリッド座標。
     /// オーバーレイはpadding込みのフレーム全体を覆うので、左上
     /// (edgePadding, topPadding)分を引く。グリッドが画面収まりに
     /// クランプされてScrollView内にある場合は、見えている矩形の
     /// 原点(スクロール量)を足して補正する(mouseGridPointと同じ考え方)
     private func overlayGridPoint(_ p: CGPoint) -> CGPoint {
-        let window = NSApp.keyWindow ?? NSApp.windows.first
-        let scrollOffset = Self.findScrollView(in: window?.contentView)?
+        // 複数ウィンドウがあるのでkeyWindowではなくこのビューのウィンドウ
+        // のスクロールビューを探す(非keyウィンドウへのドラッグでも正しくなる)
+        let scrollOffset = Self.findScrollView(in: windowBox.window?.contentView)?
             .documentVisibleRect.origin ?? .zero
         return CGPoint(
             x: p.x - Self.edgePadding + scrollOffset.x,
@@ -602,13 +760,20 @@ struct ShelfView: View {
                 // ドラッグ画像を元位置へ滑り戻すので、その間だけ元セルの
                 // 再表示を遅らせる(二重表示防止)
                 if let cancelledID = self.draggedID {
-                    Self.logger.notice("drag cancelled: id=\(cancelledID, privacy: .public)")
                     self.draggedID = nil
                     // システム画像は不可視なのでスライドバックは自前で:
-                    // ゴーストを元のスロットへ滑り戻す
-                    if let index = store.entries.firstIndex(where: { $0.id == cancelledID }),
-                       self.ghostEntryID == cancelledID {
-                        self.flyGhost(toIndex: index)
+                    // ゴーストを元のスロットへ滑り戻す。
+                    // entriesに無い=別シェルフへの移動が成立済みなので、
+                    // 滑り戻す先はなくゴーストを消すだけにする
+                    if self.ghostEntryID == cancelledID {
+                        if let index = store.entries.firstIndex(where: { $0.id == cancelledID }) {
+                            Self.logger.notice("drag cancelled: id=\(cancelledID, privacy: .public)")
+                            self.flyGhost(toIndex: index)
+                        } else {
+                            Self.logger.notice("drag ended: '\(cancelledID, privacy: .public)' moved to another shelf")
+                            self.ghost.hide()
+                            self.ghostEntryID = nil
+                        }
                     }
                 }
                 self.dropTargetSlotID = nil
@@ -652,7 +817,9 @@ struct ShelfView: View {
     /// ウィンドウが画面収まりにクランプされてグリッドがScrollView内に
     /// ある場合は、見えている矩形の原点(スクロール量)を足して補正する。
     private func mouseGridPoint() -> CGPoint? {
-        guard let window = NSApp.keyWindow ?? NSApp.windows.first else {
+        // 複数ウィンドウがあるのでkeyWindowでなくこのビューのウィンドウを使う
+        // (アタッチ前の早期呼び出しだけkeyWindowにフォールバック)
+        guard let window = windowBox.window ?? NSApp.keyWindow else {
             return nil
         }
         let inWindow = window.convertPoint(fromScreen: NSEvent.mouseLocation)
@@ -709,6 +876,13 @@ struct ShelfView: View {
         )
         return to != from
     }
+}
+
+/// このShelfViewが載っているNSWindowを保持するだけの箱。
+/// viewDidMoveToWindow(レイアウト中)に書くため@Publishedにはせず、
+/// 読む側は直接プロパティを参照する
+private final class WindowBox: ObservableObject {
+    weak var window: NSWindow?
 }
 
 /// ゴースト(自前ドラッグ画像)の制御窓口。NSViewを弱参照し、
@@ -960,8 +1134,9 @@ private struct AlbumSlotView: View {
 
     let entry: MediaEntry
 
-    /// artworkRevision(ダウンロード完了)の検知用
-    @ObservedObject private var store = ShelfStore.shared
+    /// このセルが属するシェルフのストア(アートワークサイズと
+    /// artworkRevision(ダウンロード完了)の検知用)
+    @ObservedObject var store: ShelfStore
     @ObservedObject private var monitor = PlaybackMonitor.shared
     @State private var isHovered = false
     /// キャッシュ済みジャケット(bodyのたびに同期ディスク読み込みしない)

@@ -11,6 +11,8 @@ import os
 @main
 struct RecordsApp: App {
 
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
     init() {
         // デバッグ: `--catalog-test <url>` で起動するとUIを出さずに
         // MediaCatalogClient.fetch を実行して結果をログに出す。
@@ -50,16 +52,57 @@ struct RecordsApp: App {
     }
 
     var body: some Scene {
+        // 1シェルフ=1ウィンドウ。ウィンドウの値(シェルフID)でShelfStoreを
+        // 引き当てる。起動時にシステムが作る値を持たないウィンドウは
+        // プライマリシェルフになり、残りのシェルフのウィンドウを
+        // 開き直す役目も担う(ShelfView.onAppear)。
         // ウィンドウサイズはShelfViewが設定(枚数・アートワークサイズ)から
         // 計算した固定フレームで決まる。contentSizeでmin=max扱い。
-        WindowGroup {
-            ShelfView()
+        WindowGroup(id: "shelf", for: String.self) { $shelfID in
+            ShelfView(shelfID: $shelfID)
         }
+        // 起動時に必ず1枚作る。復元された補助ウィンドウ(設定画面など)
+        // だけが残った状態で起動すると、既定の.automaticでは
+        // WindowGroupのウィンドウが作られないことがあるため
+        .defaultLaunchBehavior(.presented)
+        // ウィンドウ復元は自前で行う(shelves.jsonの全シェルフを
+        // ShelfView側で開き直す)。macOS側の復元に任せると、
+        // シェルフを閉じた状態で終了した場合に復元されない
+        // (「閉じてもシェルフは残る」が崩れる)のと、
+        // 自前オープンとの二重化が起きうるため無効化する
+        .restorationBehavior(.disabled)
+        // タイトルバーをネイティブに隠す。styleMaskの手動変更だけだと
+        // contentLayoutRectがタイトルバー帯を含まず、帯の下端に
+        // セパレータ線が残る(macOS 26実測)
+        .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentSize)
+        .commands {
+            // 標準の"New Window"(⌘N)を置き換えて ⇧⌘N で新シェルフを開く
+            CommandGroup(replacing: .newItem) {
+                // コマンドにはopenWindow環境が無いので、ShelfViewが
+                // managerに退避したopenShelfWindow経由で開く
+                Button("New Shelf") {
+                    let manager = ShelfManager.shared
+                    let id = manager.createShelf()
+                    if let openShelfWindow = manager.openShelfWindow {
+                        openShelfWindow(id)
+                    } else {
+                        Self.logger.error("New Shelf: openShelfWindow action not installed")
+                    }
+                }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+            }
+        }
 
-        // Cmd+, で開く設定画面。シェルフの表示設定のみ扱う。
-        Settings {
+        // 設定画面。シェルフの余白/空きスロットの右クリックメニューから開く
+        // (SettingsシーンのCmd+,は廃止)。編集対象は最後にキーになった
+        // シェルフのストア(ShelfManager.focusedStore)。
+        Window("Settings", id: "settings") {
             SettingsView()
         }
+        // 設定画面が単独で復元されると、WindowGroupの初期ウィンドウが
+        // 作られない「部分復元」状態になることがあるため復元しない
+        .restorationBehavior(.disabled)
+        .windowResizability(.contentSize)
     }
 }

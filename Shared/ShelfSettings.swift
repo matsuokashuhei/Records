@@ -2,7 +2,8 @@ import Foundation
 import os
 
 /// シェルフの表示設定(表示枚数=列数×行数とアートワークサイズ)。
-/// ShelfStore.baseDirectory 下の settings.json に JSON で保存する。
+/// ShelfStore.shelfDirectory(shelfID) 下の settings.json に JSON で保存する
+/// (設定はシェルフ=ウィンドウごとに独立)。
 /// 読み書きはすべて nonisolated。
 struct ShelfSettings: Codable, Equatable {
 
@@ -99,28 +100,29 @@ struct ShelfSettings: Codable, Equatable {
         try c.encode(artworkSize, forKey: .artworkSize)
     }
 
-    static var fileURL: URL {
-        ShelfStore.baseDirectory.appendingPathComponent("settings.json")
+    /// 設定はシェルフごとに Shelves/<shelfID>/settings.json に保存する
+    static func fileURL(shelfID: String) -> URL {
+        ShelfStore.shelfDirectory(shelfID).appendingPathComponent("settings.json")
     }
 
-    static func loadFromDisk() -> ShelfSettings {
+    static func loadFromDisk(shelfID: String) -> ShelfSettings {
         do {
-            let data = try Data(contentsOf: fileURL)
+            let data = try Data(contentsOf: fileURL(shelfID: shelfID))
             let settings = try JSONDecoder().decode(ShelfSettings.self, from: data)
-            logger.notice("settings.json loaded: columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public)")
+            logger.notice("settings.json loaded (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public)")
             return settings
         } catch {
             // 初回起動やファイル破損時は既定値。読めなくても既定値で動作継続する。
-            logger.notice("settings.json not readable, using defaults: \(error.localizedDescription, privacy: .public)")
+            logger.notice("settings.json not readable (shelf=\(shelfID, privacy: .public)), using defaults: \(error.localizedDescription, privacy: .public)")
             return .default
         }
     }
 
-    static func saveToDisk(_ settings: ShelfSettings) {
+    static func saveToDisk(_ settings: ShelfSettings, shelfID: String) {
         do {
             let data = try JSONEncoder().encode(settings)
-            try data.write(to: fileURL, options: .atomic)
-            logger.notice("settings.json saved: columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public)")
+            try data.write(to: fileURL(shelfID: shelfID), options: .atomic)
+            logger.notice("settings.json saved (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public)")
         } catch {
             logger.error("settings.json save failed: \(error.localizedDescription, privacy: .public)")
         }

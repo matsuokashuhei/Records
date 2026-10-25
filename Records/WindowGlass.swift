@@ -26,19 +26,30 @@ struct GlassBackgroundView: NSViewRepresentable {
 
 /// NSGlassEffectViewがデスクトップ側を透過するにはウィンドウ自体を
 /// 透明にする必要があるため、NSWindowの設定を行うだけのビュー。
+/// 複数ウィンドウ対応として、ウィンドウ確定(onWindowReady)と
+/// キー化(onBecameKey)を呼び出し側へ通知できる。
 struct WindowConfigurator: NSViewRepresentable {
 
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
+    /// ビューがウィンドウにアタッチ/デタッチされたとき呼ぶ
+    var onWindowReady: ((NSWindow?) -> Void)?
+    /// このビューのウィンドウがキーになったとき呼ぶ(フォーカス中の
+    /// シェルフを追跡するため)
+    var onBecameKey: (() -> Void)?
 
     /// makeNSView時点ではview.windowがnilのことがあるため、
     /// viewDidMoveToWindowでwindow確定後にconfigureする。
     final class View: NSView {
         private var observers: [NSObjectProtocol] = []
+        var onWindowReady: ((NSWindow?) -> Void)?
+        var onBecameKey: (() -> Void)?
 
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             WindowConfigurator.configure(window)
             WindowConfigurator.updateTrafficLightVisibility(window)
+            onWindowReady?(window)
             // Musicのミニプレーヤー同様、ウィンドウが非アクティブなら
             // 信号ボタンを隠す。key状態の変化を監視して切り替える。
             observers.forEach { NotificationCenter.default.removeObserver($0) }
@@ -56,6 +67,17 @@ struct WindowConfigurator: NSViewRepresentable {
                     )
                 }
             }
+            // 「フォーカス中のシェルフ」の追跡。アタッチ時にすでに
+            // keyなら即通知する(ウィンドウは通常keyになってから
+            // コンテンツが載る順だが、順序に依存しないため)
+            if window.isKeyWindow { onBecameKey?() }
+            observers.append(
+                NotificationCenter.default.addObserver(
+                    forName: NSWindow.didBecomeKeyNotification, object: window, queue: .main
+                ) { [weak self] _ in
+                    self?.onBecameKey?()
+                }
+            )
         }
 
         deinit {
@@ -64,10 +86,17 @@ struct WindowConfigurator: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> NSView {
-        View()
+        let view = View()
+        view.onWindowReady = onWindowReady
+        view.onBecameKey = onBecameKey
+        return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
+        if let view = nsView as? View {
+            view.onWindowReady = onWindowReady
+            view.onBecameKey = onBecameKey
+        }
         Self.configure(nsView.window)
         // フルスクリーン出入り等でAppKitがタイトルバークロームを再構築すると
         // isHiddenが巻き戻ることがあるため、更新のたびに冪等に再適用する

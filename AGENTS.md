@@ -115,6 +115,59 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   ショートカット名解決に失敗する**(ターミナルからは成功するのに)。URLスキーム経由なら問題ない
 - `SystemSettings → プライバシーとセキュリティ → オートメーション → Records → Shortcuts Events`
   をONにしないと、アプリプロセスからのShortcuts Events照会が空リストを返す
+
+## 複数シェルフ(2026-10-25 実装・実機検証済み)
+
+- 1シェルフ=1ウィンドウ。`ShelfManager`(Shared)がシェルフID一覧
+  (shelves.json)とシェルフごとの`ShelfStore`を管理する。`ShelfStore.shared`
+  は廃止。`ShelfStore(shelfID:)`を`manager.store(for:)`経由で引く
+- 新シェルフは ⇧⌘N(CommandGroupで.newItemを置き換え=標準⌘Nは無い)か
+  余白右クリックメニューから。新シェルフは空で始まる
+  (プリセットは"main"のみ。読み込み失敗時のfallbackも"main"のみプリセット)
+- ウィンドウの値=`WindowGroup(id:"shelf", for:String.self)`のString?
+  (シェルフID)。値なし(nil)のウィンドウ=起動時やドックアイコンで
+  システムが作るもの → プライマリシェルフになり、
+  `openMissingShelfWindows`で未オープンのシェルフのウィンドウを開き直す。
+  プライマリが既に開いている値なしウィンドウは重複として自分を閉じる
+- **WindowGroupの値なし初期ウィンドウは「部分復元」で作られない**:
+  macOSのウィンドウ復元で補助ウィンドウ(設定画面)だけが復元されると、
+  WindowGroupが初期ウィンドウを生成しない(実機で起動時にシェルフ
+  ウィンドウ0枚になる現象を確認)。両シーンに
+  `.restorationBehavior(.disabled)`+WindowGroupに
+  `.defaultLaunchBehavior(.presented)`を付けて自前復元に一本化した。
+  ※WindowGroup自身にも復元が効くと、自前オープンとmacOS復元が
+  二重オープンすることがあった(実測で3窓)
+- マウス座標変換(mouseGridPoint/overlayGridPoint)は`keyWindow`ではなく
+  `windowBox.window`(そのビューのウィンドウ)を使う。複数窓で
+  非keyウィンドウへのドラッグが狂うため。WindowConfiguratorの
+  `onWindowReady`/`onBecameKey`コールバックで取得
+- **フォーカス中シェルフの追跡**: WindowConfiguratorのdidBecomeKey通知で
+  `ShelfManager.focusedStore`を更新。設定画面(SettingsView)はこれを編集する
+  (=「設定はフォーカスしているウィンドウで有効」)
+- **タイトルバー下のセパレータ線は`.windowStyle(.hiddenTitleBar)`で消す**
+  (macOS 26実測): styleMaskに.fullSizeContentViewを挿入しても
+  contentLayoutRectがタイトルバー帯を含まず(contentLayout={{0,0},{W,H-32}})、
+  帯はシステム描画でその下端に線が残る。titlebarSeparatorStyle=.noneでも
+  消えない。hiddenTitleBarなら帯自体が消え、マージンと信号ボタン表示も保たれる
+- 設定画面は`Window(id:"settings")`シーン。`Settings`シーン(Cmd+,)は廃止。
+  開き方: レコード以外(余白・空きスロット)の右クリックメニュー→「Settings…」。
+  メニューにはNew Shelf/Delete Shelf…もある(最後の1枚は削除不可)
+- PlaybackMonitorのポーリングは参照カウント式(全シェルフで共有。
+  .onAppearで+1、.onDisappearで-1、0で停止)
+- シェルフ間ドラッグ: ペーストボードに`ShelfDragPayload`
+  (sourceShelfID+MediaEntryのJSON)を載せる。ドロップ先でdecodeし、
+  同じシェルフなら並び替え(move)、別シェルフならtransferDrop
+  (registerFetchedで挿入→成功後に元シェルフからremove。先に消すと
+  失敗時にレコードが消える)。重複/満杯はfalseで拒否=元に残る。
+  元ウィンドウのゴースト/draggedIDは、終了検知モニタがentriesから
+  消えたことを見てhide(滑り戻し不要)で片付く
+- **透明ガラス領域は合成クリックが素通りする**(実測): NSGlassEffectView
+  だけの余白/空きスロットへのCGEvent右クリックは背面アプリに届くことが
+  ある。検証時は不透明なレコード画像か、ウィンドウをAXRaiseしてから
+  打つこと。実ユーザー操作では問題なくメニューが出る(実機確認済み)
+- コンテキストメニュー内の項目選択は合成イベントでは不安定。
+  メニューが開いた状態で矢印キー+returnのCGEventなら選択できた
+  (「設定…」→設定画面オープンを実機確認)
 - iTunes Search/Lookup APIは認証不要だがプレイリスト非対応。プレイリストの検証は
   MusicKitカタログAPI(`MusicCatalogResourceRequest<Playlist>(matching: \.id, equalTo: ...)`)
   で行う。カタログ読み取りにユーザー認可は不要
@@ -133,8 +186,13 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
 
 ## データ
 
-- 登録データ: `~/Library/Application Support/Records/albums.json`
+- シェルフ一覧: `~/Library/Application Support/Records/shelves.json`
+  (シェルフIDの配列。先頭がプライマリ="main")
+- 各シェルフの登録データ/表示設定:
+  `~/Library/Application Support/Records/Shelves/<shelfID>/{albums,settings}.json`
+  (旧レイアウトのルートalbums.json/settings.jsonは起動時にShelves/main/へ自動移行)
 - アートワーク: `~/Library/Application Support/Records/Artwork/<id>.jpg`
+  (全シェルフで共有。削除時は他シェルフの使用有無をShelfManager.isEntryUsedElsewhereで判定)
 - アプリは非サンドボックスでこのディレクトリを使う
 
 ## 構成
