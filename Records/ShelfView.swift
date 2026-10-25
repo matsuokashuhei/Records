@@ -76,12 +76,18 @@ struct ShelfView: View {
     /// ドロップ後の着地飛行をしているゴーストの対象エントリ。
     /// このIDのセルはゴーストが消えるまで非表示
     @State private var ghostEntryID: String?
-    /// ゴーストの描画・移動を司るNSViewオーバーレイ。
+    /// ゴースト(自前ドラッグ画像)を司る枠なしパネル。
+    /// ウィンドウ内のNSViewオーバーレイだとポインタがウィンドウ外へ
+    /// 出た瞬間にクリップされてレコードが消えるため、透明な別
+    /// ウィンドウ(GhostPanel)で画面座標のまま描く(Musicアプリと同様)
     /// ※SwiftUIの@Stateで位置を持つとドラッグ中の毎イベントでbodyが再評価
     ///   され、走行中セッション配下のonDrag/dropDestinationクロージャが
     ///   破棄されてEXC_BAD_ACCESSになる(2026-10-24実機クラッシュ)。
-    ///   そのため位置は命令的にNSViewへ流し、SwiftUIの状態に持たせない
-    @StateObject private var ghost = GhostController()
+    ///   そのため位置は命令的にパネルへ流し、SwiftUIの状態に持たせない。
+    ///   ドラッグセッションは同時に1つなのでアプリ全体で共有し、
+    ///   シェルフ間ドロップ時はドロップ先が所有権を引き継いで
+    ///   シェルフ内ドロップと同じ着地アニメーションを実行する
+    private let ghost = GhostController.shared
 
     init(shelfID: Binding<String?>) {
         self.shelfIDBinding = shelfID
@@ -307,11 +313,6 @@ struct ShelfView: View {
                 }
             }
         }
-        .overlay {
-            // ゴースト描画用の透明NSView(グリッド座標=このビューの座標)
-            GhostOverlayRep(controller: ghost)
-                .allowsHitTesting(false)
-        }
         .padding(EdgeInsets(
             top: Self.topPadding,
             leading: Self.edgePadding,
@@ -321,7 +322,7 @@ struct ShelfView: View {
         // クランプ時だけScrollViewで包み、フレームを画面内に収める。
         // グリッド座標系(スロット矩形・ゴースト位置)はコンテンツ基準のまま
         // 変わらない。マウス位置→グリッド座標の変換だけ
-        // mouseGridPoint内でスクロールオフセットを足して補正する。
+        // overlayGridPoint内でスクロールオフセットを足して補正する。
         return Group {
             if clamped {
                 ScrollView([.horizontal, .vertical]) { grid }
@@ -582,9 +583,17 @@ struct ShelfView: View {
             return false
         }
         ShelfManager.shared.store(for: payload.sourceShelfID).remove(entry.id)
-        // 元ウィンドウ側のドラッグ状態(draggedID/ゴースト)は、そちらの
-        // 終了検知モニタがentriesから消えたことを見て片付ける
         dropTargetSlotID = nil
+        // 着地もシェルフ内ドロップと同じ動作にする: 共有ゴーストの
+        // 所有権をこのシェルフへ引き継ぎ、挿入スロットまで飛ばしてから
+        // 実セル(ghostEntryIDで隠してある)と交代する。
+        // 元ウィンドウ側のドラッグ状態(draggedID)は、そちらの
+        // 終了検知モニタがentriesから消えたことを見て片付ける
+        if let index = store.entries.firstIndex(where: { $0.id == entry.id }) {
+            ghost.takeOver(owner: shelfID)
+            ghostEntryID = entry.id
+            flyGhost(toIndex: index)
+        }
         return true
     }
 
@@ -592,7 +601,7 @@ struct ShelfView: View {
     /// オーバーレイはpadding込みのフレーム全体を覆うので、左上
     /// (edgePadding, topPadding)分を引く。グリッドが画面収まりに
     /// クランプされてScrollView内にある場合は、見えている矩形の
-    /// 原点(スクロール量)を足して補正する(mouseGridPointと同じ考え方)
+    /// 原点(スクロール量)を足して補正する(slotScreenCenterと同じ考え方)
     private func overlayGridPoint(_ p: CGPoint) -> CGPoint {
         // 複数ウィンドウがあるのでkeyWindowではなくこのビューのウィンドウ
         // のスクロールビューを探す(非keyウィンドウへのドラッグでも正しくなる)
@@ -705,9 +714,8 @@ struct ShelfView: View {
         // ポインタ追従ポーリング開始(commonモードでドラッグ中の
         // イベントトラッキング中も発火する)
         let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { _ in
-            if let p = self.mouseGridPoint() {
-                self.ghost.move(to: p)
-            }
+            // ゴーストは別ウィンドウなので画面座標のまま追従させる
+            self.ghost.move(to: NSEvent.mouseLocation)
         }
         RunLoop.main.add(timer, forMode: .common)
         self.trackTimer = timer
@@ -724,9 +732,19 @@ struct ShelfView: View {
                 Self.logger.debug("ghost skipped: session already ended")
                 return
             }
+            // ロード中に別シェルフへのドロップが成立していたら、ゴーストの
+            // 所有権はドロップ先にある。ここでshowするとownerを取り戻して
+            // 着地フライと追従が衝突するので出さない
+            guard self.ghost.owner == nil || self.ghost.owner == self.shelfID else {
+                Self.logger.debug("ghost skipped: ownership taken over")
+                return
+            }
             self.ghostEntryID = entry.id
             let cell = self.store.settings.artworkSize.points
-            self.ghost.show(image, at: self.mouseGridPoint() ?? .zero, cell: cell)
+            self.ghost.show(
+                image, at: NSEvent.mouseLocation, cell: cell,
+                parent: self.windowBox.window, owner: self.shelfID
+            )
         }
     }
 
@@ -771,7 +789,12 @@ struct ShelfView: View {
                             self.flyGhost(toIndex: index)
                         } else {
                             Self.logger.notice("drag ended: '\(cancelledID, privacy: .public)' moved to another shelf")
-                            self.ghost.hide()
+                            // ゴーストの所有権がドロップ先へ移っていれば、
+                            // 着地アニメーションと後片付けは向こうが行う
+                            // (ここで消すと移動先への飛行が途中で切れる)
+                            if self.ghost.owner == self.shelfID {
+                                self.ghost.hide()
+                            }
                             self.ghostEntryID = nil
                         }
                     }
@@ -799,41 +822,45 @@ struct ShelfView: View {
     /// (それまでghostEntryIDで隠れている)
     private func flyGhost(toIndex: Int) {
         self.stopTracking()
-        let rect = self.slotRect(index: toIndex)
         let flyingID = self.ghostEntryID
+        // スロット中心の画面座標へ飛ばす。変換できなければ今の位置に留める
+        let target = self.slotScreenCenter(index: toIndex) ?? NSEvent.mouseLocation
         Self.logger.notice("ghost fly to index=\(toIndex, privacy: .public)")
-        self.ghost.fly(to: CGPoint(x: rect.midX, y: rect.midY)) {
+        self.ghost.fly(to: target) {
             if self.ghostEntryID == flyingID {
-                self.ghost.hide()
+                // 飛行中に所有権が別シェルフへ移っていたら、このhideは
+                // ドロップ先の着地フライを途中で切ってしまうのでしない
+                if self.ghost.owner == self.shelfID {
+                    self.ghost.hide()
+                } else {
+                    Self.logger.debug("ghost hide skipped: ownership taken over by '\(self.ghost.owner ?? "?", privacy: .public)'")
+                }
                 self.ghostEntryID = nil
             }
         }
     }
 
-    /// 現在のマウス位置をグリッド座標系(グリッド左上=0,0)に変換。
-    /// タイトルバー帯の高さはcontentLayoutRectとframeの差から出す
-    /// (content.convertの座標変換はfullSizeContentView構成でYが狂う
-    ///  ためframe基準で自分で計算する — 2026-10-24実測)。
-    /// ウィンドウが画面収まりにクランプされてグリッドがScrollView内に
-    /// ある場合は、見えている矩形の原点(スクロール量)を足して補正する。
-    private func mouseGridPoint() -> CGPoint? {
-        // 複数ウィンドウがあるのでkeyWindowでなくこのビューのウィンドウを使う
-        // (アタッチ前の早期呼び出しだけkeyWindowにフォールバック)
-        guard let window = windowBox.window ?? NSApp.keyWindow else {
-            return nil
-        }
-        let inWindow = window.convertPoint(fromScreen: NSEvent.mouseLocation)
+    /// index番スロットの中心の画面座標(ゴーストパネルの飛行先用)。
+    /// overlayGridPointの逆変換: グリッド座標(左上原点)→ウィンドウ座標
+    /// (左下原点)→画面座標。タイトルバー帯の高さはcontentLayoutRectと
+    /// frameの差から出す(content.convertの座標変換は
+    /// fullSizeContentView構成でYが狂うためframe基準で自分で計算する
+    ///  — 2026-10-24実測)。
+    /// グリッドがScrollView内にある場合はスクロール量を引いて補正する。
+    private func slotScreenCenter(index: Int) -> CGPoint? {
+        guard let window = windowBox.window else { return nil }
+        let rect = slotRect(index: index)
         let titlebarHeight = window.frame.height - window.contentLayoutRect.height
         // ScrollViewはグリッドが画面より大きいときだけ存在する。
         // SwiftUIのスクロールコンテンツはflippedなので、
         // documentVisibleRect.originが左上基準のスクロール量になる。
         let scrollOffset = Self.findScrollView(in: window.contentView)?
             .documentVisibleRect.origin ?? .zero
-        return CGPoint(
-            x: inWindow.x - Self.edgePadding + scrollOffset.x,
-            y: window.frame.height - inWindow.y - titlebarHeight - Self.topPadding
-                + scrollOffset.y
-        )
+        return window.convertPoint(toScreen: CGPoint(
+            x: rect.midX + Self.edgePadding - scrollOffset.x,
+            y: window.frame.height - titlebarHeight - Self.topPadding
+                - rect.midY + scrollOffset.y
+        ))
     }
 
     /// ビュー階層から最初のNSScrollViewを探す(グリッド用ScrollViewは
@@ -885,50 +912,93 @@ private final class WindowBox: ObservableObject {
     weak var window: NSWindow?
 }
 
-/// ゴースト(自前ドラッグ画像)の制御窓口。NSViewを弱参照し、
+/// ゴースト(自前ドラッグ画像)の制御窓口。GhostPanelを保持し、
 /// 表示/移動/着地アニメーションを命令的に実行する。
-/// @StateObjectにすることでShelfView再評価でも同一インスタンスが保たれる
-private final class GhostController: ObservableObject {
-    weak var view: GhostOverlayView?
+/// ドラッグセッションは同時に1つなのでアプリ全体で1個を共有する。
+/// シェルフ間ドロップでは、ドロップ先のShelfViewがtakeOverで所有権を
+/// 引き継ぎ、自分の着地スロットまで飛ばしてからhideする(=シェルフ内
+/// ドロップと同じ手順。元シェルフ側はownerで所有権を判定し、
+/// 移譲済みならゴーストに触らない)
+private final class GhostController {
+    static let shared = GhostController()
 
-    func show(_ image: NSImage, at center: CGPoint, cell: CGFloat) {
-        view?.show(image, at: center, cell: cell)
+    private let panel = GhostPanel()
+    /// ゴーストを今管理しているシェルフID(着地/後片付けの担当者)
+    private(set) var owner: String?
+    /// ポインタ追従を受け付けるか。falseの間はmove()を無視する。
+    /// シェルフ間ドロップ後も元シェルフの追従タイマーはモニタが
+    /// 止めるまで数十ms動き続けるので、所有権移譲と同時に切る
+    /// (切らないと着地フライ中にポインタ位置へ引き戻されてガタつく)
+    private var trackingEnabled = false
+
+    /// パネルをparentの子ウィンドウにして表示する。
+    /// 子ウィンドウにしておくと元ウィンドウが閉じた/隠れたときに
+    /// ゴーストも一緒に消える
+    func show(_ image: NSImage, at screenPoint: CGPoint, cell: CGFloat, parent: NSWindow?, owner: String) {
+        self.owner = owner
+        self.trackingEnabled = true
+        if let parent, panel.parent !== parent {
+            panel.parent?.removeChildWindow(panel)
+            parent.addChildWindow(panel, ordered: .above)
+        }
+        panel.show(image, at: screenPoint, cell: cell)
     }
 
-    /// ポインタ追従(アニメーションなし、即時)
-    func move(to center: CGPoint) {
-        view?.moveImage(center: center)
+    /// ドロップ先シェルフへの所有権移譲。以降のfly/hideはそちらが行う。
+    /// パネルは元ウィンドウの子のままだが、画面座標で動くので
+    /// どのウィンドウ上でも飛ばせる
+    func takeOver(owner: String) {
+        self.owner = owner
+        self.trackingEnabled = false
     }
 
-    func fly(to center: CGPoint, completion: @escaping () -> Void) {
-        guard let view else {
+    /// ポインタ追従(アニメーションなし、即時)。screenPointは画面座標
+    func move(to screenPoint: CGPoint) {
+        guard trackingEnabled else { return }
+        panel.moveImage(center: screenPoint)
+    }
+
+    func fly(to screenPoint: CGPoint, completion: @escaping () -> Void) {
+        guard panel.isVisible else {
             completion()
             return
         }
-        view.flyImage(to: center, completion: completion)
+        panel.flyImage(to: screenPoint, completion: completion)
     }
 
     func hide() {
-        view?.hideImage()
+        owner = nil
+        trackingEnabled = false
+        panel.hideImage()
     }
 }
 
-/// グリッド上にジャケット画像を表示するオーバーレイNSView。
-/// isFlippedで左上原点にし、グリッド座標系をそのまま使えるようにする
-private final class GhostOverlayView: NSView {
+/// ドラッグ中のジャケットを表示する枠なし透明パネル。
+/// ウィンドウ内のオーバーレイViewだとウィンドウ外でクリップされて
+/// レコードが消えるため、画面座標で自由に動ける別ウィンドウにする。
+/// ignoresMouseEventsなのでドラッグセッションやクリックの邪魔をしない
+private final class GhostPanel: NSPanel {
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
-    /// シャドウ担当(クリップしない)。移動はこのビューのframeで行う
+    /// シャドウ担当(クリップしない)
     private let container = NSView()
     /// 画像担当(角丸4ptでクリップ。セルのジャケットと形を揃える)
     private let imageView = NSImageView()
     private var cellSize: CGFloat = 0
 
-    override var isFlipped: Bool { true }
-    override var acceptsFirstResponder: Bool { false }
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
+    init() {
+        super.init(
+            contentRect: .zero,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        isOpaque = false
+        backgroundColor = .clear
+        // 影はcontainerのレイヤで引く(ウィンドウの影だと透明部分にも出る)
+        hasShadow = false
+        ignoresMouseEvents = true
+        // ドラッグ画像相当の高さで常に最前面に出す
+        level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.draggingWindow)))
         container.wantsLayer = true
         container.layer?.shadowColor = NSColor.black.cgColor
         container.layer?.shadowOpacity = 0.25
@@ -939,63 +1009,47 @@ private final class GhostOverlayView: NSView {
         imageView.layer?.cornerRadius = 4
         imageView.layer?.masksToBounds = true
         container.addSubview(imageView)
-        container.isHidden = true
-        addSubview(container)
+        contentView = container
     }
 
-    required init?(coder: NSCoder) { fatalError() }
+    /// 画面座標centerを中心とするパネルのframe
+    private func frame(centeredAt center: CGPoint) -> CGRect {
+        CGRect(
+            x: center.x - cellSize / 2, y: center.y - cellSize / 2,
+            width: cellSize, height: cellSize
+        )
+    }
 
-    func show(_ image: NSImage, at center: CGPoint, cell: CGFloat) {
+    func show(_ image: NSImage, at screenPoint: CGPoint, cell: CGFloat) {
         cellSize = cell
         imageView.image = image
         imageView.frame = CGRect(origin: .zero, size: CGSize(width: cell, height: cell))
-        container.frame = CGRect(
-            x: center.x - cell / 2, y: center.y - cell / 2,
-            width: cell, height: cell
-        )
-        container.isHidden = false
-        Self.logger.notice("ghost shown at frame=\(NSStringFromRect(self.container.frame), privacy: .public)")
+        setFrame(frame(centeredAt: screenPoint), display: false)
+        orderFront(nil)
+        Self.logger.notice("ghost shown at frame=\(NSStringFromRect(self.frame), privacy: .public)")
     }
 
     /// ポインタ追従移動(アニメーションなし、即時)
     func moveImage(center: CGPoint) {
-        guard !container.isHidden else { return }
-        container.setFrameOrigin(
-            CGPoint(x: center.x - cellSize / 2, y: center.y - cellSize / 2)
-        )
+        guard isVisible else { return }
+        setFrameOrigin(frame(centeredAt: center).origin)
     }
 
     /// 指定位置まで0.25s easeOutで飛ばし、完了したらcompletionを呼ぶ
     func flyImage(to center: CGPoint, completion: @escaping () -> Void) {
-        Self.logger.notice("ghost flyImage: frame before=\(NSStringFromRect(self.container.frame), privacy: .public) target origin=(\(center.x - self.cellSize / 2, privacy: .public), \(center.y - self.cellSize / 2, privacy: .public))")
+        Self.logger.notice("ghost flyImage: frame before=\(NSStringFromRect(self.frame), privacy: .public) target=\(NSStringFromRect(self.frame(centeredAt: center)), privacy: .public)")
         NSAnimationContext.runAnimationGroup({ context in
             context.duration = 0.25
             context.timingFunction = CAMediaTimingFunction(name: .easeOut)
             context.allowsImplicitAnimation = true
-            container.animator().setFrameOrigin(
-                CGPoint(x: center.x - cellSize / 2, y: center.y - cellSize / 2)
-            )
+            self.animator().setFrameOrigin(self.frame(centeredAt: center).origin)
         }, completionHandler: completion)
     }
 
     func hideImage() {
-        container.isHidden = true
+        orderOut(nil)
         imageView.image = nil
     }
-}
-
-/// GhostOverlayViewをSwiftUIに載せるための薄いラッパ。
-/// 更新することは何も無い(すべて命令的に操作される)
-private struct GhostOverlayRep: NSViewRepresentable {
-    let controller: GhostController
-
-    func makeNSView(context: Context) -> GhostOverlayView {
-        let view = GhostOverlayView()
-        controller.view = view
-        return view
-    }
-
-    func updateNSView(_ nsView: GhostOverlayView, context: Context) {}
 }
 
 /// 外部アプリからのURLドラッグを受け取る透明NSViewオーバーレイ。

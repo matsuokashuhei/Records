@@ -82,14 +82,35 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   (左=直前、右=直後に挿入、空きスロットは末尾移動)。
   半透明表示(dropTargetOpacity)はisTargeted && willMove(実際に順番が変わる半分)のみ。
   `ShelfStore.move(_:toIndex:)` がalbums.jsonを更新。
-  ドラッグ表示は自前ゴースト(GhostOverlayView=NSViewオーバーレイ)に
-  一本化。`.onDrag(preview:)`に透明1pxを渡してシステムのドラッグ画像を
+  ドラッグ表示は自前ゴースト(GhostPanel=枠なし透明パネル)に一本化。
+  **ウィンドウ内のNSViewオーバーレイだとポインタがウィンドウ外へ
+  出た瞬間にクリップされてレコードが消える**ため、画面座標で自由に
+  動ける別ウィンドウにする(Musicアプリと同様 — 2026-10-25)。
+  `.onDrag(preview:)`に透明1pxを渡してシステムのドラッグ画像を
   無効化してある(可視のままだとドロップ時に元位置へ滑り戻る
   スライドバックが走り二重表示になる — 2026-10-24実測)。
+  - GhostPanel: styleMask=[.borderless,.nonactivatingPanel]、
+    ignoresMouseEvents、level=CGWindowLevelForKey(.draggingWindow)。
+    元ウィンドウの子ウィンドウにする(親が閉じたら一緒に消える)。
+    座標はすべて画面座標(overlayGridPoint等のグリッド座標変換は不要。
+    飛行先だけslotScreenCenterでスロット中心→画面座標に逆変換する)
+  - ゴーストはアプリ全体で1個(GhostController.shared)。
+    シェルフ間ドロップ時はドロップ先がtakeOverで所有権を引き継ぎ、
+    自分の着地スロットへ飛ばしてから実セル(ghostEntryIDで隠す)と
+    交代する(=シェルフ内ドロップと同じ手順。即表示+ゴースト残存で
+    レコードが2個に見えるのを防ぐ — 2026-10-25)。
+    takeOverはポインタ追従(trackingEnabled)も切る — 元シェルフの
+    追従タイマーはモニタ停止まで動き続け、着地フライを上書きして
+    ガタつかせるため。元シェルフは終了検知でghost.ownerを見て、
+    移譲済みならhideしない
+  - 所有権のガードは他に2箇所: startDragのアートワークロード完了時
+    (ロード中にドロップ成立していたらshowしない)と、flyGhostの
+    completion(飛行中にtakeOverされていたらhideしない)。どちらも
+    `ghost.owner == nil || == shelfID`で判定する
   - ドラッグ元セルはdraggedID/ghostEntryIDの間はopacity 0で非表示
   - 追従: leftMouseDraggedはドラッグセッションに吸収されてモニタに
     届かないので、60fpsタイマーでNSEvent.mouseLocationをポーリング
-    (.commonモード登録)。ゴーストはNSViewを命令的に動かす
+    (.commonモード登録)。パネルのframeを命令的に動かす
     ※@Stateで位置を持って毎イベントbody再評価すると、走行中セッション
       配下のクロージャが破棄されEXC_BAD_ACCESSで繰り返しクラッシュした。
       ドラッグ中の高頻度なSwiftUI状態更新は禁止(2026-10-24実機)
@@ -137,7 +158,7 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   `.defaultLaunchBehavior(.presented)`を付けて自前復元に一本化した。
   ※WindowGroup自身にも復元が効くと、自前オープンとmacOS復元が
   二重オープンすることがあった(実測で3窓)
-- マウス座標変換(mouseGridPoint/overlayGridPoint)は`keyWindow`ではなく
+- マウス座標変換(overlayGridPoint/slotScreenCenter)は`keyWindow`ではなく
   `windowBox.window`(そのビューのウィンドウ)を使う。複数窓で
   非keyウィンドウへのドラッグが狂うため。WindowConfiguratorの
   `onWindowReady`/`onBecameKey`コールバックで取得
