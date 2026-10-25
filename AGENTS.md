@@ -127,11 +127,21 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
     pressedMouseButtonsポーリングも3本指/タップドラッグでは検知不能。
     isTargetedはセッション終了時にフレームワークが必ずfalseを送るので
     状態の手動掃除が要らない構造にした(2026-10-24)
+- 外部ドラッグ(Music等)の画像は **`setDraggingFrame` では大きさを変えられない**
+  (2026-10-25実機): `enumerateDraggingItems` のブロック内で指定すると frame の値は
+  書き換わり読み戻しも一致するが、**描画は元画像の約128pt角のまま**
+  (指定233pt→描画約122pt、指定432pt→約128pt)。`contents` の差し替えだけは反映される。
+  +17pt の固定差補正も ×2 の倍率補正も無効。そのため外部ドラッグのモーフィングは
+  「システム画像を `contents=nil` で隠し、GhostPanel(ウィンドウ内ドラッグと同じ)で
+  描く」方式にしてある(ShelfView.swift の ExternalDropOverlayView)
 - エージェントの動作確認手段: `screencapture -R x,y,w,h` で画面撮影→readで視認、
   CGEvent(`mouseEventSource` で rightMouseDown/Up をpost)で右クリック合成、
   System Eventsでウィンドウ位置取得 — すべて動作確認済み(2026-10-24)
   ※開いたNSMenu内の項目選択は合成クリックでは拾えなかった。
    メニューが出ること+項目アクションは別々に検証するのが現実的
+  ※2026-10-25実測: 画面収録を許可しても `screencapture -R` は
+   "could not create image from rect" で失敗することがある。全画面 `screencapture -x`
+   は成功するので、実寸計測は全画面を撮って任意ツールでクロップ/差分する
 - Apple Events / `shortcuts run` CLI は **GUIアプリプロセスからspawnすると
   ショートカット名解決に失敗する**(ターミナルからは成功するのに)。URLスキーム経由なら問題ない
 - `SystemSettings → プライバシーとセキュリティ → オートメーション → Records → Shortcuts Events`
