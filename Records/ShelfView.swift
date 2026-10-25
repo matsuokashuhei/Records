@@ -264,12 +264,18 @@ struct ShelfView: View {
         // 1つしか有効にならず、外部URLドラッグは余白もカバーする
         // ExternalDropOverlayViewが受け取るためここでは不要
         .dropDestination(for: String.self) { items, location in
-            guard self.draggedID == nil else {
+            guard let text = items.first else { return false }
+            // セルゾーンと同じ判定: 内部ドラッグ(draggedIDが残っていて
+            // droppedIDがentriesにある)が余白に落ちたら拒否。
+            // stale draggedID中に来た外部テキストは追加経路へ流す
+            let isInternal = self.draggedID != nil
+                && store.entries.contains { $0.id == text }
+            guard !isInternal else {
                 Self.logger.notice("margin drop rejected: internal drag to non-cell area")
                 return false
             }
-            Self.logger.notice("grid margin text dropped: '\(items.first ?? "", privacy: .public)' location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
-            return self.addDroppedText(items.first, atIndex: .max)
+            Self.logger.notice("grid margin text dropped: '\(text, privacy: .public)' location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
+            return self.addDroppedText(text, atIndex: .max)
         }
         // クランプ状態の遷移時だけログ(body評価のたびに出るのを防ぐ)
         .onAppear {
@@ -477,9 +483,20 @@ struct ShelfView: View {
         }
         Self.logger.notice("prefetch start id=\(parsed.id, privacy: .public)")
         prefetchedEntries[parsed.id] = Task {
-            let entry = try await MediaCatalogClient.fetch(parsed)
-            _ = try await ShelfStore.downloadArtwork(for: entry)
-            return entry
+            do {
+                let entry = try await MediaCatalogClient.fetch(parsed)
+                _ = try await ShelfStore.downloadArtwork(for: entry)
+                return entry
+            } catch {
+                // 失敗したTaskをdictに残すと、次のドラッグでprefetchが
+                // スキップされドロップ時に古いエラーが消費される。
+                // 自分で除いておけば次回は新規fetchに戻る
+                Self.logger.notice("prefetch failed id=\(parsed.id, privacy: .public): \(error.localizedDescription, privacy: .public)")
+                await MainActor.run {
+                    prefetchedEntries.removeValue(forKey: parsed.id)
+                }
+                throw error
+            }
         }
     }
 
