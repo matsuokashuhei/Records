@@ -126,11 +126,54 @@ final class ShelfStore: ObservableObject {
         entries.contains { $0.id == id }
     }
 
-    func add(_ entry: MediaEntry) -> Bool {
-        guard entries.count < capacity, !contains(entry.id) else { return false }
-        entries.append(entry)
+    /// 追加パイプラインの結果。設定画面のフォームとシェルフへの
+    /// ドラッグ&ドロップの両方がこれで成否を分岐する
+    enum AddOutcome {
+        case added(MediaEntry)
+        case duplicate
+        case full
+    }
+
+    /// parse済みのURL/IDから カタログ取得→アートワーク取得→登録 までを
+    /// まとめて行う。重複はfetch前に弾いて無駄なカタログアクセスを避ける。
+    /// insertAtを渡すと末尾ではなくその位置に挿入する(ドロップ位置への
+    /// 直接挿入。append→moveだと末尾に一瞬出てから滑るのが見えるため)
+    func addFromCatalog(_ parsed: MediaURLParser.Parsed, insertAt index: Int? = nil) async throws -> AddOutcome {
+        guard !contains(parsed.id) else {
+            Self.logger.notice("addFromCatalog: duplicate id=\(parsed.id, privacy: .public)")
+            return .duplicate
+        }
+        // 満杯もfetch前に弾く(失敗するとfetch+アートワークDLが無駄になり、
+        // 登録されない孤立jpgがArtwork/に残る)
+        guard entries.count < capacity else {
+            Self.logger.notice("addFromCatalog: shelf full capacity=\(self.capacity, privacy: .public) id=\(parsed.id, privacy: .public)")
+            return .full
+        }
+        let entry = try await MediaCatalogClient.fetch(parsed)
+        Self.logger.notice("addFromCatalog: fetched '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
+        _ = try await Self.downloadArtwork(for: entry)
+        return registerFetched(entry, insertAt: index)
+    }
+
+    /// 取得済みエントリの最終登録(重複/満杯の再判定→挿入→保存)。
+    /// ドロップのプリフェッチ経路など、fetch済みのentryを直接登録する
+    /// ときに使う。indexは挿入位置(nil/範囲外=末尾)。
+    /// fetch待ちの間に同じIDが追加されたり満杯になったりする場合が
+    /// あるので、ここで必ず再判定する。
+    func registerFetched(_ entry: MediaEntry, insertAt index: Int? = nil) -> AddOutcome {
+        guard !contains(entry.id) else {
+            Self.logger.notice("registerFetched: duplicate id=\(entry.id, privacy: .public)")
+            return .duplicate
+        }
+        guard entries.count < capacity else {
+            Self.logger.notice("registerFetched: shelf full capacity=\(self.capacity, privacy: .public) id=\(entry.id, privacy: .public)")
+            return .full
+        }
+        let i = min(max(index ?? entries.count, 0), entries.count)
+        entries.insert(entry, at: i)
         save()
-        return true
+        Self.logger.notice("registerFetched: added '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public) at=\(i, privacy: .public)")
+        return .added(entry)
     }
 
     /// ドラッグ&ドロップの並び替え。rawIndexは除去前の並びでの挿入位置

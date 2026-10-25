@@ -163,20 +163,18 @@ struct SettingsView: View {
                     throw MediaCatalogClient.CatalogError.invalidInput
                 }
                 Self.logger.notice("add: parsed kind=\(parsed.kind.rawValue, privacy: .public) id=\(parsed.id, privacy: .public)")
-                if store.contains(parsed.id) {
-                    statusIsError = true
-                    statusMessage = "この\(parsed.kind == .album ? "アルバム" : "プレイリスト")はすでに登録されています。"
-                    return
-                }
-                let entry = try await MediaCatalogClient.fetch(parsed)
-                Self.logger.notice("add: fetched title=\(entry.title, privacy: .public)")
-                _ = try await ShelfStore.downloadArtwork(for: entry)
-                Self.logger.notice("add: artwork downloaded")
-                if store.add(entry) {
+                // 追加パイプライン(重複チェック→fetch→アートワーク→add)は
+                // シェルフへのドロップと共通のstore.addFromCatalogを使う
+                switch try await store.addFromCatalog(parsed) {
+                case .added(let entry):
+                    Self.logger.notice("add: added '\(entry.title, privacy: .public)'")
                     statusIsError = false
                     statusMessage = "追加しました: \(entry.title) — \(entry.artist)"
                     input = ""
-                } else {
+                case .duplicate:
+                    statusIsError = true
+                    statusMessage = "この\(parsed.kind == .album ? "アルバム" : "プレイリスト")はすでに登録されています。"
+                case .full:
                     statusIsError = true
                     statusMessage = "登録できるのは\(store.capacity)枚までです。"
                 }

@@ -19,6 +19,24 @@ struct ShelfView: View {
     @ObservedObject private var store = ShelfStore.shared
     /// 削除確認ダイアログに出している対象。非nilの間ダイアログを表示する。
     @State private var pendingDelete: MediaEntry?
+    /// ドロップ追加の失敗(重複/満杯/取得エラー)をアラートで出すための
+    /// メッセージ。非nilの間ダイアログを表示する。
+    @State private var addError: String?
+    /// 追加Task実行中のエントリID。URL+テキストの両方を供する外部ドラッグで
+    /// URLゾーンとStringゾーンが両方performされた場合の二重追加
+    /// (.addedと.duplicateアラートの同時発生)を防ぐために使う
+    @State private var inFlightAddIDs: Set<String> = []
+    /// ドロップ追加がfetch待ちの間、挿入先として半透明にしておくスロット。
+    /// 着地アニメーションを止めたので、これがないとドロップからカタログ
+    /// 取得完了までの約0.5秒、何も表示されない空白時間になる
+    @State private var pendingAddSlotID: String?
+    /// 外部ドラッグがシェルフに入った時点で先回り開始したfetch+
+    /// アートワーク取得のTask(entry.id→Task)。ドロップ時はこれを
+    /// 消費してinsertだけ済ませるので待ち時間がほぼ消える。
+    /// ドロップされないまま離れた場合は無駄な取得になるが、
+    /// メタデータだけなので害はない。結果Taskはdictに残し、
+    /// 同じアルバムの再ドラッグでも再利用する
+    @State private var prefetchedEntries: [String: Task<MediaEntry, Error>] = [:]
     /// ドロップで実際に順番が変わる位置にカーソルが乗っているスロット
     /// (半透明表示用。ドロップゾーンのisTargetedがセット/クリアする)
     @State private var dropTargetSlotID: String?
@@ -64,6 +82,19 @@ struct ShelfView: View {
                 Button("Cancel", role: .cancel) {
                     Self.logger.notice("delete cancelled for '\(entry.title, privacy: .public)'")
                 }
+            }
+        // 外部ドラッグで追加できなかった理由(重複/満杯/取得失敗)を通知する。
+        // 成功時はグリッドにレコードが出るだけなのでアラートは出さない。
+            .alert(
+                "追加できませんでした",
+                isPresented: Binding(
+                    get: { addError != nil },
+                    set: { if !$0 { addError = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(addError ?? "")
             }
         // 再生状態はAlbumSlotViewが個別にmonitorを監視するので、ここでは監視せず
         // 開始/停止だけ行う(画面全体の2秒おき再描画を避ける)
@@ -157,13 +188,15 @@ struct ShelfView: View {
                     }
                 }
                 .frame(width: cell, height: cell)
-                // ドロップで順番が変わる位置にドラッグが乗っている間だけ半透明。
+                // ドロップで順番が変わる/外部追加される位置にカーソルが乗って
+                // いる間と、追加fetch待ちの間だけ半透明。
                 // ドラッグ元/ゴースト表示中のセルは飛んでいる画像と
                 // 重複するので表示しない(即時切替)
                 .opacity(
                     (draggedID == slot.id || ghostEntryID == slot.id)
                     ? 0
-                    : (dropTargetSlotID == slot.id ? Self.dropTargetOpacity : 1)
+                    : (dropTargetSlotID == slot.id || pendingAddSlotID == slot.id
+                       ? Self.dropTargetOpacity : 1)
                 )
                 .animation(.easeInOut(duration: 0.12), value: dropTargetSlotID)
                 .background {
@@ -208,6 +241,36 @@ struct ShelfView: View {
             }
         }
         .frame(width: frameW, height: frameH)
+        // 外部URLドラッグ専用の透明オーバーレイ(NSDraggingDestination)。
+        // .dropDestinationでは止められない着地アニメーション
+        // (animatesToDestination)をこちらで止めるため、public.urlを
+        // 持つ外部ドラッグはこのビューが先に受け取る。hitTest=nilで
+        // クリックはセルへ素通し。余白含むフレーム全体をカバーする。
+        // 内部ドラッグはplain-textのみなのでこのオーバーレイは候補外。
+        .overlay {
+            ExternalDropOverlayRep(
+                onEntered: { self.externalDragEntered(url: $0) },
+                onHover: { self.externalDragMoved(to: $0) },
+                onLeave: { self.externalDragEnded() },
+                onDrop: { url, p in self.externalDrop(url, at: p) }
+            )
+            .allowsHitTesting(false)
+        }
+        // セルの外(グリッド余白)へのドロップの受け口。スロット上の
+        // ドロップゾーンが先に拾うので、ここに来るのは余白ドロップのみ。
+        // 余白=末尾挿入(atIndex: Int.max)。内部ドラッグが余白に落ちた
+        // 場合はfalseを返してキャンセル扱いにする。
+        // URL用は付けない: 同一ビューへの.dropDestination積みは先の
+        // 1つしか有効にならず、外部URLドラッグは余白もカバーする
+        // ExternalDropOverlayViewが受け取るためここでは不要
+        .dropDestination(for: String.self) { items, location in
+            guard self.draggedID == nil else {
+                Self.logger.notice("margin drop rejected: internal drag to non-cell area")
+                return false
+            }
+            Self.logger.notice("grid margin text dropped: '\(items.first ?? "", privacy: .public)' location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
+            return self.addDroppedText(items.first, atIndex: .max)
+        }
         // クランプ状態の遷移時だけログ(body評価のたびに出るのを防ぐ)
         .onAppear {
             if clamped {
@@ -256,10 +319,27 @@ struct ShelfView: View {
     /// 乗っている間だけ。isTargetedはドラッグ終了時にフレームワークが
     /// 必ずfalseで呼ぶので、ハイライトが残ることはない。
     private func dropZone(slot: Slot, after: Bool) -> some View {
-        Color.clear
+        let insertIndex = slot.index + (after ? 1 : 0)
+        return Color.clear
             .contentShape(Rectangle())
+            // ドロップ先はString用1つのみ。同一ビューに複数の
+            // .dropDestinationを積むと最初に適用したものしか有効に
+            // ならない(2026-10-25実機: URL用を先に置いたらString用が
+            // 死んで並び替えが壊れた)。外部URLドラッグは最前面の
+            // ExternalDropOverlayViewが吸い、オーバーレイを抜けたURLも
+            // plain-textフレーバ経由でこのゾーンに届くので問題ない
             .dropDestination(for: String.self) { items, location in
-                guard draggedID != nil, let droppedID = items.first else { return false }
+                guard let droppedID = items.first else { return false }
+                // 内部ドラッグでない、またはdroppedIDがentriesに無い場合は
+                // 外部テキストのドロップ。後者はキャンセル直後にdraggedIDが
+                // 残ったまま外部テキストが落ちたケースで、move失敗ログだけ
+                // 出して受理表示になるのを防ぐため追加経路へフォールスルーする
+                let isInternal = self.draggedID != nil
+                    && store.entries.contains { $0.id == droppedID }
+                guard isInternal else {
+                    Self.logger.notice("external text dropped: '\(droppedID, privacy: .public)' slot=\(slot.index, privacy: .public) after=\(after, privacy: .public) location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
+                    return self.addDroppedText(droppedID, atIndex: insertIndex, slotID: slot.id)
+                }
                 Self.logger.notice("record dropped: dragged=\(droppedID, privacy: .public) slot=\(slot.index, privacy: .public) target='\(slot.entry?.title ?? "", privacy: .public)' after=\(after, privacy: .public) location=(\(location.x, privacy: .public), \(location.y, privacy: .public)) zoneRect=\(NSStringFromRect(self.slotRect(index: slot.index)), privacy: .public)")
                 // ドロップ成立=セッション終了。モニタより先にここで戻す
                 self.draggedID = nil
@@ -276,12 +356,168 @@ struct ShelfView: View {
             } isTargeted: { targeted in
                 let movable = self.willMove(slot: slot, after: after)
                 Self.logger.debug("isTargeted slot=\(slot.index, privacy: .public) after=\(after, privacy: .public) targeted=\(targeted, privacy: .public) willMove=\(movable, privacy: .public)")
-                if targeted, self.draggedID != nil, movable {
+                // 内部ドラッグ中は実際に順番が変わる半分だけ、
+                // 外部テキストのドラッグ中はどちらの半分でも半透明にする
+                if targeted, (self.draggedID != nil ? movable : true) {
                     dropTargetSlotID = slot.id
                 } else if dropTargetSlotID == slot.id {
                     dropTargetSlotID = nil
                 }
             }
+    }
+
+    /// 外部からドロップされたテキスト/URLをシェルフへ追加する。
+    /// MediaURLParserで解釈できるものだけ受け付け(true=ドロップ成立)。
+    /// 追加自体は非同期なのでここではTaskを起こすだけにし、
+    /// 重複/満杯/エラーはアラート(addError)で後から通知する。
+    /// slotIDを渡すとfetch待ちの間そのスロットを半透明に保つ
+    /// (ドロップ→レコード出現の繋ぎ。余白ドロップはnilで呼ぶ)
+    private func addDroppedText(_ text: String?, atIndex: Int, slotID: String? = nil) -> Bool {
+        guard let text, let parsed = MediaURLParser.parse(text) else {
+            Self.logger.notice("drop add: parse failed for '\(text ?? "nil", privacy: .public)'")
+            return false
+        }
+        Self.logger.notice("drop add: parsed kind=\(parsed.kind.rawValue, privacy: .public) id=\(parsed.id, privacy: .public) insertIndex=\(atIndex, privacy: .public)")
+        // URL+テキストの両方を供するドラッグでURLゾーンとStringゾーンが
+        // 両方performされた場合、同じidの追加Taskが2つ走る。後発は
+        // スキップする(.addedと.duplicateアラートが同時に出るのを防ぐ)。
+        // ドロップ自体は受理してよいのでtrueを返す
+        guard !inFlightAddIDs.contains(parsed.id) else {
+            Self.logger.notice("drop add: add already in-flight for id=\(parsed.id, privacy: .public), skipping")
+            return true
+        }
+        inFlightAddIDs.insert(parsed.id)
+        dropTargetSlotID = nil
+        // fetch完了までドロップ位置のスロットを半透明のまま待たせる
+        // (ハイライトを消すと0.5秒ほど何も無い空白に見える)
+        pendingAddSlotID = slotID
+        Task { @MainActor in
+            defer {
+                inFlightAddIDs.remove(parsed.id)
+                pendingAddSlotID = nil
+            }
+            do {
+                let outcome: ShelfStore.AddOutcome
+                if let prefetch = prefetchedEntries.removeValue(forKey: parsed.id) {
+                    // ドラッグイン時に先回りしておいたfetchを消費する
+                    // (完了済みなら即返るので待ち時間はほぼゼロ)
+                    Self.logger.notice("drop add: using prefetched entry id=\(parsed.id, privacy: .public)")
+                    outcome = store.registerFetched(try await prefetch.value, insertAt: atIndex)
+                } else {
+                    outcome = try await store.addFromCatalog(parsed, insertAt: atIndex)
+                }
+                switch outcome {
+                case .added(let entry):
+                    Self.logger.notice("drop add: added '\(entry.title, privacy: .public)' at index=\(atIndex, privacy: .public)")
+                case .duplicate:
+                    Self.logger.notice("drop add: duplicate id=\(parsed.id, privacy: .public)")
+                    addError = "この\(parsed.kind == .album ? "アルバム" : "プレイリスト")はすでに登録されています。"
+                case .full:
+                    Self.logger.notice("drop add: shelf full capacity=\(self.store.capacity, privacy: .public)")
+                    addError = "登録できるのは\(store.capacity)枚までです。"
+                }
+            } catch {
+                Self.logger.error("drop add failed: \(error.localizedDescription, privacy: .public)")
+                addError = error.localizedDescription
+            }
+        }
+        return true
+    }
+
+    /// ExternalDropOverlayViewのローカル座標→グリッド座標。
+    /// オーバーレイはpadding込みのフレーム全体を覆うので、左上
+    /// (edgePadding, topPadding)分を引く。グリッドが画面収まりに
+    /// クランプされてScrollView内にある場合は、見えている矩形の
+    /// 原点(スクロール量)を足して補正する(mouseGridPointと同じ考え方)
+    private func overlayGridPoint(_ p: CGPoint) -> CGPoint {
+        let window = NSApp.keyWindow ?? NSApp.windows.first
+        let scrollOffset = Self.findScrollView(in: window?.contentView)?
+            .documentVisibleRect.origin ?? .zero
+        return CGPoint(
+            x: p.x - Self.edgePadding + scrollOffset.x,
+            y: p.y - Self.topPadding + scrollOffset.y
+        )
+    }
+
+    /// グリッド座標から挿入位置(対象スロットのindexと直後フラグ)を出す。
+    /// セル間のギャップやグリッド範囲外はnil(呼び出し側では末尾扱い)。
+    /// セル内の左半分=直前、右半分=直後(セル背面のドロップゾーンと同じ規則)
+    private func slotInsertion(atGridPoint g: CGPoint) -> (index: Int, after: Bool)? {
+        let settings = store.settings
+        let cell = settings.artworkSize.points
+        let stepX = cell + Self.columnSpacing
+        let stepY = cell + Self.rowSpacing
+        guard g.x >= 0, g.y >= 0 else { return nil }
+        let column = Int(g.x / stepX)
+        let row = Int(g.y / stepY)
+        guard column < settings.columns, row < settings.rows else { return nil }
+        let intraX = g.x - CGFloat(column) * stepX
+        let intraY = g.y - CGFloat(row) * stepY
+        // セル間スペーシング上は挿入位置を一意に決められないので対象外
+        guard intraX < cell, intraY < cell else { return nil }
+        return (row * settings.columns + column, intraX >= cell / 2)
+    }
+
+    /// オーバーレイへのドラッグ進入通知。ペーストボードのURLを
+    /// parseできたらカタログ取得を先回りして開始し、ドロップ位置を
+    /// 選んでいる間にfetchを終わらせる(ドロップ時の待ち時間を消す)。
+    /// 登録済み・prefetch済みのidは起動しない
+    private func externalDragEntered(url: URL?) {
+        guard let url, let parsed = MediaURLParser.parse(url.absoluteString) else {
+            Self.logger.notice("external drag entered: no parseable URL, prefetch skipped")
+            return
+        }
+        guard !store.contains(parsed.id) else {
+            Self.logger.notice("prefetch skipped: already registered id=\(parsed.id, privacy: .public)")
+            return
+        }
+        guard prefetchedEntries[parsed.id] == nil else {
+            Self.logger.debug("prefetch skipped: already in-flight/done id=\(parsed.id, privacy: .public)")
+            return
+        }
+        Self.logger.notice("prefetch start id=\(parsed.id, privacy: .public)")
+        prefetchedEntries[parsed.id] = Task {
+            let entry = try await MediaCatalogClient.fetch(parsed)
+            _ = try await ShelfStore.downloadArtwork(for: entry)
+            return entry
+        }
+    }
+
+    /// オーバーレイ上のホバー通知。ポインタ下のスロットを挿入位置として
+    /// 半透明にする(dropTargetSlotIDは既存機構をそのまま利用)。
+    /// 高頻度で呼ばれるのでログはスロットが変わったときだけ出す
+    private func externalDragMoved(to p: CGPoint) {
+        let g = overlayGridPoint(p)
+        var slotID: String?
+        if let (index, _) = slotInsertion(atGridPoint: g) {
+            // indexは列・行の範囲チェック済みなので必ずcapacity未満
+            slotID = store.paddedSlots()[index]?.id ?? "empty-\(index)"
+        }
+        if slotID != dropTargetSlotID {
+            Self.logger.debug("external drag hover: grid=(\(g.x, privacy: .public), \(g.y, privacy: .public)) slot=\(slotID ?? "none", privacy: .public)")
+            dropTargetSlotID = slotID
+        }
+    }
+
+    /// オーバーレイのドラッグ終了/離脱通知。挿入位置ハイライトを戻す
+    private func externalDragEnded() {
+        dropTargetSlotID = nil
+    }
+
+    /// オーバーレイへのドロップ。セル上ならその前後、グリッド外
+    /// (余白)なら末尾に挿入する
+    private func externalDrop(_ url: URL, at p: CGPoint) -> Bool {
+        let g = overlayGridPoint(p)
+        var insertIndex = Int.max
+        var slotID: String?
+        if let (index, after) = slotInsertion(atGridPoint: g) {
+            insertIndex = index + (after ? 1 : 0)
+            // fetch待ちの間このスロットを半透明にしておくためのID
+            slotID = store.paddedSlots()[index]?.id ?? "empty-\(index)"
+        }
+        Self.logger.notice("external overlay drop handled: url=\(url.absoluteString, privacy: .public) grid=(\(g.x, privacy: .public), \(g.y, privacy: .public)) insertIndex=\(insertIndex, privacy: .public) slot=\(slotID ?? "margin", privacy: .public)")
+        dropTargetSlotID = nil
+        return addDroppedText(url.absoluteString, atIndex: insertIndex, slotID: slotID)
     }
 
     /// ドラッグ開始。ドラッグ元を記録し、ポインタ追従ゴーストと
@@ -568,6 +804,135 @@ private struct GhostOverlayRep: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: GhostOverlayView, context: Context) {}
+}
+
+/// 外部アプリからのURLドラッグを受け取る透明NSViewオーバーレイ。
+/// SwiftUIの.dropDestinationでは、ドロップ受理時にmacOSが走らせる
+/// ドラッグ画像の着地アニメーション(animatesToDestination)を
+/// 無効化できず、ソースアプリの画像がドロップ先の隅へ滑って見える。
+/// そのため public.url だけを登録するNSDraggingDestinationをグリッド
+/// 全体に被せてこちらで受け取り、アニメーションを止める。
+/// hitTestは常にnilを返すので通常のクリック/ホバーは下のセルへ素通し
+/// されるが、DnDの送り先解決はヒットテストではなくframe登録ベースの
+/// ためドロップは届く(GhostOverlayViewと同じ構造)。
+/// public.urlのみ登録してあるので、public.plain-textだけを積む
+/// アプリ内並び替えドラッグはこのオーバーレイの送り先候補にならない。
+private final class ExternalDropOverlayView: NSView {
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
+    /// draggingEnteredで呼ぶ(引数はペーストボードから抽出したURL。
+    /// 取れなければnil)。ドロップ前にカタログ取得を先回りするために使う
+    var onEntered: ((URL?) -> Void)?
+    /// draggingEntered/Updatedで呼ぶ(引数はビューローカル座標・左上原点)
+    var onHover: ((CGPoint) -> Void)?
+    /// draggingExited/concludeDragOperation/draggingEndedで呼ぶ
+    var onLeave: (() -> Void)?
+    /// performDragOperationで呼ぶ。戻り値がそのまま受理可否になる
+    var onDrop: ((URL, CGPoint) -> Bool)?
+
+    override var isFlipped: Bool { true }
+    // ドロップ解決はframe登録ベースなのでnilを返してもDnDは届く。
+    // 通常のマウスイベントだけ下のセルへ通すためのもの
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        registerForDraggedTypes([.URL])
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+
+    /// draggingLocation(ウィンドウ座標・左下原点)をビューローカルへ。
+    /// isFlippedなので変換後はグリッドと同じ左上原点になる
+    private func localPoint(_ info: NSDraggingInfo) -> CGPoint {
+        convert(info.draggingLocation, from: nil)
+    }
+
+    /// ソースが提示する演算のうち受け付けられるものを返す。空なら拒否
+    private func offeredOperation(_ info: NSDraggingInfo) -> NSDragOperation {
+        let ops = info.draggingSourceOperationMask.intersection([.copy, .link, .generic])
+        return ops.isEmpty ? [] : ops
+    }
+
+    /// ペーストボードからURLを取り出す。readObjectsで取れない形式が
+    /// ある場合に備えて、文字列表現からの解釈も試す
+    private func extractURL(from info: NSDraggingInfo) -> URL? {
+        let pb = info.draggingPasteboard
+        if let url = pb.readObjects(forClasses: [NSURL.self], options: nil)?
+            .compactMap({ $0 as? URL }).first {
+            return url
+        }
+        if let text = pb.string(forType: .string) {
+            return URL(string: text)
+        }
+        return nil
+    }
+
+    override func draggingEntered(_ info: NSDraggingInfo) -> NSDragOperation {
+        // Musicアプリ等が実際に何を供給するかの調査も兼ねて毎回記録する
+        let types = info.draggingPasteboard.types?.map(\.rawValue).joined(separator: ", ") ?? "none"
+        Self.logger.notice("external drag entered: types=\(types, privacy: .public)")
+        onEntered?(extractURL(from: info))
+        onHover?(localPoint(info))
+        return offeredOperation(info)
+    }
+
+    override func draggingUpdated(_ info: NSDraggingInfo) -> NSDragOperation {
+        onHover?(localPoint(info))
+        return offeredOperation(info)
+    }
+
+    override func draggingExited(_ sender: NSDraggingInfo?) {
+        onLeave?()
+    }
+
+    override func performDragOperation(_ info: NSDraggingInfo) -> Bool {
+        // ドロップ先へ画像が滑る着地アニメーションを止める
+        // (これが有効だとドロップしたレコード画像が左下へ流れて見える)
+        info.animatesToDestination = false
+        let p = localPoint(info)
+        guard let url = extractURL(from: info) else {
+            Self.logger.notice("external overlay drop: no URL in pasteboard point=(\(p.x, privacy: .public), \(p.y, privacy: .public))")
+            return false
+        }
+        Self.logger.notice("external overlay drop: url=\(url.absoluteString, privacy: .public) point=(\(p.x, privacy: .public), \(p.y, privacy: .public))")
+        return onDrop?(url, p) ?? false
+    }
+
+    override func concludeDragOperation(_ sender: NSDraggingInfo?) {
+        onLeave?()
+    }
+
+    // performがfalseやキャンセルでもハイライトが残らないよう念のため
+    override func draggingEnded(_ sender: NSDraggingInfo) {
+        onLeave?()
+    }
+}
+
+/// ExternalDropOverlayViewをSwiftUIに載せるための薄いラッパ。
+/// コールバックはmake/updateの両方で流し込む(再評価で最新の
+/// クロージャに差し替える)
+private struct ExternalDropOverlayRep: NSViewRepresentable {
+    var onEntered: (URL?) -> Void
+    var onHover: (CGPoint) -> Void
+    var onLeave: () -> Void
+    var onDrop: (URL, CGPoint) -> Bool
+
+    func makeNSView(context: Context) -> ExternalDropOverlayView {
+        let view = ExternalDropOverlayView()
+        view.onEntered = onEntered
+        view.onHover = onHover
+        view.onLeave = onLeave
+        view.onDrop = onDrop
+        return view
+    }
+
+    func updateNSView(_ nsView: ExternalDropOverlayView, context: Context) {
+        nsView.onEntered = onEntered
+        nsView.onHover = onHover
+        nsView.onLeave = onLeave
+        nsView.onDrop = onDrop
+    }
 }
 
 /// シェルフの1枚分。ホバーで再生/停止アイコンを表示する。
