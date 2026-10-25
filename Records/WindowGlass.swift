@@ -43,6 +43,9 @@ struct WindowConfigurator: NSViewRepresentable {
     /// 信号ボタン(タイトルバー)を表示するか。呼び出し側が
     /// 「アクティブ かつ 直近にマウスが動いた」を計算して渡す
     var showTrafficLights: Bool = true
+    /// ウィンドウのサイズが変わったとき呼ぶ。リサイズ中につかんでいる
+    /// 辺がカーソルの位置に残るよう原点を補正するために使う
+    var onWindowResized: ((NSWindow) -> Void)?
 
     /// makeNSView時点ではview.windowがnilのことがあるため、
     /// viewDidMoveToWindowでwindow確定後にconfigureする。
@@ -52,6 +55,7 @@ struct WindowConfigurator: NSViewRepresentable {
         var onBecameKey: (() -> Void)?
         var onActiveChanged: ((Bool) -> Void)?
         var showTrafficLights = true
+        var onWindowResized: ((NSWindow) -> Void)?
         /// 信号ボタンの背面に敷くLiquid Glassのカプセル(ウィンドウごと)
         private var trafficLightGlass: NSGlassEffectView?
         /// 信号ボタンの位置を書き換えた回数(再適用が収束しているかの確認用)
@@ -154,6 +158,16 @@ struct WindowConfigurator: NSViewRepresentable {
                     self?.refreshChrome()
                 }
             )
+            // リサイズでコンテンツ(=ウィンドウ)サイズが変わったとき、
+            // つかんでいる辺がカーソルの位置に残るよう原点を補正する
+            observers.append(
+                NotificationCenter.default.addObserver(
+                    forName: NSWindow.didResizeNotification, object: window, queue: .main
+                ) { [weak self] notification in
+                    guard let window = notification.object as? NSWindow else { return }
+                    self?.onWindowResized?(window)
+                }
+            )
             // 「フォーカス中のシェルフ」の追跡。アタッチ時にすでに
             // keyなら即通知する(ウィンドウは通常keyになってから
             // コンテンツが載る順だが、順序に依存しないため)
@@ -183,6 +197,7 @@ struct WindowConfigurator: NSViewRepresentable {
         view.onBecameKey = onBecameKey
         view.onActiveChanged = onActiveChanged
         view.showTrafficLights = showTrafficLights
+        view.onWindowResized = onWindowResized
         return view
     }
 
@@ -192,6 +207,7 @@ struct WindowConfigurator: NSViewRepresentable {
             view.onBecameKey = onBecameKey
             view.onActiveChanged = onActiveChanged
             view.showTrafficLights = showTrafficLights
+            view.onWindowResized = onWindowResized
             // フルスクリーン出入り等でAppKitがタイトルバークロームを再構築すると
             // isHiddenが巻き戻ることがあるため、更新のたびに冪等に再適用する
             view.refreshChrome()

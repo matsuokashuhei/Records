@@ -40,6 +40,10 @@ struct ShelfView: View {
     /// 重複ウィンドウと判定され、アタッチ次第自分を閉じるフラグ
     /// (onAppear時点ではwindowBox.windowがまだ無い場合があるため)
     @State private var isDuplicateWindow = false
+    /// ウィンドウの辺/角をドラッグしてリサイズしている間の状態。
+    /// 開始フレームはドラッグ中に変わらないため、毎イベントで@Stateを
+    /// 発火させないよう参照の箱に入れて持つ
+    @State private var resizeBox = ResizeSessionBox()
     /// ドロップ追加の失敗(重複/満杯/取得エラー)をアラートで出すための
     /// メッセージ。非nilの間ダイアログを表示する。
     @State private var addError: String?
@@ -308,6 +312,235 @@ struct ShelfView: View {
         let entry: MediaEntry?
     }
 
+    // MARK: - ウィンドウのリサイズ(辺/角のドラッグ)
+
+    /// リサイズのつかみ位置。ウィンドウはcontentSize固定(ウィンドウ=
+    /// グリッドのサイズ)なので、ドラッグ量から目標サイズを出し、
+    /// それに収まる列数・行数へ設定を変えるとウィンドウも追従する。
+    /// 四隅は斜め(幅と高さの両方)、右辺/下辺は片方だけを動かす
+    private enum ResizeEdge: String {
+        case topLeading
+        case topTrailing
+        case bottomLeading
+        case bottomTrailing
+        case right
+        case bottom
+
+        var changesWidth: Bool { self != .bottom }
+        var changesHeight: Bool { self != .right }
+        /// 左辺をつかんでいるか(幅は左辺基準で増減する)
+        var grabsLeftEdge: Bool { self == .topLeading || self == .bottomLeading }
+        /// 上辺をつかんでいるか(高さは上辺基準で増減する)
+        var grabsTopEdge: Bool { self == .topLeading || self == .topTrailing }
+    }
+
+    /// 1回のリサイズドラッグの状態。開始時のウィンドウframeとマウスの
+    /// 画面座標を覚えておき、毎イベントの差分から目標サイズを計算する。
+    /// 画面座標で測るのは、角をつかんだときにウィンドウの原点が動いても
+    /// 値が飛ばないようにするため。
+    /// (SwiftUIの状態更新を起こさないよう、参照の箱に入れて持つ)
+    private struct ResizeSession {
+        let id = UUID()
+        let edge: ResizeEdge
+        let startFrame: CGRect
+        let startMouse: CGPoint
+        /// 直近のマウス位置。ドラッグ終了後に届く最後のサイズ変更を
+        /// 位置補正するときも、離した瞬間の位置を使う
+        var lastMouse: CGPoint
+    }
+
+    private final class ResizeSessionBox {
+        var session: ResizeSession?
+    }
+
+    /// ウィンドウサイズに収まる列数・行数を計算する。レコードの一辺(cell)
+    /// は固定で、余白とセル間隔を引いた長さに何列/何行入るかだけを求める。
+    /// 縮小は「1/2マス以上縮めたとき」だけ減らす(1pt縮めただけで1マス
+    /// 減ってウィンドウが大きく飛ぶのを防ぐ)。拡大は1マス分必要
+    private static func layoutCounts(
+        forWindowSize size: CGSize,
+        cell: CGFloat,
+        currentColumns: Int,
+        currentRows: Int
+    ) -> (columns: Int, rows: Int) {
+        func fit(
+            _ length: CGFloat,
+            inset: CGFloat,
+            spacing: CGFloat,
+            current: Int
+        ) -> Int {
+            let step = cell + spacing
+            let usable = length - inset
+            let raw = usable >= cell ? Int((usable + spacing) / step) : 1
+            let clamped = min(ShelfSettings.maxDimension, max(1, raw))
+            guard clamped < current else { return clamped }
+            // 現在のマス数ちょうどのサイズから半分未満しか縮んでいないなら
+            // 減らさない(縮小の判定を1/2マスに設定)
+            let naturalCurrent = CGFloat(current) * step - spacing + inset
+            return length <= naturalCurrent - step / 2 ? clamped : current
+        }
+        return (
+            columns: fit(
+                size.width,
+                inset: edgePadding * 2,
+                spacing: columnSpacing,
+                current: currentColumns
+            ),
+            rows: fit(
+                size.height,
+                inset: topPadding + edgePadding,
+                spacing: rowSpacing,
+                current: currentRows
+            )
+        )
+    }
+
+    /// 辺/角の透明なリサイズハンドル。ジャケットに重ならないよう
+    /// グリッドの余白(8pt)の中に置く
+    private func resizeHandle(_ edge: ResizeEdge) -> some View {
+        Color.clear
+            .contentShape(Rectangle())
+            // 四隅はウィンドウの原点も動くため、translationではなく
+            // マウスの画面座標(NSEvent.mouseLocation)の差分で目標サイズを出す
+            .gesture(
+                DragGesture(minimumDistance: 1)
+                    .onChanged { _ in
+                        self.resizeDragChanged(edge)
+                    }
+                    .onEnded { _ in
+                        self.resizeDragEnded(edge)
+                    }
+            )
+            .onHover { inside in
+                // ドラッグ中は矢印に戻さない(ハンドルからポインタが
+                // 出ても、リサイズ中であることが分かるようにする)
+                guard self.resizeBox.session == nil else { return }
+                if inside {
+                    Self.cursor(for: edge).set()
+                } else {
+                    NSCursor.arrow.set()
+                }
+            }
+    }
+
+    private static func cursor(for edge: ResizeEdge) -> NSCursor {
+        let position: NSCursor.FrameResizePosition
+        switch edge {
+        case .topLeading: position = .topLeft
+        case .topTrailing: position = .topRight
+        case .bottomLeading: position = .bottomLeft
+        case .bottomTrailing: position = .bottomRight
+        case .right: position = .right
+        case .bottom: position = .bottom
+        }
+        return NSCursor.frameResize(position: position, directions: .all)
+    }
+
+    private func resizeDragChanged(_ edge: ResizeEdge) {
+        guard let window = windowBox.window else { return }
+        let mouse = NSEvent.mouseLocation
+        let settings = store.settings
+        if resizeBox.session == nil {
+            resizeBox.session = ResizeSession(
+                edge: edge,
+                startFrame: window.frame,
+                startMouse: mouse,
+                lastMouse: mouse
+            )
+            Self.logger.notice("window resize drag start: edge=\(edge.rawValue, privacy: .public) shelf=\(self.shelfID, privacy: .public) frame=\(NSStringFromRect(window.frame), privacy: .public) grid=\(settings.columns, privacy: .public)x\(settings.rows, privacy: .public) cell=\(settings.artworkSize.points, privacy: .public)")
+        }
+        guard let session = resizeBox.session, session.edge == edge else { return }
+        resizeBox.session?.lastMouse = mouse
+
+        // 画面座標の差分(右上が+y)。下辺/左辺は符号が逆になる
+        let dx = mouse.x - session.startMouse.x
+        let dy = mouse.y - session.startMouse.y
+        var target = session.startFrame.size
+        if edge.changesWidth {
+            target.width += edge.grabsLeftEdge ? -dx : dx
+        }
+        if edge.changesHeight {
+            target.height += edge.grabsTopEdge ? dy : -dy
+        }
+        let counts = Self.layoutCounts(
+            forWindowSize: target,
+            cell: settings.artworkSize.points,
+            currentColumns: settings.columns,
+            currentRows: settings.rows
+        )
+        guard counts.columns != settings.columns || counts.rows != settings.rows else { return }
+
+        Self.logger.notice("window resize: edge=\(edge.rawValue, privacy: .public) shelf=\(self.shelfID, privacy: .public) \(settings.columns, privacy: .public)x\(settings.rows, privacy: .public)→\(counts.columns, privacy: .public)x\(counts.rows, privacy: .public) target=\(Int(target.width), privacy: .public)x\(Int(target.height), privacy: .public)")
+        let newSettings = ShelfSettings(
+            columns: counts.columns,
+            rows: counts.rows,
+            artworkSize: settings.artworkSize
+        )
+        store.updateSettings(newSettings)
+        // 枚数が減って再生中プレイリストが非表示になったら停止する
+        // (非表示スロットには停止UIが無い)
+        if newSettings.capacity < settings.capacity {
+            PlaybackMonitor.shared.stopIfActiveEntryHidden()
+        }
+    }
+
+    private func resizeDragEnded(_ edge: ResizeEdge) {
+        guard let session = resizeBox.session, session.edge == edge else { return }
+        let id = session.id
+        let mouse = NSEvent.mouseLocation
+        resizeBox.session?.lastMouse = mouse
+        var target = session.startFrame.size
+        if edge.changesWidth {
+            target.width += edge.grabsLeftEdge
+                ? -(mouse.x - session.startMouse.x)
+                : (mouse.x - session.startMouse.x)
+        }
+        if edge.changesHeight {
+            target.height += edge.grabsTopEdge
+                ? (mouse.y - session.startMouse.y)
+                : -(mouse.y - session.startMouse.y)
+        }
+        Self.logger.notice("window resize drag end: edge=\(edge.rawValue, privacy: .public) shelf=\(self.shelfID, privacy: .public) target=\(Int(target.width), privacy: .public)x\(Int(target.height), privacy: .public) grid=\(self.store.settings.columns, privacy: .public)x\(self.store.settings.rows, privacy: .public) frame=\(self.windowBox.window.map { NSStringFromRect($0.frame) } ?? "none", privacy: .public)")
+        NSCursor.arrow.set()
+        // SwiftUIのコンテンツサイズ反映はマウスアップ後に届くことがある。
+        // 最後のサイズ変更もつかんだ辺の位置へ合わせられるよう、セッションを
+        // 少しだけ残してから片付ける(次のドラッグが始まったら触らない)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            guard self.resizeBox.session?.id == id else { return }
+            self.resizeBox.session = nil
+        }
+    }
+
+    /// サイズ変更後、つかんでいる辺がマウスの位置に残るようウィンドウの
+    /// 原点を合わせる。幅/高さはグリッドにスナップするため、反対側の辺は
+    /// スナップ分だけ動く(つかんだ辺がカーソルから逃げないようにする)
+    private func pinWindow(_ window: NSWindow) {
+        guard let session = resizeBox.session else { return }
+        let dx = session.lastMouse.x - session.startMouse.x
+        let dy = session.lastMouse.y - session.startMouse.y
+        var frame = window.frame
+        let desiredX: CGFloat
+        if session.edge.changesWidth {
+            desiredX = session.edge.grabsLeftEdge
+                ? session.startFrame.minX + dx
+                : session.startFrame.maxX + dx - frame.width
+        } else {
+            desiredX = session.startFrame.minX
+        }
+        let desiredY: CGFloat
+        if session.edge.changesHeight {
+            desiredY = session.edge.grabsTopEdge
+                ? session.startFrame.maxY + dy - frame.height
+                : session.startFrame.minY + dy
+        } else {
+            desiredY = session.startFrame.maxY - frame.height
+        }
+        guard abs(frame.origin.x - desiredX) >= 0.5
+                || abs(frame.origin.y - desiredY) >= 0.5 else { return }
+        frame.origin = CGPoint(x: desiredX, y: desiredY)
+        window.setFrameOrigin(frame.origin)
+    }
+
     private var shelfGrid: some View {
         let settings = store.settings
         let cell = settings.artworkSize.points
@@ -441,6 +674,35 @@ struct ShelfView: View {
             )
             .allowsHitTesting(false)
         }
+        // ウィンドウのリサイズ。辺/角の余白(8pt)をつかんでドラッグすると、
+        // レコードの大きさは固定のまま列数・行数が変わる。ウィンドウは
+        // contentSize固定なので、設定の変更がそのままウィンドウサイズになる。
+        // 四隅は斜め(幅+高さ)、右辺/下辺は片方だけ。上辺の中央はウィンドウ
+        // 移動に使うため、角は角の判定を優先させる(辺より後に置く)
+        .overlay(alignment: .trailing) {
+            resizeHandle(.right)
+                .frame(width: Self.edgePadding)
+        }
+        .overlay(alignment: .bottom) {
+            resizeHandle(.bottom)
+                .frame(height: Self.edgePadding)
+        }
+        .overlay(alignment: .topLeading) {
+            resizeHandle(.topLeading)
+                .frame(width: Self.edgePadding * 2, height: Self.edgePadding * 2)
+        }
+        .overlay(alignment: .topTrailing) {
+            resizeHandle(.topTrailing)
+                .frame(width: Self.edgePadding * 2, height: Self.edgePadding * 2)
+        }
+        .overlay(alignment: .bottomLeading) {
+            resizeHandle(.bottomLeading)
+                .frame(width: Self.edgePadding * 2, height: Self.edgePadding * 2)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            resizeHandle(.bottomTrailing)
+                .frame(width: Self.edgePadding * 2, height: Self.edgePadding * 2)
+        }
         // セルの外(グリッド余白)へのドロップの受け口。スロット上の
         // ドロップゾーンが先に拾うので、ここに来るのは余白ドロップのみ。
         // 余白=末尾挿入(atIndex: Int.max)。内部ドラッグが余白に落ちた
@@ -491,7 +753,12 @@ struct ShelfView: View {
                     self.chrome.setActive(active)
                     Self.logger.notice("window active changed: \(active, privacy: .public) shelf=\(self.shelfID, privacy: .public)")
                 },
-                showTrafficLights: chrome.isVisible
+                showTrafficLights: chrome.isVisible,
+                // 四隅のリサイズでサイズが変わったら、つかんでいない側の
+                // 辺が動かないよう原点を戻す(左上固定のSwiftUIを補正)
+                onWindowResized: { window in
+                    self.pinWindow(window)
+                }
             )
         }
     }
