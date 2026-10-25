@@ -24,7 +24,7 @@ targets:
         PRODUCT_NAME: Records
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: Records
-        INFOPLIST_KEY_NSAppleMusicUsageDescription: Apple Musicのカタログからアルバムとプレイリストを取得し、再生するために使用します。
+        INFOPLIST_KEY_NSAppleMusicUsageDescription: Used to fetch albums and playlists from the Apple Music catalog and play them.
   RecordsTests:
     type: bundle.unit-test
     platform: macOS

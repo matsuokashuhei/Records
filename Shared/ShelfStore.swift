@@ -263,7 +263,7 @@ final class ShelfStore: ObservableObject {
         if FileManager.default.fileExists(atPath: destination.path) { return destination }
 
         guard !entry.artworkURL.isEmpty, let url = URL(string: entry.artworkURL) else {
-            throw PlaybackEngine.PlaybackError.failed("アートワークURLがありません")
+            throw PlaybackEngine.PlaybackError.failed(String(localized: "No artwork URL."))
         }
         let (data, _) = try await URLSession.shared.data(from: url)
         try data.write(to: destination, options: .atomic)

@@ -15,21 +15,32 @@ struct SettingsView: View {
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
 
     @ObservedObject private var store = ShelfStore.shared
+    /// 言語変更後の再起動促しアラート表示フラグ
+    @State private var showRestartAlert = false
+
+    /// 言語選択肢のタグ値。"system"はOS設定に従う(AppleLanguages未設定)
+    private static let languageCodes = ["en", "ja", "es", "zh-Hans", "ko", "fr", "de"]
 
     var body: some View {
         Form {
-            Section("表示") {
-                Picker("列数", selection: columnsSelection) {
-                    ForEach(1...ShelfSettings.maxDimension, id: \.self) { n in
-                        Text("\(n)列").tag(n)
+            Section("Display") {
+                Picker("Language", selection: languageSelection) {
+                    Text("System").tag("system")
+                    ForEach(Self.languageCodes, id: \.self) { code in
+                        Text(languageName(for: code)).tag(code)
                     }
                 }
-                Picker("行数", selection: rowsSelection) {
+                Picker("Columns", selection: columnsSelection) {
                     ForEach(1...ShelfSettings.maxDimension, id: \.self) { n in
-                        Text("\(n)行").tag(n)
+                        Text("\(n) columns").tag(n)
                     }
                 }
-                Picker("アートワークサイズ", selection: artworkSizeSelection) {
+                Picker("Rows", selection: rowsSelection) {
+                    ForEach(1...ShelfSettings.maxDimension, id: \.self) { n in
+                        Text("\(n) rows").tag(n)
+                    }
+                }
+                Picker("Artwork Size", selection: artworkSizeSelection) {
                     ForEach(ShelfSettings.ArtworkSize.allCases) { size in
                         Text(size.label).tag(size)
                     }
@@ -43,9 +54,47 @@ struct SettingsView: View {
         .onAppear {
             Self.logger.notice("settings window shown")
         }
+        .alert(
+            "Restart Required",
+            isPresented: $showRestartAlert
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("The new language will take effect after you restart Records.")
+        }
     }
 
     // MARK: - 表示設定
+
+    /// 言語名をその言語自体で表示する(autonym。英語なら"English")
+    private func languageName(for code: String) -> String {
+        Locale(identifier: code).localizedString(forLanguageCode: code) ?? code
+    }
+
+    /// AppleLanguagesに言語コードを書き込んでアプリの表示言語を切り替える。
+    /// "system"選択時はキーごと消してOS設定に戻す。反映は次回起動から。
+    private var languageSelection: Binding<String> {
+        Binding(
+            get: {
+                // standard.stringArrayはNSGlobalDomainまでフォールバックして
+                // OSの言語一覧を拾ってしまう(未設定なのにピッカーが空選択になる)。
+                // アプリ固有ドメインだけ読む
+                let domain = UserDefaults.standard.persistentDomain(
+                    forName: Bundle.main.bundleIdentifier ?? "com.cacheandbuffer.Records"
+                )
+                return (domain?["AppleLanguages"] as? [String])?.first ?? "system"
+            },
+            set: { newValue in
+                Self.logger.notice("settings: language picker changed to \(newValue, privacy: .public)")
+                if newValue == "system" {
+                    UserDefaults.standard.removeObject(forKey: "AppleLanguages")
+                } else {
+                    UserDefaults.standard.set([newValue], forKey: "AppleLanguages")
+                }
+                showRestartAlert = true
+            }
+        )
+    }
 
     private var columnsSelection: Binding<Int> {
         Binding(

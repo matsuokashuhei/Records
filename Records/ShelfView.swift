@@ -86,7 +86,7 @@ struct ShelfView: View {
         // 外部ドラッグで追加できなかった理由(重複/満杯/取得失敗)を通知する。
         // 成功時はグリッドにレコードが出るだけなのでアラートは出さない。
             .alert(
-                "追加できませんでした",
+                "Couldn't Add Record",
                 isPresented: Binding(
                     get: { addError != nil },
                     set: { if !$0 { addError = nil } }
@@ -417,10 +417,11 @@ struct ShelfView: View {
                     Self.logger.notice("drop add: added '\(entry.title, privacy: .public)' at index=\(atIndex, privacy: .public)")
                 case .duplicate:
                     Self.logger.notice("drop add: duplicate id=\(parsed.id, privacy: .public)")
-                    addError = "この\(parsed.kind == .album ? "アルバム" : "プレイリスト")はすでに登録されています。"
+                    let kindName = String(localized: parsed.kind == .album ? "album" : "playlist")
+                    addError = String(localized: "This \(kindName) is already on the shelf.")
                 case .full:
                     Self.logger.notice("drop add: shelf full capacity=\(self.store.capacity, privacy: .public)")
-                    addError = "登録できるのは\(store.capacity)枚までです。"
+                    addError = String(localized: "The shelf is full. You can add up to \(store.capacity) records.")
                 }
             } catch {
                 Self.logger.error("drop add failed: \(error.localizedDescription, privacy: .public)")

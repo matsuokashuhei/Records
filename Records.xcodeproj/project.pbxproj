@@ -18,9 +18,11 @@
 		96D11C978F9779DE1C59DBC3 /* PlaylistPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5326779F8829EBA05B501896 /* PlaylistPlayer.swift */; };
 		9D54F51755BC2B1C0CC040BE /* MediaCatalogClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */; };
 		A1DE54C7E330CE74F6E7E188 /* PlaybackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */; };
+		BB4FFD2FA58D9A500C8DE516 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FF979F49C4844488727111E7 /* InfoPlist.xcstrings */; };
 		BD77655F3C211E60D1C764F0 /* ShelfSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */; };
 		DE2065EC093BEE33CA9F3AD3 /* RecordsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */; };
 		F161C579BE4930784F54DF03 /* ShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D593FE3DA37740B77984F0 /* ShelfView.swift */; };
+		F9D1B2EDCE9D0B900030E688 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = BDB56EC137EBA234D33377C5 /* Localizable.xcstrings */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -34,11 +36,13 @@
 		54EF98EA96353F7782B148F9 /* ShelfStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfStore.swift; sourceTree = "<group>"; };
 		79AF5BE0A651670867B2A9B0 /* Records.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Records.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackEngine.swift; sourceTree = "<group>"; };
+		BDB56EC137EBA234D33377C5 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackMonitor.swift; sourceTree = "<group>"; };
 		D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaCatalogClient.swift; sourceTree = "<group>"; };
 		FA871A2E0C8D11E6A15AB79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		FAB464F15B4376012996DEAC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfSettings.swift; sourceTree = "<group>"; };
+		FF979F49C4844488727111E7 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -78,6 +82,8 @@
 			isa = PBXGroup;
 			children = (
 				FAB464F15B4376012996DEAC /* Assets.xcassets */,
+				FF979F49C4844488727111E7 /* InfoPlist.xcstrings */,
+				BDB56EC137EBA234D33377C5 /* Localizable.xcstrings */,
 				CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */,
 				43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */,
 				FA871A2E0C8D11E6A15AB79F /* SettingsView.swift */,
@@ -157,7 +163,13 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				Base,
+				de,
 				en,
+				es,
+				fr,
+				ja,
+				ko,
+				"zh-Hans",
 			);
 			mainGroup = 06CE9FCDE9BD0BC37ADD324B;
 			minimizedProjectReferenceProxies = 1;
@@ -178,6 +190,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				16991DD74B4D0200A03E101A /* Assets.xcassets in Resources */,
+				BB4FFD2FA58D9A500C8DE516 /* InfoPlist.xcstrings in Resources */,
+				F9D1B2EDCE9D0B900030E688 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -221,7 +235,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Records;
-				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Apple Musicのカタログからアルバムとプレイリストを取得し、再生するために使用します。";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Used to fetch albums and playlists from the Apple Music catalog and play them.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -398,7 +412,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Records;
-				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Apple Musicのカタログからアルバムとプレイリストを取得し、再生するために使用します。";
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Used to fetch albums and playlists from the Apple Music catalog and play them.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
