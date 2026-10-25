@@ -94,7 +94,7 @@ struct RecordsApp: App {
             }
         }
 
-        // 設定画面。シェルフの余白/空きスロットの右クリックメニューから開く
+        // 設定画面。シェルフ右上のツールバー(3点リーダー)→「Settings…」から開く
         // (SettingsシーンのCmd+,は廃止)。編集対象は最後にキーになった
         // シェルフのストア(ShelfManager.focusedStore)。
         Window("Settings", id: "settings") {

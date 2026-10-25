@@ -75,8 +75,10 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   (`ApplicationMusicPlayer.Queue(for: [playlist])`、PlaylistはPlayableMusicItem適合)
 - **macOSのMusicKitに `SystemMusicPlayer` は存在しない**(iOS専用。`@available(macOS, unavailable)`)
 - `music://` ディープリンクは再生せずページを開くだけ(3形式で実測)
-- レコード削除は右クリック。LazyVGridスロットの `.frame` 後ろに付けた
-  `.contextMenu` で「Delete Record」を出し、確認アラートで削除(実機確認済み)
+- レコード削除は右クリック。SwiftUIの`.contextMenu`はセルの`.onTapGesture`と
+  競合してレコード上で開かないため、`NSEvent.addLocalMonitorForEvents`で
+  右クリックを拾ってNSMenuを出す(下の「右上ツールバーと右クリックメニュー」参照)。
+  確認アラートを経て削除する(実機確認済み)
 - レコードの並び替えはドラッグ&ドロップ。`.onDrag`(開始時にdraggedID記録)
   + 各セル背面の左右半分に分けた `.dropDestination(for: String.self)` ゾーン
   (左=直前、右=直後に挿入、空きスロットは末尾移動)。
@@ -147,13 +149,86 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
 - `SystemSettings → プライバシーとセキュリティ → オートメーション → Records → Shortcuts Events`
   をONにしないと、アプリプロセスからのShortcuts Events照会が空リストを返す
 
+## ウィンドウの余白と信号ボタン(2026-10-25 実装・実機検証済み)
+
+- グリッドの余白は**四辺8pt**。コンテンツは `.ignoresSafeArea()` で
+  タイトルバー帯(32pt)の下=ウィンドウ上端まで広げ、信号ボタン
+  (閉じる/最小化)はMusicアプリのミニプレーヤーと同じく
+  1枚目のジャケットの上に重なる
+- **`.windowResizability(.contentSize)` はウィンドウサイズを
+  「ビューの理想サイズ+タイトルバー帯のセーフエリア32pt」で作る**ため、
+  そのままだとウィンドウだけ32pt高くなり下側に余白が残る(実測:
+  グリッド462ptに対しウィンドウ494pt)。ビュー側に `.padding(.bottom, -32)`
+  を足して理想サイズを32pt差し引くと、ウィンドウとグリッドの高さが一致する
+  (描画とヒットテストはグリッド側の実寸フレームが使われる)。
+  32ptは `window.frame.height - window.contentLayoutRect.height` で実測
+  (`WindowConfigurator.logMetrics` が titlebarInset としてログに出す)
+- タイトルバー帯のクリックはコンテンツに届く(themeFrame.hitTestで実測:
+  ジャケット上の帯でもSwiftUIのホスティングビューが返る)。信号ボタン上は
+  `_NSThemeCloseWidget` 等が返るのでボタンも押せる
+- コンテンツが上端まで来るとAppKitのタイトルバードラッグ領域が無くなるため、
+  上辺の8pt余白に `WindowDragGesture` を置いてウィンドウ移動を確保している
+- `slotScreenCenter` のグリッド→画面座標変換からタイトルバー帯の控除は不要
+  (グリッド上端=ウィンドウ上端)
+
+## 右上ツールバーと右クリックメニュー(2026-10-25)
+
+- シェルフ操作は**右上のカプセル型ツールバー**(Musicアプリのウィンドウ右上と
+  同じ「共有+3点リーダー」)に集約した。共有は表示のみ(実装は別途)、
+  3点リーダー(SwiftUIの`Menu`)で New Shelf / Settings… / Delete Shelf… を出す
+- **タイトルバー(信号ボタン)と右上ツールバーは自動で出し入れする**
+  (`ChromeVisibilityController`): ウィンドウがアクティブな状態で
+  マウスが動いたら表示、**3秒間動かない/ウィンドウが非アクティブ**なら非表示。
+  mouseMovedは毎フレーム届くので、隠しタイマーの張り直しは250msに間引く。
+  `window.acceptsMouseMovedEvents = true`が無いとmouseMovedが来ない
+  (WindowConfigurator.configureで設定)。メニュー表示中(`NSMenu`の
+  didBegin/didEndTracking)とアラート表示中(pendingDelete等)は
+  `setHold(_:active:)`で隠すのを止め、閉じたら3秒を数え直す
+  (メニューを開いたままカプセルが消えるのを防ぐ)
+- 信号ボタンの表示は`WindowConfigurator.updateTrafficLightVisibility(_:visible:)`に
+  統合し、呼び出し側が「キー状態 && chrome表示中」を渡す
+- 信号ボタンは**Apple標準のNSWindowボタン**(`_NSThemeCloseWidget` /
+  `_NSThemeWidget` / `_NSThemeZoomWidget`)。ズームは固定サイズで意味がないため
+  常に非表示(閉じる/最小化のみ)
+- 信号ボタンは標準位置(左上9pt)から**4pt内側の13ptへ寄せる**
+  (`applyTrafficLightInset`。ガラス/ツールバーの枠との余白を揃えるため)。
+  AppKitがタイトルバーをレイアウトし直すと標準位置へ戻るので、
+  `NSWindow.didUpdateNotification` で毎回冪等に再適用する。位置を実際に
+  書き換えたときだけ `traffic light repositioned: count=N` をログに出す
+  (chromeの表示切替時などに数回出るだけで止まる=収束する)
+- **Liquid Glass**: 信号ボタンの背面と右上ツールバーに適用する
+  - 信号ボタン: `NSGlassEffectView`(ヒットテストはnil)をコンテンツビューへ
+    追加し、閉じる/最小化の外接矩形+5ptの角丸カプセルを背面に敷く
+    (`WindowConfigurator.View.updateTrafficLightGlass`)
+  - 右上ツールバー: SwiftUIの `.glassEffect(.regular.tint(.black.opacity(0.45)).interactive(), in: Capsule())`
+  - 2つのガラスの染め方を揃える: 信号ボタン側は `NSGlassEffectView.tintColor`
+    に同じ `.black.opacity(0.45)` を入れる(白アイコンを明るいジャケット上でも読ませる)
+  - `GlassEffectContainer`(AppKitでは`NSGlassEffectContainerView`)は使わない。
+    融合させたいガラスが左上と右上に離れており、片方はAppKitレイヤーなので
+    まとめる意味がない
+  - 右上カプセル: 上8pt / 右18pt / 高さ24pt / アイコン14pt。
+    **信号ボタンの中心(13+14/2=20pt)とカプセルの中心(8+24/2=20pt)を
+    揃える**ため、上8pt・高さ24ptにしてある。
+    信号ボタンのガラスも外接矩形+5pt(=左上8pt)で同じ中心になる
+- **右クリックメニューはレコードの上だけ**(Delete Record)。空きスロット・
+  レコード間の隙間・余白では何も出さない(シェルフ操作は上のツールバーへ移動)。
+  信号ボタンと右上ツールバーの矩形(`isOverChrome`)も除外してクローム自身に任せる。
+  ウィンドウ座標→グリッド座標は`overlayGridPoint`、スロット判定は
+  `slotInsertion`を再利用している
+- SwiftUIの`.contextMenu`はセルの`.onTapGesture`(クリックで再生)と競合し、
+  **レコード上でメニューが開かない**(2026-10-25実測: onTapGestureを外すと
+  開くようになる)。そのため右クリックは`NSEvent.addLocalMonitorForEvents`
+  で拾ってNSMenuを出している(`installContextMenuMonitor`)。
+  NSMenuItem.targetは保持されないので、メニューを出している間は
+  クロージャ保持用の`ContextMenuAction`を生かしておくこと
+
 ## 複数シェルフ(2026-10-25 実装・実機検証済み)
 
 - 1シェルフ=1ウィンドウ。`ShelfManager`(Shared)がシェルフID一覧
   (shelves.json)とシェルフごとの`ShelfStore`を管理する。`ShelfStore.shared`
   は廃止。`ShelfStore(shelfID:)`を`manager.store(for:)`経由で引く
 - 新シェルフは ⇧⌘N(CommandGroupで.newItemを置き換え=標準⌘Nは無い)か
-  余白右クリックメニューから。新シェルフは空で始まる
+  右上ツールバーの3点リーダーメニューから。新シェルフは空で始まる
   (プリセットは"main"のみ。読み込み失敗時のfallbackも"main"のみプリセット)
 - ウィンドウの値=`WindowGroup(id:"shelf", for:String.self)`のString?
   (シェルフID)。値なし(nil)のウィンドウ=起動時やドックアイコンで
@@ -181,8 +256,8 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   帯はシステム描画でその下端に線が残る。titlebarSeparatorStyle=.noneでも
   消えない。hiddenTitleBarなら帯自体が消え、マージンと信号ボタン表示も保たれる
 - 設定画面は`Window(id:"settings")`シーン。`Settings`シーン(Cmd+,)は廃止。
-  開き方: レコード以外(余白・空きスロット)の右クリックメニュー→「Settings…」。
-  メニューにはNew Shelf/Delete Shelf…もある(最後の1枚は削除不可)
+  開き方: 右上ツールバーの3点リーダー→「Settings…」。
+  同じメニューにNew Shelf/Delete Shelf…もある(最後の1枚は削除不可)
 - PlaybackMonitorのポーリングは参照カウント式(全シェルフで共有。
   .onAppearで+1、.onDisappearで-1、0で停止)
 - シェルフ間ドラッグ: ペーストボードに`ShelfDragPayload`
@@ -214,6 +289,10 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
 - **CLI検証経路**: `Records --catalog-test <URL> [--play]` で起動するとUIを介さず
   MediaCatalogClient.fetch(+PlaybackEngine.play)を実行し結果をログに出して終了する
   (RecordsApp.swiftのinit内。UIを触れないエージェントの検証用)
+  - `Records --chrome-preview` は起動1.5秒後にツールバー/信号ボタンを強制表示する
+    (3秒で自動的に隠れる。マウス移動・クリックを合成できないエージェントが
+    スクリーンショットで見た目を確認するための経路。複数シェルフがある場合は
+    プライマリのウィンドウだけが対象)
 
 ## データ
 

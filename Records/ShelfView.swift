@@ -76,6 +76,21 @@ struct ShelfView: View {
     /// コールバックが無いので、ドラッグ中だけ発生しないイベント
     /// (mouseUp/mouseMoved)を拾ってdraggedIDをクリアする
     @State private var dragEndMonitor: Any?
+    /// 右クリック(コンテキストメニュー)用のイベントモニタ。
+    /// SwiftUIの.contextMenuはセルの.onTapGestureと競合してレコード上で
+    /// 開かないため、AppKit側で拾ってメニューを出し分ける(2026-10-25実測)
+    @State private var contextMenuMonitor: Any?
+    /// タイトルバー(信号ボタン)と右上ツールバーの自動表示。
+    /// アクティブなウィンドウでマウスが動いたら表示し、3秒動かなければ隠す
+    @StateObject private var chrome = ChromeVisibilityController()
+    /// マウス移動/クリックを拾ってchrome.noteActivity()するモニタ
+    @State private var activityMonitor: Any?
+    /// 出しているコンテキストメニューのNSMenuItem.target(クロージャ保持用)。
+    /// NSMenuItem.targetは保持されないので、メニューが閉じるまで生かしておく
+    @State private var contextMenuTargets: [ContextMenuAction] = []
+    /// メニューの開閉通知(NSMenu.didBeginTracking/didEndTracking)の監視。
+    /// 開いている間はchromeを自動で隠さないようにする
+    @State private var menuTrackingObservers: [NSObjectProtocol] = []
     /// ゴーストのポインタ追従用タイマー。leftMouseDraggedはドラッグ
     /// セッションに吸収されてモニタへ届かないため(2026-10-24実測)、
     /// 60fpsでmouseLocationをポーリングして追従させる
@@ -106,6 +121,17 @@ struct ShelfView: View {
 
     var body: some View {
         shelfGrid
+            // タイトルバー帯のセーフエリアを無視してウィンドウ上端まで
+            // コンテンツを広げる。信号ボタンはガラス/ジャケットの上に
+            // 重なって表示される(Musicアプリのミニプレーヤーと同じ構成)
+            .ignoresSafeArea()
+            // .windowResizability(.contentSize)は「ビューの理想サイズ+
+            // セーフエリア(タイトルバー帯32pt)」でウィンドウを作るため、
+            // そのままではウィンドウだけが32pt高くなり下側に余白が残る
+            // (2026-10-25実測)。理想サイズから帯の分を差し引いてウィンドウと
+            // グリッドの高さを一致させる。なお描画とヒットテストは下の
+            // shelfGrid側のフレーム(実際のグリッド高)がそのまま使われる
+            .padding(.bottom, -Self.titlebarInset)
             .background {
                 // ignoresSafeAreaでタイトルバー帯の下までガラスを伸ばす
                 GlassBackgroundView()
@@ -150,11 +176,34 @@ struct ShelfView: View {
             } message: {
                 Text("The records on this shelf will be removed.")
             }
+        // アラート(削除確認など)を出している間はchromeを自動で隠さない
+            .onChange(of: hasModalAlert) { _, active in
+                chrome.setHold("alert", active: active)
+            }
         // 再生状態はAlbumSlotViewが個別にmonitorを監視するので、ここでは監視せず
         // 開始/停止だけ行う(画面全体の2秒おき再描画を避ける)。
         // 複数ウィンドウあるので監視は参照カウント式(片方が閉じても他方で継続)
             .onAppear {
                 PlaybackMonitor.shared.start()
+                installContextMenuMonitor()
+                installActivityMonitor()
+                installMenuTrackingMonitor()
+                // 検証用: `--chrome-preview` で起動すると1.5秒後にツールバー/
+                // 信号ボタンを強制表示する(UIを目視できないエージェントが
+                // スクリーンショットで見た目を確認するための経路。--catalog-testと
+                // 同じ扱い)。通常のマウス移動と同じく3秒で自動的に隠れる
+                if ProcessInfo.processInfo.arguments.contains("--chrome-preview") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        // 複数シェルフがある場合はプライマリのウィンドウだけを対象にする
+                        guard self.shelfID == ShelfManager.shared.primaryShelfID,
+                              let window = self.windowBox.window else { return }
+                        NSApp.activate()
+                        window.makeKeyAndOrderFront(nil)
+                        self.chrome.setActive(true)
+                        self.chrome.noteActivity()
+                        Self.logger.notice("chrome preview: forced visible")
+                    }
+                }
                 // コマンドや他のシェルフのメニューからも新規ウィンドウを
                 // 開けるよう、環境のopenWindowをmanagerに退避する
                 ShelfManager.shared.openShelfWindow = { id in
@@ -190,10 +239,25 @@ struct ShelfView: View {
                 // stopPollingはonAppearのstart()と対なので重複ウィンドウ
                 // でも呼ぶ。noteWindowClosedは登録した側だけが呼ぶ
                 PlaybackMonitor.shared.stopPolling()
+                if let contextMenuMonitor {
+                    NSEvent.removeMonitor(contextMenuMonitor)
+                    self.contextMenuMonitor = nil
+                }
+                if let activityMonitor {
+                    NSEvent.removeMonitor(activityMonitor)
+                    self.activityMonitor = nil
+                }
+                menuTrackingObservers.forEach { NotificationCenter.default.removeObserver($0) }
+                menuTrackingObservers = []
                 if !isDuplicateWindow {
                     ShelfManager.shared.noteWindowClosed(shelfID)
                 }
             }
+    }
+
+    /// 確認/エラー系のアラートを出しているか(chromeの自動非表示を止める条件)
+    private var hasModalAlert: Bool {
+        pendingDelete != nil || pendingShelfDelete || addError != nil
     }
 
     /// 確認済みのシェルフ削除。データを消してウィンドウを閉じる
@@ -214,10 +278,22 @@ struct ShelfView: View {
     // グリッドの間隔・余白。ウィンドウサイズはこれらと設定値から厳密に計算する。
     private static let columnSpacing: CGFloat = 12
     private static let rowSpacing: CGFloat = 14
-    // タイトルバー帯(32pt)が上マージンを兼ねる。コンテンツ側の上パディングは
-    // 0にし、他の3辺は帯と同じ32ptに揃えて四辺等しい見た目にする
-    private static let edgePadding: CGFloat = 32
-    private static let topPadding: CGFloat = 0
+    // 四辺すべて同じ余白。コンテンツはignoresSafeAreaでウィンドウ上端まで
+    // 広がっている(信号ボタンはMusicアプリ同様にコンテンツの上へ重なる)
+    private static let edgePadding: CGFloat = 8
+    private static let topPadding: CGFloat = 8
+    /// 右上ツールバーの余白とサイズ。信号ボタン(左上13pt, 14pt)の中心
+    /// (20pt)と高さを揃えるため、上8pt・高さ24ptにしている
+    /// (中心 = 8 + 24/2 = 20)。右の余白はMusic実測14pt+4pt
+    private static let toolbarTopInset: CGFloat = 8
+    private static let toolbarTrailingInset: CGFloat = 18
+    private static let toolbarHeight: CGFloat = 24
+    private static let toolbarButtonWidth: CGFloat = 37
+    /// タイトルバー帯(hiddenTitleBar)の高さ。SwiftUIはウィンドウサイズを
+    /// 「ビューの理想サイズ+このセーフエリア」で決めるため、理想サイズ側で
+    /// 差し引いてウィンドウの下に余白が残るのを防ぐ。実寸は
+    /// WindowConfigurator.logMetricsが titlebarInset として記録する
+    private static let titlebarInset: CGFloat = 32
     /// ドラッグ中にドロップ先となったレコードの透明度(0.0=透明 〜 1.0=不透明)
     private static let dropTargetOpacity: CGFloat = 0.5
 
@@ -264,8 +340,8 @@ struct ShelfView: View {
         let clamped = frameW < width || frameH < height
 
         // ウィンドウはwindowResizability(.contentSize)なので、
-        // この固定フレーム+タイトルバー帯(上マージンを兼ねる、コンテンツ側の
-        // 上パディングは0)がそのままmin=maxのウィンドウサイズになる。
+        // この固定フレームがそのままmin=maxのウィンドウサイズになる
+        // (コンテンツは上端まで広がるので、四辺の余白は8ptずつ)。
         // 設定変更でstore.settingsが変わると自動的に追従する。
         let grid = LazyVGrid(columns: columns, spacing: Self.rowSpacing) {
             ForEach(slots) { slot in
@@ -285,12 +361,6 @@ struct ShelfView: View {
                                 return NSItemProvider(object: payload.encode() as NSString)
                             } preview: {
                                 Color.clear.frame(width: 1, height: 1)
-                            }
-                            .contextMenu {
-                                Button("Delete Record", role: .destructive) {
-                                    Self.logger.notice("delete requested for '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
-                                    pendingDelete = entry
-                                }
                             }
                     } else {
                         // 空きスロットは何も描かず、スペースだけ確保する
@@ -338,6 +408,22 @@ struct ShelfView: View {
             }
         }
         .frame(width: frameW, height: frameH)
+        // タイトルバーを隠してコンテンツを上端まで広げたため、AppKitの
+        // タイトルバー(=ウィンドウ移動)のドラッグ領域が無くなる。
+        // 上辺の余白(8pt)をつかんでウィンドウを動かせるようにする
+        // (Musicアプリのミニプレーヤーと同じ「余白をつかんで移動」)
+        .overlay(alignment: .top) {
+            Color.clear
+                .frame(height: Self.topPadding)
+                .contentShape(Rectangle())
+                .gesture(WindowDragGesture())
+        }
+        // 右上のシェルフ操作ツールバー(Musicアプリのウィンドウ右上と同じ
+        // 「共有+3点リーダー」のカプセル)。シェルフ操作メニューは空きスロットの
+        // 右クリックではなくここに集約する
+        .overlay(alignment: .topTrailing) {
+            shelfToolbar
+        }
         // 外部URLドラッグ専用の透明オーバーレイ(NSDraggingDestination)。
         // .dropDestinationでは止められない着地アニメーション
         // (animatesToDestination)をこちらで止めるため、public.urlを
@@ -379,32 +465,10 @@ struct ShelfView: View {
             Self.logger.notice("grid margin text dropped: '\(text, privacy: .public)' location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
             return self.addDroppedText(text, atIndex: .max)
         }
-        // レコード以外の場所(余白・空きスロット)の右クリックメニュー。
-        // レコードのメニュー(Delete Record)はセル側にあり、そちらが優先される。
-        // 設定画面はCmd+,ではなくここから開く
-        .contextMenu {
-            // このビュー自身のopenWindow環境で新シェルフのウィンドウを開く
-            Button("New Shelf") {
-                let id = ShelfManager.shared.createShelf()
-                openWindow(id: "shelf", value: id)
-            }
-            Button("Settings…") {
-                Self.logger.notice("settings open requested: shelf=\(self.shelfID, privacy: .public)")
-                // 設定画面は「最後にキーになったシェルフ」を編集する。
-                // 右クリックでウィンドウはkeyになるはずだが、念のため
-                // ここでもフォーカスを明示する
-                ShelfManager.shared.shelfWindowBecameKey(store)
-                openWindow(id: "settings")
-            }
-            Divider()
-            Button("Delete Shelf…", role: .destructive) {
-                Self.logger.notice("shelf delete requested: \(self.shelfID, privacy: .public)")
-                pendingShelfDelete = true
-            }
-            .disabled(manager.shelfIDs.count <= 1)
-        }
-        // クランプ状態の遷移時だけログ(body評価のたびに出るのを防ぐ)
+        // クランプ状態の遷移時だけログ(body評価のたびに出るのを防ぐ)。
+        // onAppearではレイアウト検証用に計算結果(グリッドの実寸と窓の関係)を1回出す
         .onAppear {
+            Self.logger.notice("grid layout: cell=\(cell, privacy: .public) columns=\(columnCount, privacy: .public) rows=\(rowCount, privacy: .public) frame=\(Int(frameW), privacy: .public)x\(Int(frameH), privacy: .public) natural=\(Int(width), privacy: .public)x\(Int(height), privacy: .public)")
             if clamped {
                 Self.logClamp(natural: CGSize(width: width, height: height),
                               clamped: CGSize(width: frameW, height: frameH))
@@ -422,13 +486,213 @@ struct ShelfView: View {
                     self.windowBox.window = $0
                     if self.isDuplicateWindow { $0?.close() }
                 },
-                onBecameKey: { ShelfManager.shared.shelfWindowBecameKey(self.store) }
+                onBecameKey: { ShelfManager.shared.shelfWindowBecameKey(self.store) },
+                onActiveChanged: { active in
+                    self.chrome.setActive(active)
+                    Self.logger.notice("window active changed: \(active, privacy: .public) shelf=\(self.shelfID, privacy: .public)")
+                },
+                showTrafficLights: chrome.isVisible
             )
         }
     }
 
+    /// 右クリックメニューを出す。SwiftUIの`.contextMenu`は
+    /// セルの`.onTapGesture`と競合してレコード上で開かなくなるため
+    /// (2026-10-25実測)、ウィンドウへの右クリックを直接拾っている。
+    /// メニューを出すのは**レコードの上だけ**。空きスロット・レコード間の
+    /// 隙間・余白はシェルフ操作を右上の3点リーダーへ集約したので何も出さない
+    private func showDeleteMenu(for entry: MediaEntry, event: NSEvent, in window: NSWindow) {
+        Self.logger.notice("context menu requested: entry='\(entry.title, privacy: .public)' shelf=\(self.shelfID, privacy: .public)")
+
+        let target = ContextMenuAction {
+            Self.logger.notice("delete requested for '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
+            // メニューの入れ子イベントループ中にシートを出さないよう一段ずらす
+            DispatchQueue.main.async { self.pendingDelete = entry }
+        }
+        let item = NSMenuItem(
+            title: String(localized: "Delete Record"),
+            action: #selector(ContextMenuAction.invoke),
+            keyEquivalent: ""
+        )
+        item.target = target
+        item.attributedTitle = NSAttributedString(
+            string: item.title,
+            attributes: [
+                .foregroundColor: NSColor.systemRed,
+                .font: NSFont.menuFont(ofSize: 0)
+            ]
+        )
+        let menu = NSMenu()
+        menu.items = [item]
+        // NSMenuItem.targetは保持されないので、メニューが閉じるまで
+        // contextMenuTargets(@Stateの配列)で生かしておく
+        contextMenuTargets.append(target)
+        defer { contextMenuTargets.removeAll() }
+        NSMenu.popUpContextMenu(menu, with: event, for: window.contentView ?? NSView())
+    }
+
+    /// グリッド座標にあるレコード。隙間・余白・空きスロットはnil
+    private func entry(atGridPoint point: CGPoint) -> MediaEntry? {
+        guard let (index, _) = slotInsertion(atGridPoint: point) else { return nil }
+        let slots = store.paddedSlots()
+        guard slots.indices.contains(index) else { return nil }
+        return slots[index]
+    }
+
+    /// イベント位置にあるレコード(ウィンドウ座標→グリッド座標)
+    private func entry(at event: NSEvent, in window: NSWindow) -> MediaEntry? {
+        let topLeft = CGPoint(
+            x: event.locationInWindow.x,
+            y: window.frame.height - event.locationInWindow.y
+        )
+        return entry(atGridPoint: overlayGridPoint(topLeft))
+    }
+
+    /// ウィンドウの右クリックを拾ってレコードのメニューを出すモニタ。
+    /// 信号ボタン・右上ツールバーの上はクロームに任せ、Ctrl+クリックも
+    /// メニューとして扱う(通常の左クリック=再生/停止はそのまま)
+    private func installContextMenuMonitor() {
+        if let contextMenuMonitor {
+            NSEvent.removeMonitor(contextMenuMonitor)
+        }
+        contextMenuMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.rightMouseDown, .leftMouseDown]
+        ) { event in
+            guard let window = self.windowBox.window, event.window === window else { return event }
+            if event.type == .leftMouseDown, !event.modifierFlags.contains(.control) {
+                return event
+            }
+            if self.isOverChrome(event, in: window) { return event }
+            // レコードの上だけメニュー(空きスロット・余白は何も出さない)
+            guard let entry = self.entry(at: event, in: window) else { return event }
+            self.showDeleteMenu(for: entry, event: event, in: window)
+            return nil
+        }
+    }
+
+    /// メニューの開閉を拾ってchromeの自動非表示を止める。
+    /// 3点リーダーのメニューや右クリックメニューを開いたまま3秒経つと
+    /// カプセル/信号ボタンごと消えてしまうため、開いている間は隠さない
+    /// (SwiftUIのMenuもNSMenuなのでdidBeginTracking/didEndTrackingが来る)
+    private func installMenuTrackingMonitor() {
+        menuTrackingObservers.forEach { NotificationCenter.default.removeObserver($0) }
+        let center = NotificationCenter.default
+        menuTrackingObservers = [
+            center.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { _ in
+                self.chrome.setHold("menu", active: true)
+            },
+            center.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) { _ in
+                self.chrome.setHold("menu", active: false)
+            }
+        ]
+    }
+
+    /// マウス移動/クリック/スクロールを拾ってツールバーの自動表示を駆動する。
+    /// ウィンドウはacceptsMouseMovedEvents=trueにしてあるので
+    /// mouseMovedがここへ届く(WindowConfigurator.configure)
+    private func installActivityMonitor() {
+        if let activityMonitor {
+            NSEvent.removeMonitor(activityMonitor)
+        }
+        activityMonitor = NSEvent.addLocalMonitorForEvents(
+            matching: [.mouseMoved, .leftMouseDragged, .leftMouseDown, .rightMouseDown, .scrollWheel]
+        ) { event in
+            guard let window = self.windowBox.window, event.window === window else { return event }
+            self.chrome.noteActivity()
+            return event
+        }
+    }
+
+    /// 信号ボタン(タイトルバー)か右上ツールバーの上か。
+    /// どちらもクローム自身が操作を持つので、右クリックメニューの対象外にする
+    /// (レコードの上だけでメニューを出す規則の一部)
+    private func isOverChrome(_ event: NSEvent, in window: NSWindow) -> Bool {
+        for kind in [NSWindow.ButtonType.closeButton, .miniaturizeButton, .zoomButton] {
+            guard let button = window.standardWindowButton(kind), !button.isHidden else { continue }
+            if button.convert(button.bounds, to: nil).contains(event.locationInWindow) {
+                return true
+            }
+        }
+        // 右上ツールバーはSwiftUIのビューでNSViewの矩形を持たないため、
+        // ShelfViewのレイアウト定数からカプセルの矩形を組み立てる
+        // (上8pt / 右18pt / 高さ24pt / 幅=ボタン2つ分)。表示中のみ有効
+        guard chrome.isVisible else { return false }
+        let capsule = CGRect(
+            x: window.frame.width - Self.toolbarTrailingInset - Self.toolbarButtonWidth * 2,
+            y: window.frame.height - Self.toolbarTopInset - Self.toolbarHeight,
+            width: Self.toolbarButtonWidth * 2,
+            height: Self.toolbarHeight
+        )
+        return capsule.contains(event.locationInWindow)
+    }
+
+    /// 右上に浮かぶシェルフ操作ツールバー。Musicアプリのウィンドウ右上と
+    /// 同じ「共有+3点リーダー」のカプセル。
+    /// - 共有: 表示のみ(実装は別途)
+    /// - 3点リーダー: New Shelf / Settings… / Delete Shelf…
+    /// 信号ボタンと同じく、ウィンドウが非アクティブの間は隠す
+    private var shelfToolbar: some View {
+        HStack(spacing: 0) {
+            Button {
+                Self.logger.notice("share button tapped: shelf=\(self.shelfID, privacy: .public) (not implemented yet)")
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: Self.toolbarButtonWidth, height: Self.toolbarHeight)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .focusable(false)
+            .help(Text("Share"))
+
+            Menu {
+                Button("New Shelf") {
+                    Self.logger.notice("new shelf requested via toolbar menu")
+                    let id = ShelfManager.shared.createShelf()
+                    openWindow(id: "shelf", value: id)
+                }
+                Button("Settings…") {
+                    Self.logger.notice("settings open requested: shelf=\(self.shelfID, privacy: .public)")
+                    // 設定画面は「最後にキーになったシェルフ」を編集する
+                    ShelfManager.shared.shelfWindowBecameKey(store)
+                    openWindow(id: "settings")
+                }
+                Divider()
+                Button("Delete Shelf…", role: .destructive) {
+                    Self.logger.notice("shelf delete requested: \(self.shelfID, privacy: .public)")
+                    pendingShelfDelete = true
+                }
+                .disabled(manager.shelfIDs.count <= 1)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.system(size: 14, weight: .semibold))
+                    .frame(width: Self.toolbarButtonWidth, height: Self.toolbarHeight)
+                    .contentShape(Rectangle())
+            }
+            .menuStyle(.button)
+            .buttonStyle(.plain)
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .focusable(false)
+            .help(Text("Shelf Options"))
+        }
+        // アイコンはMusicアプリ同様の白。ガラスを少し暗く染めて、
+        // 明るいジャケットの上でも白アイコンのコントラストを保つ
+        .foregroundStyle(.white)
+        // macOS 26のLiquid Glass。ウィンドウ端のカプセルとして浮かせる。
+        // GlassEffectContainerは使わない: 隣接して融合させたいガラスが
+        // 離れた位置(左上と右上)にあり、片方はAppKitのNSGlassEffectViewで
+        // レイヤーが別なので、まとめる意味がない
+        .glassEffect(.regular.tint(.black.opacity(0.45)).interactive(), in: Capsule())
+        .padding(.top, Self.toolbarTopInset)
+        .padding(.trailing, Self.toolbarTrailingInset)
+        .opacity(chrome.isVisible ? 1 : 0)
+        .allowsHitTesting(chrome.isVisible)
+        .animation(.easeInOut(duration: 0.15), value: chrome.isVisible)
+    }
+
     /// ウィンドウが画面からはみ出さないためのコンテンツサイズ上限。
-    /// NSScreen.main.visibleFrame からタイトルバー帯と安全マージンを引いた値。
+    /// NSScreen.main.visibleFrame から安全マージンを引いた値。
     /// スクリーン情報が取れない場合はクランプしない。
     private static func maxContentSize() -> CGSize {
         guard let visible = NSScreen.main?.visibleFrame else {
@@ -438,12 +702,11 @@ struct ShelfView: View {
             )
         }
         let safety: CGFloat = 16
-        // コンテンツ側の上パディングは0でタイトルバー帯が上マージンを兼ねる
-        // 構成のため、ウィンドウ高には帯の分も必要。控えめに40pt引く。
-        let titlebarAllowance: CGFloat = 40
+        // コンテンツはタイトルバー帯の下まで広がる(fullSizeContentView)ため
+        // ウィンドウ高=コンテンツ高。タイトルバー分の控除は要らない
         return CGSize(
             width: max(320, visible.width - safety * 2),
-            height: max(240, visible.height - safety * 2 - titlebarAllowance)
+            height: max(240, visible.height - safety * 2)
         )
     }
 
@@ -897,15 +1160,14 @@ struct ShelfView: View {
 
     /// index番スロットの中心の画面座標(ゴーストパネルの飛行先用)。
     /// overlayGridPointの逆変換: グリッド座標(左上原点)→ウィンドウ座標
-    /// (左下原点)→画面座標。タイトルバー帯の高さはcontentLayoutRectと
-    /// frameの差から出す(content.convertの座標変換は
-    /// fullSizeContentView構成でYが狂うためframe基準で自分で計算する
-    ///  — 2026-10-24実測)。
+    /// (左下原点)→画面座標。コンテンツはignoresSafeAreaでウィンドウ上端まで
+    /// 広がっているため、グリッドの上端=ウィンドウ上端
+    /// (content.convertの座標変換はfullSizeContentView構成でYが狂うため
+    ///  frame基準で自分で計算する — 2026-10-24実測)。
     /// グリッドがScrollView内にある場合はスクロール量を引いて補正する。
     private func slotScreenCenter(index: Int) -> CGPoint? {
         guard let window = windowBox.window else { return nil }
         let rect = slotRect(index: index)
-        let titlebarHeight = window.frame.height - window.contentLayoutRect.height
         // ScrollViewはグリッドが画面より大きいときだけ存在する。
         // SwiftUIのスクロールコンテンツはflippedなので、
         // documentVisibleRect.originが左上基準のスクロール量になる。
@@ -913,7 +1175,7 @@ struct ShelfView: View {
             .documentVisibleRect.origin ?? .zero
         return window.convertPoint(toScreen: CGPoint(
             x: rect.midX + Self.edgePadding - scrollOffset.x,
-            y: window.frame.height - titlebarHeight - Self.topPadding
+            y: window.frame.height - Self.topPadding
                 - rect.midY + scrollOffset.y
         ))
     }
@@ -1574,6 +1836,122 @@ private struct ExternalDropOverlayRep: NSViewRepresentable {
         nsView.onLeave = onLeave
         nsView.onDrop = onDrop
         handle.view = nsView
+    }
+}
+
+/// タイトルバー(信号ボタン)と右上ツールバーの自動表示。
+/// Musicアプリのミニプレーヤーと同じ挙動:
+/// - ウィンドウがアクティブな状態でマウスが動いたら表示
+/// - マウスが3秒間動かない、またはウィンドウが非アクティブになったら隠す
+@MainActor
+final class ChromeVisibilityController: ObservableObject {
+
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
+    /// マウスが止まってから隠すまでの時間
+    static let hideDelay: Duration = .seconds(3)
+
+    /// タイトルバー/ツールバーを表示中か
+    @Published private(set) var isVisible = false
+
+    /// 対象ウィンドウがアクティブか
+    private var isActive = false
+    private var hideTask: Task<Void, Never>?
+    /// 直近に隠しタイマーを張り直した時刻。マウス移動は毎フレーム届くので、
+    /// 一定間隔より短い間隔ではタイマーを作り直さない(負荷対策)
+    private var lastScheduleTime: ContinuousClock.Instant?
+    /// 自動で隠すのを止めている理由(メニュー/アラート表示中)。
+    /// 空でない間は3秒経っても隠さない
+    private var holds: Set<String> = []
+
+    /// ウィンドウのアクティブ状態が変わったとき
+    func setActive(_ active: Bool) {
+        isActive = active
+        if active {
+            // アクティブになっただけでは出さない(マウス移動で出す)。
+            // 表示中だった場合は、そこから3秒のカウントダウンをやり直す
+            scheduleHide()
+        } else {
+            hide(reason: "window inactive")
+        }
+    }
+
+    /// メニュー/アラートなどモーダルなUIを出している間の自動非表示を止める。
+    /// 出し終わったら3秒のカウントダウンをやり直す
+    /// (メニューを開いたまま3秒経つとカプセルごと消えるのを防ぐ)
+    func setHold(_ reason: String, active: Bool) {
+        if active {
+            guard holds.insert(reason).inserted else { return }
+            Self.logger.notice("chrome hold on (\(reason, privacy: .public))")
+            hideTask?.cancel()
+            hideTask = nil
+        } else {
+            guard holds.remove(reason) != nil else { return }
+            Self.logger.notice("chrome hold off (\(reason, privacy: .public)) holds=\(self.holds.count, privacy: .public)")
+            if isActive {
+                scheduleHide()
+            }
+        }
+    }
+
+    /// マウス移動・クリック・スクロールなど、ユーザー操作があったとき
+    func noteActivity() {
+        guard isActive else { return }
+        if !isVisible {
+            isVisible = true
+            Self.logger.notice("chrome shown (mouse activity)")
+        }
+        // mouseMovedは毎フレーム届く。タイマーの作り直しは250ms間隔に間引く
+        let now = ContinuousClock.now
+        if let last = lastScheduleTime, last.duration(to: now) < .milliseconds(250) {
+            return
+        }
+        lastScheduleTime = now
+        scheduleHide()
+    }
+
+    private func scheduleHide() {
+        lastScheduleTime = ContinuousClock.now
+        hideTask?.cancel()
+        hideTask = Task { [weak self] in
+            try? await Task.sleep(for: Self.hideDelay)
+            guard !Task.isCancelled else { return }
+            self?.hideIfIdle()
+        }
+    }
+
+    /// 3秒経過時。メニュー/アラートを出している間は隠さない
+    /// (閉じたときにsetHold(false)がカウントダウンをやり直す)
+    private func hideIfIdle() {
+        guard holds.isEmpty else {
+            Self.logger.notice("chrome hide skipped (holds=\(self.holds.sorted().joined(separator: ","), privacy: .public))")
+            return
+        }
+        hide(reason: "idle 3s")
+    }
+
+    private func hide(reason: String) {
+        hideTask?.cancel()
+        hideTask = nil
+        if isVisible {
+            isVisible = false
+            Self.logger.notice("chrome hidden (\(reason, privacy: .public))")
+        }
+    }
+}
+
+/// NSMenuItemのactionをクロージャで扱うためのターゲット。
+/// NSMenuItem.targetは保持されないため、メニューを出している間だけ
+/// ShelfViewの contextMenuTargets(@Stateの配列)で生かしておく
+private final class ContextMenuAction: NSObject {
+    private let action: () -> Void
+
+    init(action: @escaping () -> Void) {
+        self.action = action
+    }
+
+    @objc func invoke() {
+        action()
     }
 }
 
