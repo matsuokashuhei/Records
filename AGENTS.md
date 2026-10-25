@@ -222,6 +222,38 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   NSMenuItem.targetは保持されないので、メニューを出している間は
   クロージャ保持用の`ContextMenuAction`を生かしておくこと
 
+## ウィンドウのリサイズ(2026-10-26 実装・実機確認)
+
+- ウィンドウは `windowResizability(.contentSize)` のまま**グリッドのサイズ=ウィンドウ**。
+  ネイティブのウィンドウリサイズは無効で、**四隅(斜め)・右辺・下辺**の8pt余白
+  (グリッドのedgePadding)をドラッグすると列数・行数が変わる。
+  レコードの一辺(アートワークサイズ)は固定
+- 実装は `ShelfView.ResizeEdge` / `resizeHandle(_:)`。
+  マウスの画面座標(`NSEvent.mouseLocation`)の差分から目標ウィンドウサイズを出し、
+  `layoutCounts(forWindowSize:cell:currentColumns:currentRows:)` で収まる
+  列数・行数を求めて `store.updateSettings` する。contentSize固定なので
+  設定変更がそのままウィンドウサイズになる(1マス単位でスナップ)
+- **縮小は1/2マス以上縮めたときだけ**減らす(拡大は1マス分必要)。
+  `natural = n*(cell+spacing) - spacing + inset`、縮小判定は
+  `length <= natural(current) - (cell+spacing)/2`
+- **つかんでいる辺がカーソルの位置に残る**ようにウィンドウ原点を補正する
+  (`pinWindow`、`NSWindow.didResizeNotification`)。スナップ分は反対側の辺が動く。
+  これをしないと縮小した瞬間に窓の辺がカーソルから1マス逃げ、
+  カーソル下がデスクトップになって「ウィンドウが消えた」ように見える(実機指摘)
+- ウィンドウサイズは settings.json の columns/rows として保存されるので、
+  次回起動も同じサイズで開く(ウィンドウframeの別保存はしていない)
+- 上辺の中央は `WindowDragGesture`(ウィンドウ移動)。カーソルは
+  `NSCursor.frameResize(position:directions:)`(macOS 15+)で四隅/辺ごとに変える
+- **やってはいけない**: `.windowResizability(.contentMinSize/.automatic)` にして
+  GeometryReader のコンテンツサイズから自由にリサイズさせる方式。
+  macOS 26 ではプログラムで `window.setFrame` しても直後にSwiftUIが
+  コンテンツの理想サイズへ戻してしまう(実測: 916x692→932x934、
+  460x462→232x474)。ウィンドウサイズが安定せず、初期サイズも
+  900x450(保存frame)から動かせない
+- ドラッグ中の高頻度な@State更新はしない。開始frame/開始マウス位置は
+  `ResizeSessionBox`(参照の箱)に入れる。枚数が減って再生中プレイリストが
+  非表示になったら `PlaybackMonitor.stopIfActiveEntryHidden()` で止める
+
 ## 複数シェルフ(2026-10-25 実装・実機検証済み)
 
 - 1シェルフ=1ウィンドウ。`ShelfManager`(Shared)がシェルフID一覧
