@@ -27,6 +27,16 @@ final class PlaybackMonitor: ObservableObject {
     @Published private(set) var currentAlbumTitle: String?
     /// 自分が最後に鳴らしたエントリのID(プレイリスト表示用)
     @Published private(set) var activeEntryID: String?
+    /// 再生を要求したが、実際の再生開始がまだ観測できていないエントリのID。
+    /// 要求してから再生が始まるまでの間も停止アイコンを表示するために使う。
+    @Published private(set) var pendingEntryID: String?
+    /// pending中のエントリ(再生開始の確認にkind/titleが必要)
+    private var pendingEntry: MediaEntry?
+    /// 再生要求を出した時刻(pendingのタイムアウト用)
+    private var pendingSince: Date?
+    /// 再生開始を確認するまでの待機上限(秒)。
+    /// これを超えても再生が観測できなければ要求は失敗したとみなす
+    private static let pendingTimeout: TimeInterval = 30
 
     private var pollTask: Task<Void, Never>?
     /// ポーリングを要求しているシェルフウィンドウの数
@@ -62,14 +72,28 @@ final class PlaybackMonitor: ObservableObject {
 
     var isPlaying: Bool { musicAppPlaying || inAppPlaying }
 
-    /// このエントリが「再生中」かどうか
+    /// このエントリが「再生中」かどうか。
+    /// 再生要求から実際の再生開始を観測できるまで数秒かかるため、
+    /// 要求中(pending)のエントリも再生中として扱う。
     func isCurrent(_ entry: MediaEntry) -> Bool {
+        if pendingEntryID == entry.id { return true }
+        return isPlayingNow(entry)
+    }
+
+    /// 実際の再生状態として観測されているか(pendingの要求は含めない)
+    private func isPlayingNow(_ entry: MediaEntry) -> Bool {
         switch entry.kind {
         case .album:
             return musicAppPlaying && currentAlbumTitle == entry.title
         case .playlist:
             return inAppPlaying && activeEntryID == entry.id
         }
+    }
+
+    private func clearPending() {
+        pendingEntry = nil
+        pendingEntryID = nil
+        pendingSince = nil
     }
 
     func start() {
@@ -121,8 +145,22 @@ final class PlaybackMonitor: ObservableObject {
         let newInAppPlaying = ApplicationMusicPlayer.shared.state.playbackStatus == .playing
         if inAppPlaying != newInAppPlaying { inAppPlaying = newInAppPlaying }
 
-        if !isPlaying, activeEntryID != nil {
+        if !isPlaying, activeEntryID != nil, activeEntryID != pendingEntryID {
             activeEntryID = nil
+        }
+
+        // pending中のエントリが実際に鳴り始めたか確認する。
+        // 鳴らないままタイムアウトしたら諦める(無音失敗で
+        // 停止アイコンが残り続けないようにする)
+        if let pending = pendingEntry {
+            if isPlayingNow(pending) {
+                Self.logger.notice("pending playback confirmed for '\(pending.title, privacy: .public)'")
+                clearPending()
+            } else if let since = pendingSince,
+                      Date().timeIntervalSince(since) > Self.pendingTimeout {
+                Self.logger.notice("pending playback timed out for '\(pending.title, privacy: .public)'")
+                clearPending()
+            }
         }
     }
 
@@ -152,11 +190,23 @@ final class PlaybackMonitor: ObservableObject {
 
         if isCurrent(entry) {
             Self.logger.notice("stop \(entry.title, privacy: .public)")
+            // Clear pending before stop so a throwing stop() can't leak the icon.
+            // Known limitation: album playback is fire-and-forget (shortcuts://run-shortcut),
+            // so it may still start seconds later — observed state then flips back to stop.
+            if pendingEntry?.id == entry.id { clearPending() }
             try await PlaybackEngine.stop(entry)
             activeEntryID = nil
         } else {
             Self.logger.notice("play \(entry.title, privacy: .public)")
-            try await PlaybackEngine.play(entry)
+            pendingEntry = entry
+            pendingEntryID = entry.id
+            pendingSince = Date()
+            do {
+                try await PlaybackEngine.play(entry)
+            } catch {
+                clearPending()
+                throw error
+            }
             activeEntryID = entry.id
             if entry.kind == .album {
                 currentAlbumTitle = entry.title
