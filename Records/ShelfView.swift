@@ -47,7 +47,7 @@ struct ShelfView: View {
     /// URLゾーンとStringゾーンが両方performされた場合の二重追加
     /// (.addedと.duplicateアラートの同時発生)を防ぐために使う
     @State private var inFlightAddIDs: Set<String> = []
-    /// ドロップ追加がfetch待ちの間、挿入先として半透明にしておくスロット。
+    /// ドロップ追加がfetch待ちの間、挿入先の区画をハイライトしておくスロット。
     /// 着地アニメーションを止めたので、これがないとドロップからカタログ
     /// 取得完了までの約0.5秒、何も表示されない空白時間になる
     @State private var pendingAddSlotID: String?
@@ -66,7 +66,7 @@ struct ShelfView: View {
     /// SwiftUIの状態としてNSViewを直接持たず、weak参照の箱を介する
     @State private var overlayHandle = ExternalDropOverlayHandle()
     /// ドロップで実際に順番が変わる位置にカーソルが乗っているスロット
-    /// (半透明表示用。ドロップゾーンのisTargetedがセット/クリアする)
+    /// (区画内のハイライト用。ドロップゾーンのisTargetedがセット/クリアする)
     @State private var dropTargetSlotID: String?
     /// 現在ドラッグ中のエントリ。onDragの開始コールバックでセットし、
     /// 「ドロップで順番が変わるか」の判定とアプリ内ドラッグの判別に使う
@@ -275,13 +275,10 @@ struct ShelfView: View {
         PlaybackMonitor.shared.stopIfActiveEntryHidden()
     }
 
-    // グリッドの間隔・余白。ウィンドウサイズはこれらと設定値から厳密に計算する。
-    private static let columnSpacing: CGFloat = 12
-    private static let rowSpacing: CGFloat = 14
-    // 四辺すべて同じ余白。コンテンツはignoresSafeAreaでウィンドウ上端まで
-    // 広がっている(信号ボタンはMusicアプリ同様にコンテンツの上へ重なる)
-    private static let edgePadding: CGFloat = 8
-    private static let topPadding: CGFloat = 8
+    // 木製格子棚の寸法・色はファイル末尾のShelfLayoutに集約(要件7)。
+    // 旧来の「セルサイズ/グリッド間隔/外周余白」は「区画/板厚/外枠」と
+    // 読み替えるだけで、slotRect/slotInsertion等のセル矩形モデルを
+    // そのまま再利用できる(6-1)
     /// 右上ツールバーの余白とサイズ。信号ボタン(左上13pt, 14pt)の中心
     /// (20pt)と高さを揃えるため、上8pt・高さ24ptにしている
     /// (中心 = 8 + 24/2 = 20)。右の余白はMusic実測14pt+4pt
@@ -294,8 +291,6 @@ struct ShelfView: View {
     /// 差し引いてウィンドウの下に余白が残るのを防ぐ。実寸は
     /// WindowConfigurator.logMetricsが titlebarInset として記録する
     private static let titlebarInset: CGFloat = 32
-    /// ドラッグ中にドロップ先となったレコードの透明度(0.0=透明 〜 1.0=不透明)
-    private static let dropTargetOpacity: CGFloat = 0.5
 
     /// グリッドの1スロット。ForEachの安定ID用。
     /// 空きは位置ベース("empty-N")、エントリは自身のidで同一性を取る。
@@ -310,7 +305,10 @@ struct ShelfView: View {
 
     private var shelfGrid: some View {
         let settings = store.settings
-        let cell = settings.artworkSize.points
+        // ジャケット1辺は設定値そのまま。区画(キュービー)はジャケット+
+        // 内側余白で、ジャケットは区画の80%程度になる(2-3)
+        let jacket = settings.artworkSize.points
+        let cubby = ShelfLayout.cubbySide(jacket: jacket)
         let columnCount = settings.columns
         let rowCount = settings.rows
         // entry.idは数値列または"pl.xxx"なので"empty-N"と衝突しない
@@ -318,17 +316,18 @@ struct ShelfView: View {
             Slot(id: entry?.id ?? "empty-\(offset)", index: offset, entry: entry)
         }
         let columns = Array(
-            repeating: GridItem(.fixed(cell), spacing: Self.columnSpacing),
+            repeating: GridItem(.fixed(cubby), spacing: ShelfLayout.divider),
             count: columnCount
         )
-        let width = CGFloat(columnCount) * cell
-            + CGFloat(columnCount - 1) * Self.columnSpacing
-            + Self.edgePadding * 2
-        let height = CGFloat(rowCount) * cell
-            + CGFloat(rowCount - 1) * Self.rowSpacing
-            + Self.topPadding + Self.edgePadding
+        // ウィンドウサイズ(6-7): 区画数×区画サイズ+板厚+外枠で厳密に計算する
+        let width = CGFloat(columnCount) * cubby
+            + CGFloat(columnCount - 1) * ShelfLayout.divider
+            + ShelfLayout.frame * 2
+        let height = CGFloat(rowCount) * cubby
+            + CGFloat(rowCount - 1) * ShelfLayout.shelfBoard
+            + ShelfLayout.frameTop + ShelfLayout.frame
 
-        // 最大構成(10列×10行・L=216pt)ではコンテンツが約2332×2278ptに
+        // 最大構成(10列×10行・L=区画270pt)ではコンテンツが約2800×2842ptに
         // なり、多くのディスプレイのvisibleFrameを超える。
         // windowResizability(.contentSize)でmin=max固定なので、そのままだと
         // 画面からはみ出すウィンドウが生成される。ここでフレームを
@@ -341,9 +340,9 @@ struct ShelfView: View {
 
         // ウィンドウはwindowResizability(.contentSize)なので、
         // この固定フレームがそのままmin=maxのウィンドウサイズになる
-        // (コンテンツは上端まで広がるので、四辺の余白は8ptずつ)。
+        // (コンテンツは上端まで広がり、四辺は外枠frame/frameTop分)。
         // 設定変更でstore.settingsが変わると自動的に追従する。
-        let grid = LazyVGrid(columns: columns, spacing: Self.rowSpacing) {
+        let grid = LazyVGrid(columns: columns, spacing: ShelfLayout.shelfBoard) {
             ForEach(slots) { slot in
                 Group {
                     if let entry = slot.entry {
@@ -353,8 +352,9 @@ struct ShelfView: View {
                         // previewを透明にしてシステムのドラッグ画像を消す
                         // (消しておかないとドロップ時に元位置へ滑り戻る
                         //  スライドバックが走り、自前ゴーストと二重表示
-                        //  になる — 2026-10-24実測)
-                        AlbumSlotView(entry: entry, store: store)
+                        //  になる — 2026-10-24実測)。
+                        // 区画全体がドラッグ開始領域(6-2)
+                        cubbyCell(slot: slot, cubby: cubby, jacket: jacket)
                             .onDrag {
                                 self.startDrag(entry)
                                 let payload = ShelfDragPayload(sourceShelfID: self.shelfID, entry: entry)
@@ -363,21 +363,15 @@ struct ShelfView: View {
                                 Color.clear.frame(width: 1, height: 1)
                             }
                     } else {
-                        // 空きスロットは何も描かず、スペースだけ確保する
-                        Color.clear
+                        // 空き区画は背板+内影のみ(5-1)。isTargeted時は
+                        // 区画内が発光してドロップ先だと分かる(5-2)
+                        cubbyCell(slot: slot, cubby: cubby, jacket: jacket)
                     }
                 }
-                .frame(width: cell, height: cell)
-                // ドロップで順番が変わる/外部追加される位置にカーソルが乗って
-                // いる間と、追加fetch待ちの間だけ半透明。
-                // ドラッグ元/ゴースト表示中のセルは飛んでいる画像と
-                // 重複するので表示しない(即時切替)
-                .opacity(
-                    (draggedID == slot.id || ghostEntryID == slot.id)
-                    ? 0
-                    : (dropTargetSlotID == slot.id || pendingAddSlotID == slot.id
-                       ? Self.dropTargetOpacity : 1)
-                )
+                .frame(width: cubby, height: cubby)
+                // ドロップ位置の表示は半透明セルではなく区画内の発光で出す(6-5)。
+                // ドラッグ元/ゴースト表示中のセルはcubbyCell内でジャケット
+                // だけを隠す(区画は残り、飛んでいる画像との二重表示も防ぐ)
                 .animation(.easeInOut(duration: 0.12), value: dropTargetSlotID)
                 .background {
                     // ドロップゾーンをセルの左右半分に分ける(左=直前、右=直後)。
@@ -391,11 +385,16 @@ struct ShelfView: View {
             }
         }
         .padding(EdgeInsets(
-            top: Self.topPadding,
-            leading: Self.edgePadding,
-            bottom: Self.edgePadding,
-            trailing: Self.edgePadding
+            top: ShelfLayout.frameTop,
+            leading: ShelfLayout.frame,
+            bottom: ShelfLayout.frame,
+            trailing: ShelfLayout.frame
         ))
+        .background {
+            // 木枠(外枠+縦仕切り+横棚板)。padding込みの全領域を木で
+            // 塗る。区画の内側は各セルのCubbyInteriorViewが上から塗る
+            WoodShelfBackground(columns: columnCount, rows: rowCount, cubby: cubby)
+        }
         // クランプ時だけScrollViewで包み、フレームを画面内に収める。
         // グリッド座標系(スロット矩形・ゴースト位置)はコンテンツ基準のまま
         // 変わらない。マウス位置→グリッド座標の変換だけ
@@ -408,13 +407,25 @@ struct ShelfView: View {
             }
         }
         .frame(width: frameW, height: frameH)
+        // ヴィネット(4-3): 四隅をわずかに暗くして棚を浮かせる。
+        // タップ/ドラッグは下へ通す
+        .overlay {
+            Rectangle()
+                .fill(.ellipticalGradient(
+                    colors: [.clear, .black.opacity(0.28)],
+                    center: .center,
+                    startRadiusFraction: 0.55,
+                    endRadiusFraction: 1.0
+                ))
+                .allowsHitTesting(false)
+        }
         // タイトルバーを隠してコンテンツを上端まで広げたため、AppKitの
         // タイトルバー(=ウィンドウ移動)のドラッグ領域が無くなる。
-        // 上辺の余白(8pt)をつかんでウィンドウを動かせるようにする
+        // 上の外枠をつかんでウィンドウを動かせるようにする
         // (Musicアプリのミニプレーヤーと同じ「余白をつかんで移動」)
         .overlay(alignment: .top) {
             Color.clear
-                .frame(height: Self.topPadding)
+                .frame(height: ShelfLayout.frameTop)
                 .contentShape(Rectangle())
                 .gesture(WindowDragGesture())
         }
@@ -468,7 +479,7 @@ struct ShelfView: View {
         // クランプ状態の遷移時だけログ(body評価のたびに出るのを防ぐ)。
         // onAppearではレイアウト検証用に計算結果(グリッドの実寸と窓の関係)を1回出す
         .onAppear {
-            Self.logger.notice("grid layout: cell=\(cell, privacy: .public) columns=\(columnCount, privacy: .public) rows=\(rowCount, privacy: .public) frame=\(Int(frameW), privacy: .public)x\(Int(frameH), privacy: .public) natural=\(Int(width), privacy: .public)x\(Int(height), privacy: .public)")
+            Self.logger.notice("grid layout: jacket=\(jacket, privacy: .public) cubby=\(cubby, privacy: .public) columns=\(columnCount, privacy: .public) rows=\(rowCount, privacy: .public) frame=\(Int(frameW), privacy: .public)x\(Int(frameH), privacy: .public) natural=\(Int(width), privacy: .public)x\(Int(height), privacy: .public)")
             if clamped {
                 Self.logClamp(natural: CGSize(width: width, height: height),
                               clamped: CGSize(width: frameW, height: frameH))
@@ -716,7 +727,7 @@ struct ShelfView: View {
     }
 
     /// セル半分のドロップゾーン。after=falseなら直前、trueなら直後に挿入。
-    /// 半透明にするのは「ドロップで実際に順番が変わる半分」にカーソルが
+    /// 区画を発光させるのは「ドロップで実際に順番が変わる半分」にカーソルが
     /// 乗っている間だけ。isTargetedはドラッグ終了時にフレームワークが
     /// 必ずfalseで呼ぶので、ハイライトが残ることはない。
     private func dropZone(slot: Slot, after: Bool) -> some View {
@@ -761,7 +772,7 @@ struct ShelfView: View {
                 let movable = self.willMove(slot: slot, after: after)
                 Self.logger.debug("isTargeted slot=\(slot.index, privacy: .public) after=\(after, privacy: .public) targeted=\(targeted, privacy: .public) willMove=\(movable, privacy: .public)")
                 // 内部ドラッグ中は実際に順番が変わる半分だけ、
-                // 外部テキストのドラッグ中はどちらの半分でも半透明にする
+                // 外部テキストのドラッグ中はどちらの半分でも区画を発光させる
                 if targeted, (self.draggedID != nil ? movable : true) {
                     dropTargetSlotID = slot.id
                 } else if dropTargetSlotID == slot.id {
@@ -774,7 +785,7 @@ struct ShelfView: View {
     /// MediaURLParserで解釈できるものだけ受け付け(true=ドロップ成立)。
     /// 追加自体は非同期なのでここではTaskを起こすだけにし、
     /// 重複/満杯/エラーはアラート(addError)で後から通知する。
-    /// slotIDを渡すとfetch待ちの間そのスロットを半透明に保つ
+    /// slotIDを渡すとfetch待ちの間そのスロットの区画をハイライトに保つ
     /// (ドロップ→レコード出現の繋ぎ。余白ドロップはnilで呼ぶ)
     private func addDroppedText(_ text: String?, atIndex: Int, slotID: String? = nil) -> Bool {
         guard let text, let parsed = MediaURLParser.parse(text) else {
@@ -792,7 +803,7 @@ struct ShelfView: View {
         }
         inFlightAddIDs.insert(parsed.id)
         dropTargetSlotID = nil
-        // fetch完了までドロップ位置のスロットを半透明のまま待たせる
+        // fetch完了までドロップ位置の区画をハイライトのまま待たせる
         // (ハイライトを消すと0.5秒ほど何も無い空白に見える)
         pendingAddSlotID = slotID
         Task { @MainActor in
@@ -870,8 +881,8 @@ struct ShelfView: View {
     }
 
     /// ExternalDropOverlayViewのローカル座標→グリッド座標。
-    /// オーバーレイはpadding込みのフレーム全体を覆うので、左上
-    /// (edgePadding, topPadding)分を引く。グリッドが画面収まりに
+    /// オーバーレイは外枠込みのフレーム全体を覆うので、左上
+    /// (frame, frameTop)分を引く。グリッドが画面収まりに
     /// クランプされてScrollView内にある場合は、見えている矩形の
     /// 原点(スクロール量)を足して補正する(slotScreenCenterと同じ考え方)
     private func overlayGridPoint(_ p: CGPoint) -> CGPoint {
@@ -880,8 +891,8 @@ struct ShelfView: View {
         let scrollOffset = Self.findScrollView(in: windowBox.window?.contentView)?
             .documentVisibleRect.origin ?? .zero
         return CGPoint(
-            x: p.x - Self.edgePadding + scrollOffset.x,
-            y: p.y - Self.topPadding + scrollOffset.y
+            x: p.x - ShelfLayout.frame + scrollOffset.x,
+            y: p.y - ShelfLayout.frameTop + scrollOffset.y
         )
     }
 
@@ -890,9 +901,10 @@ struct ShelfView: View {
     /// セル内の左半分=直前、右半分=直後(セル背面のドロップゾーンと同じ規則)
     private func slotInsertion(atGridPoint g: CGPoint) -> (index: Int, after: Bool)? {
         let settings = store.settings
-        let cell = settings.artworkSize.points
-        let stepX = cell + Self.columnSpacing
-        let stepY = cell + Self.rowSpacing
+        // セル=区画、間隔=板厚(6-1)
+        let cell = ShelfLayout.cubbySide(jacket: settings.artworkSize.points)
+        let stepX = cell + ShelfLayout.divider
+        let stepY = cell + ShelfLayout.shelfBoard
         guard g.x >= 0, g.y >= 0 else { return nil }
         let column = Int(g.x / stepX)
         let row = Int(g.y / stepY)
@@ -985,7 +997,7 @@ struct ShelfView: View {
     }
 
     /// オーバーレイ上のホバー通知。ポインタ下のスロットを挿入位置として
-    /// 半透明にする(dropTargetSlotIDは既存機構をそのまま利用)。
+    /// 区画を発光させる(dropTargetSlotIDは既存機構をそのまま利用)。
     /// 高頻度で呼ばれるのでログはスロットが変わったときだけ出す
     private func externalDragMoved(to p: CGPoint) {
         let g = overlayGridPoint(p)
@@ -1015,7 +1027,7 @@ struct ShelfView: View {
         var slotID: String?
         if let (index, after) = slotInsertion(atGridPoint: g) {
             insertIndex = index + (after ? 1 : 0)
-            // fetch待ちの間このスロットを半透明にしておくためのID
+            // fetch待ちの間このスロットの区画をハイライトしておくためのID
             slotID = store.paddedSlots()[index]?.id ?? "empty-\(index)"
         }
         Self.logger.notice("external overlay drop handled: url=\(url.absoluteString, privacy: .public) grid=(\(g.x, privacy: .public), \(g.y, privacy: .public)) insertIndex=\(insertIndex, privacy: .public) slot=\(slotID ?? "margin", privacy: .public)")
@@ -1167,16 +1179,24 @@ struct ShelfView: View {
     /// グリッドがScrollView内にある場合はスクロール量を引いて補正する。
     private func slotScreenCenter(index: Int) -> CGPoint? {
         guard let window = windowBox.window else { return nil }
+        // ゴーストが運ぶのはジャケットだけなので(6-3)、飛行先は区画の
+        // 中心ではなく区画内のジャケット中心(底辺揃えの矩形)にする
+        let settings = store.settings
+        let jacket = settings.artworkSize.points
         let rect = slotRect(index: index)
+        let center = CGPoint(
+            x: rect.midX,
+            y: rect.maxY - ShelfLayout.bottomInset(cubby: rect.width, jacket: jacket) - jacket / 2
+        )
         // ScrollViewはグリッドが画面より大きいときだけ存在する。
         // SwiftUIのスクロールコンテンツはflippedなので、
         // documentVisibleRect.originが左上基準のスクロール量になる。
         let scrollOffset = Self.findScrollView(in: window.contentView)?
             .documentVisibleRect.origin ?? .zero
         return window.convertPoint(toScreen: CGPoint(
-            x: rect.midX + Self.edgePadding - scrollOffset.x,
-            y: window.frame.height - Self.topPadding
-                - rect.midY + scrollOffset.y
+            x: center.x + ShelfLayout.frame - scrollOffset.x,
+            y: window.frame.height - ShelfLayout.frameTop
+                - center.y + scrollOffset.y
         ))
     }
 
@@ -1191,15 +1211,15 @@ struct ShelfView: View {
         return nil
     }
 
-    /// index番スロットのグリッド座標系での矩形(LazyVGridのpaddingより内側)
+    /// index番スロット(区画)のグリッド座標系での矩形(LazyVGridのpaddingより内側)
     private func slotRect(index: Int) -> CGRect {
         let settings = store.settings
-        let cell = settings.artworkSize.points
+        let cell = ShelfLayout.cubbySide(jacket: settings.artworkSize.points)
         let column = index % settings.columns
         let row = index / settings.columns
         return CGRect(
-            x: CGFloat(column) * (cell + Self.columnSpacing),
-            y: CGFloat(row) * (cell + Self.rowSpacing),
+            x: CGFloat(column) * (cell + ShelfLayout.divider),
+            y: CGFloat(row) * (cell + ShelfLayout.shelfBoard),
             width: cell,
             height: cell
         )
@@ -1219,6 +1239,86 @@ struct ShelfView: View {
             count: store.entries.count
         )
         return to != from
+    }
+
+    /// 1区画(キュービー)。暗い背板+内シャドウの上に、棚板へ底辺を
+    /// 付けて後傾したジャケットを立てかける。slot.entry=nilは空き区画
+    /// (背板のみ)。ドロップ先の区画は内側を発光させて示す(6-5)
+    private func cubbyCell(slot: Slot, cubby: CGFloat, jacket: CGFloat) -> some View {
+        let highlighted = dropTargetSlotID == slot.id || pendingAddSlotID == slot.id
+        let hidden = draggedID == slot.id || ghostEntryID == slot.id
+        let bottomInset = ShelfLayout.bottomInset(cubby: cubby, jacket: jacket)
+        return ZStack(alignment: .bottom) {
+            CubbyInteriorView(cubby: cubby, highlighted: highlighted)
+            if let entry = slot.entry {
+                // 棚板への接触影(3-4): ジャケット下端のすぐ下に置く楕円の影。
+                // 下半分はジャケットに隠れて見えない。影はジャケットと一体
+                // なのでGroupで包み、hidden時に影だけが区画に残らないようにする
+                let contactH = max(5, jacket * 0.065)
+                Group {
+                    Ellipse()
+                        .fill(.ellipticalGradient(
+                            colors: [.black.opacity(0.5), .clear],
+                            center: .center,
+                            startRadiusFraction: 0,
+                            endRadiusFraction: 0.95
+                        ))
+                        .frame(width: jacket * 0.88, height: contactH)
+                        .padding(.bottom, bottomInset - contactH * 0.45)
+                    AlbumSlotView(entry: entry, store: store)
+                        .frame(width: jacket, height: jacket)
+                        // 背板へ立てかけた後傾(3-2)+レコードごとの微傾きと
+                        // 手前/奥のズレ(3-3。entry.id由来の決定論的な値)
+                        .rotation3DEffect(
+                            .degrees(ShelfLayout.leanDegrees),
+                            axis: (x: 1, y: 0, z: 0),
+                            anchor: .bottom,
+                            perspective: ShelfLayout.leanPerspective
+                        )
+                        .rotationEffect(.degrees(Self.jacketTilt(id: entry.id)), anchor: .bottom)
+                        .scaleEffect(Self.jacketScale(id: entry.id), anchor: .bottom)
+                        .padding(.bottom, bottomInset)
+                }
+                // ドラッグ元/着地フライ中のセルはジャケット(と接触影)を隠す
+                // (区画は残す。飛んでいるゴーストとの二重表示防止)
+                .opacity(hidden ? 0 : 1)
+            }
+        }
+        .contentShape(Rectangle())
+        // ヒット領域は区画全体(6-2): 背板の露出部をタップしても再生/停止
+        .onTapGesture {
+            if let entry = slot.entry {
+                Self.logger.debug("record tapped: '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
+                Task {
+                    do {
+                        try await PlaybackMonitor.shared.toggle(entry)
+                    } catch {
+                        Self.logger.error("playback failed for '\(entry.title, privacy: .public)': \(error.localizedDescription, privacy: .public)")
+                    }
+                }
+            }
+        }
+    }
+
+    /// entry.id由来の決定論的ハッシュ→0.0〜1.0(3-3)。
+    /// SwiftのhashValueは起動ごとに変わるので、表示ごとに同じ傾きに
+    /// なるよう自前でdjb2を回す。saltで別系列を作る
+    private static func deterministicValue(_ id: String, salt: UInt64) -> Double {
+        var h: UInt64 = 5381 &+ salt
+        for scalar in id.unicodeScalars {
+            h = ((h &<< 5) &+ h) &+ UInt64(scalar.value)
+        }
+        return Double(h % 10_000) / 10_000
+    }
+
+    /// 個別の左右傾き(±ShelfLayout.maxTiltDegrees)。entry.idから決定論的(3-3)
+    private static func jacketTilt(id: String) -> Double {
+        (deterministicValue(id, salt: 0) - 0.5) * 2 * ShelfLayout.maxTiltDegrees
+    }
+
+    /// 個別の手前/奥のズレ(1±ShelfLayout.maxScaleJitterのスケール)(3-3)
+    private static func jacketScale(id: String) -> CGFloat {
+        1 + CGFloat(deterministicValue(id, salt: 7_919) - 0.5) * 2 * ShelfLayout.maxScaleJitter
     }
 }
 
@@ -1984,8 +2084,23 @@ private struct AlbumSlotView: View {
                 .aspectRatio(1, contentMode: .fit)
             }
         }
+        // スリーブ光沢(3-5): 左上→右下の斜めに淡いハイライト帯を重ねて
+        // 透明袋の光沢感を出す。clipShapeより前に置いてジャケット形で切る
+        .overlay {
+            LinearGradient(
+                stops: [
+                    .init(color: .clear, location: 0.0),
+                    .init(color: .white.opacity(0.11), location: 0.30),
+                    .init(color: .white.opacity(0.03), location: 0.45),
+                    .init(color: .clear, location: 0.60)
+                ],
+                startPoint: .init(x: 0, y: 0),
+                endPoint: .init(x: 1, y: 1)
+            )
+        }
         .clipShape(RoundedRectangle(cornerRadius: 4))
-        .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
+        // 背板への柔らかい投影(3-4)
+        .shadow(color: .black.opacity(0.45), radius: 5, y: 2)
         .overlay {
             if isHovered {
                 // ボタンはセルサイズ比例(S=96ptで従来の44pt/17pt相当)
@@ -2020,6 +2135,237 @@ private struct AlbumSlotView: View {
         // (artworkRevisionの増加)で未ロード分を再試行する。
         .task(id: "\(entry.id)#\(store.artworkRevision)") {
             artwork = await ShelfStore.artworkImage(for: entry)
+        }
+    }
+}
+
+/// 木製格子棚のレイアウト・質感パラメータ(要件7)。
+/// 区画の内側余白・板厚・木と背板の色・ジャケットの傾きはすべて
+/// ここの定数で1箇所から調整できる。
+/// セル矩形モデルとの対応: セル=区画、グリッド間隔=板厚、外周余白=外枠
+private enum ShelfLayout {
+    // MARK: 寸法(7-1/7-2/7-4)
+
+    /// 区画(キュービー)に対するジャケットの比率(7-1)。
+    /// 0.8 = ジャケットが区画の80%。区画1辺 = ジャケット / この値
+    static let jacketRatio: CGFloat = 0.8
+    /// 区画とジャケットの差分のうち下側に回す割合(残りは上の空き)。
+    /// ジャケットは棚板の上に底辺を付けて立てかける(3-1)。
+    /// 大きくしすぎると床から浮いて見えるため小さめに取る
+    static let bottomSlackRatio: CGFloat = 0.25
+    /// 縦仕切り板の厚み(7-2)。列間の隙間=板の前面
+    static let divider: CGFloat = 8
+    /// 横棚板の厚み(7-2)。行間の隙間=棚板の前面
+    static let shelfBoard: CGFloat = 12
+    /// 外枠の厚み(7-2)。左・右・下は同じ
+    static let frame: CGFloat = 14
+    /// 外枠の厚み・上(7-2)。信号ボタン/右上ツールバーのガラスカプセルが
+    /// ここに重なるので他の辺より少し厚め(6-6)
+    static let frameTop: CGFloat = 20
+    /// ジャケットの後傾角(7-4)。x軸回転で背板へ倒す
+    static let leanDegrees: Double = 5
+    /// 後傾の遠近感(7-4)。小さいほどパースが強い
+    static let leanPerspective: CGFloat = 0.7
+    /// 個別の微差(7-4): 左右傾きの最大角度(±度)と手前/奥(スケール)の最大幅(±)
+    static let maxTiltDegrees: Double = 1.6
+    static let maxScaleJitter: CGFloat = 0.03
+
+    // MARK: 色(7-3)
+
+    /// 木の暖色ミディアムブラウン。上面=光を受けて明るい/下面=暗い(1-4)
+    static let woodLight = Color(red: 0.64, green: 0.45, blue: 0.28)
+    static let woodMid = Color(red: 0.50, green: 0.33, blue: 0.19)
+    static let woodDark = Color(red: 0.34, green: 0.21, blue: 0.12)
+    /// 板の上端のハイライト(光が当たる稜線)
+    static let woodEdgeLight = Color(red: 0.78, green: 0.58, blue: 0.37)
+    /// 板の下端の暗線・木目スジ・継ぎ目
+    static let woodSeam = Color(red: 0.16, green: 0.10, blue: 0.06)
+    /// 区画の背板(2-1)。暖みのある焦茶(上)→ほぼ黒(下)
+    static let backTop = Color(red: 0.16, green: 0.12, blue: 0.09)
+    static let backBottom = Color(red: 0.06, green: 0.045, blue: 0.03)
+    /// ドロップ先区画の内側発光色(6-5)
+    static let targetGlow = Color(red: 1.0, green: 0.82, blue: 0.55)
+
+    // MARK: 計算
+
+    /// 区画(セル)1辺。ジャケット+内側余白(2-3)。
+    /// jacketRatio=0.8で S:96→120 / M:144→180 / L:216→270
+    static func cubbySide(jacket: CGFloat) -> CGFloat {
+        (jacket / jacketRatio).rounded()
+    }
+
+    /// ジャケット底辺と区画底辺の間の余白(3-1)
+    static func bottomInset(cubby: CGFloat, jacket: CGFloat) -> CGFloat {
+        (cubby - jacket) * bottomSlackRatio
+    }
+}
+
+/// 棚の木枠(外枠・縦仕切り・横棚板)を描く背景。
+/// 区画の内側は各スロットのCubbyInteriorViewが上から塗るので、
+/// ここではpadding込みの全領域を木で塗りつぶす。
+/// 質感はグラデーション+陰影のコード描画(画像アセット不使用。1-4)
+private struct WoodShelfBackground: View {
+
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
+    let columns: Int
+    let rows: Int
+    let cubby: CGFloat
+
+    var body: some View {
+        Canvas { ctx, size in
+            // ベース: 全面を木で塗る(上からの光で上明→下暗)
+            ctx.fill(
+                Path(CGRect(origin: .zero, size: size)),
+                with: .linearGradient(
+                    Gradient(colors: [ShelfLayout.woodMid, ShelfLayout.woodDark]),
+                    startPoint: CGPoint(x: size.width / 2, y: 0),
+                    endPoint: CGPoint(x: size.width / 2, y: size.height)
+                )
+            )
+            // 縦板(左右の外枠+列間の仕切り)。板iの直後に区画が続く
+            // 配置規則はセル矩形モデルと同じ(末尾の外枠だけ後ろに区画無し)
+            var x: CGFloat = 0
+            for i in 0...columns {
+                let w = (i == 0 || i == columns) ? ShelfLayout.frame : ShelfLayout.divider
+                drawBoard(
+                    in: &ctx,
+                    rect: CGRect(x: x, y: 0, width: w, height: size.height),
+                    seed: UInt64(i)
+                )
+                x += w + cubby
+            }
+            // 横板(上・下の外枠+行間の棚板)
+            var y: CGFloat = 0
+            for i in 0...rows {
+                let h = i == 0 ? ShelfLayout.frameTop
+                    : (i == rows ? ShelfLayout.frame : ShelfLayout.shelfBoard)
+                drawBoard(
+                    in: &ctx,
+                    rect: CGRect(x: 0, y: y, width: size.width, height: h),
+                    seed: UInt64(i + 100)
+                )
+                y += h + cubby
+            }
+        }
+        .onAppear {
+            Self.logger.notice("wood shelf: cubby=\(self.cubby, privacy: .public) columns=\(self.columns, privacy: .public) rows=\(self.rows, privacy: .public) divider=\(ShelfLayout.divider, privacy: .public) board=\(ShelfLayout.shelfBoard, privacy: .public) frame=\(ShelfLayout.frame, privacy: .public) frameTop=\(ShelfLayout.frameTop, privacy: .public)")
+        }
+    }
+
+    /// 板1枚: 面の縦グラデーション(上=明/下=暗)+木目スジ+
+    /// 上端ハイライト+下端暗線。seedで木目の位置を決定論的にする
+    private func drawBoard(in ctx: inout GraphicsContext, rect: CGRect, seed: UInt64) {
+        ctx.fill(
+            Path(rect),
+            with: .linearGradient(
+                Gradient(colors: [ShelfLayout.woodLight, ShelfLayout.woodMid, ShelfLayout.woodDark]),
+                startPoint: CGPoint(x: rect.midX, y: rect.minY),
+                endPoint: CGPoint(x: rect.midX, y: rect.maxY)
+            )
+        )
+        // 木目: 板の長手方向に沿った薄いスジを3本(決定論的LCG)
+        var s = seed &* 2_654_435_761 &+ 97
+        let horizontal = rect.width >= rect.height
+        for _ in 0..<3 {
+            s = s &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+            let t = CGFloat((s >> 33) % 1000) / 1000
+            s = s &* 6_364_136_223_846_793_005 &+ 1_442_695_040_888_963_407
+            let opacity = 0.05 + 0.08 * CGFloat((s >> 33) % 1000) / 1000
+            let line = horizontal
+                ? CGRect(x: rect.minX, y: rect.minY + t * rect.height, width: rect.width, height: 1)
+                : CGRect(x: rect.minX + t * rect.width, y: rect.minY, width: 1, height: rect.height)
+            ctx.fill(Path(line), with: .color(ShelfLayout.woodSeam.opacity(opacity)))
+        }
+        // 上端のハイライト(光が当たる稜線。1-4)と下端の暗線(継ぎ目)
+        ctx.fill(
+            Path(CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: 1)),
+            with: .color(ShelfLayout.woodEdgeLight.opacity(0.85))
+        )
+        ctx.fill(
+            Path(CGRect(x: rect.minX, y: rect.maxY - 1.5, width: rect.width, height: 1.5)),
+            with: .color(ShelfLayout.woodSeam.opacity(0.8))
+        )
+    }
+}
+
+/// 区画(キュービー)の内側。暗い背板+内壁の内シャドウ+棚板の落ち影+
+/// 床(棚板上面)の薄い光で奥行きを出す。空き区画はこれだけを表示し、
+/// 占有区画はこの上にジャケットを重ねる。
+/// highlighted=trueでドロップ先の発光(背板の発光+縁の明線)を出す(5-2/6-5)
+private struct CubbyInteriorView: View {
+
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    /// 描画実測ログは区画サイズごとに1回だけ出す
+    /// (スロットごとにonAppearするとウィンドウあたり数十行になるため)
+    private static var loggedCubbies: Set<CGFloat> = []
+
+    let cubby: CGFloat
+    let highlighted: Bool
+
+    var body: some View {
+        ZStack {
+            // 背板(2-1): 上=暖みのある焦茶 → 下=ほぼ黒
+            LinearGradient(
+                colors: [ShelfLayout.backTop, ShelfLayout.backBottom],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            // 棚板が一段下の区画へ落とす影(1-5): 区画上端が最も暗い
+            VStack(spacing: 0) {
+                LinearGradient(
+                    colors: [Color.black.opacity(0.55), .clear],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: cubby * 0.34)
+                Spacer(minLength: 0)
+            }
+            // 左右の内壁の内シャドウ(2-2)
+            HStack(spacing: 0) {
+                LinearGradient(
+                    colors: [Color.black.opacity(0.4), .clear],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: cubby * 0.15)
+                Spacer(minLength: 0)
+                LinearGradient(
+                    colors: [.clear, Color.black.opacity(0.4)],
+                    startPoint: .leading,
+                    endPoint: .trailing
+                )
+                .frame(width: cubby * 0.15)
+            }
+            // 床(棚板の上面がわずかに見える。1-3): 底辺の細い明るい面+
+            // その直上にかかる弱い反射光。ジャケットはこの上に載る
+            VStack(spacing: 0) {
+                Spacer(minLength: 0)
+                LinearGradient(
+                    colors: [.clear, ShelfLayout.woodLight.opacity(0.12)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: cubby * 0.16)
+                LinearGradient(
+                    colors: [ShelfLayout.woodLight.opacity(0.55), ShelfLayout.woodMid.opacity(0.6)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
+                .frame(height: max(2.5, cubby * 0.035))
+            }
+            if highlighted {
+                // ドロップ先: 背板の発光+区画の縁の明線
+                Rectangle()
+                    .fill(ShelfLayout.targetGlow.opacity(0.16))
+                Rectangle()
+                    .strokeBorder(ShelfLayout.targetGlow.opacity(0.8), lineWidth: 1.5)
+            }
+        }
+        .onAppear {
+            if Self.loggedCubbies.insert(self.cubby).inserted {
+                Self.logger.notice("cubby interior rendered: cubby=\(self.cubby, privacy: .public) highlighted=\(self.highlighted, privacy: .public)")
+            }
         }
     }
 }
