@@ -154,6 +154,7 @@ final class PlaybackMonitor: ObservableObject {
         // 停止アイコンが残り続けないようにする)
         if let pending = pendingEntry {
             if isPlayingNow(pending) {
+                Self.logger.notice("pending playback confirmed for '\(pending.title, privacy: .public)'")
                 clearPending()
             } else if let since = pendingSince,
                       Date().timeIntervalSince(since) > Self.pendingTimeout {
@@ -189,9 +190,12 @@ final class PlaybackMonitor: ObservableObject {
 
         if isCurrent(entry) {
             Self.logger.notice("stop \(entry.title, privacy: .public)")
+            // Clear pending before stop so a throwing stop() can't leak the icon.
+            // Known limitation: album playback is fire-and-forget (shortcuts://run-shortcut),
+            // so it may still start seconds later — observed state then flips back to stop.
+            if pendingEntry?.id == entry.id { clearPending() }
             try await PlaybackEngine.stop(entry)
             activeEntryID = nil
-            if pendingEntry?.id == entry.id { clearPending() }
         } else {
             Self.logger.notice("play \(entry.title, privacy: .public)")
             pendingEntry = entry
