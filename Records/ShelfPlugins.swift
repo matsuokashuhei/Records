@@ -97,7 +97,8 @@ struct ResolvedShelfPlugin {
 
 /// 利用可能なプラグインの登録簿。
 /// all の並び = 適用順(決定論的) = 設定画面の表示順。
-/// 基盤PRでは空。プラグイン追加PRがここに具象型を登録する。
+/// プラグイン追加はここに具象型を登録するだけで
+/// 設定画面・永続化・合成まで通る。
 enum ShelfPluginRegistry {
 
     private static let logger = Logger(
@@ -106,7 +107,8 @@ enum ShelfPluginRegistry {
     /// 登録済みプラグイン一覧。ここに足すだけで設定画面・永続化・
     /// セル合成まで全部通る
     static let all: [any ShelfPlugin] = [
-        // 例: LeanDepthPlugin(), SleeveGlossPlugin(), TopLightPlugin()
+        LeanDepthPlugin(),
+        // 例: SleeveGlossPlugin(), TopLightPlugin()
     ]
 
     static func plugin(id: String) -> (any ShelfPlugin)? {
