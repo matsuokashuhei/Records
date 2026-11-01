@@ -294,6 +294,43 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
     スクリーンショットで見た目を確認するための経路。複数シェルフがある場合は
     プライマリのウィンドウだけが対象)
 
+## シェルフエフェクトプラグイン(2026-11-01 CAC-9で面変形フック追加)
+
+ジャケットへの劣化加工・光沢・後傾などをプラグイン化する機構。
+基盤は `Records/ShelfPlugins.swift`(`ShelfPlugin`プロトコル+
+`ShelfPluginRegistry`)、合成点はShelfView.swiftのAlbumSlotView。
+`ShelfPluginRegistry.all`の並び=適用順=設定画面の表示順。
+
+フックは4種(デフォルト全てno-op、必要なものだけオーバーライド)。
+`applyingJacketPlugins`内での合成順は (a)→(b)→(c):
+
+- (a) `transformJacket` — ジャケット**画像のみ**の修飾(色調・フィルタ等。
+  SunFade/Yellowingの全体効果)。後段のオーバーレイには掛からない。
+  **幾何変形(3D回転等)をここに積むとオーバーレイが面からずれる**
+- (b) `jacketOverlay` — ジャケット面上に描くオーバーレイ
+  (SleeveGloss/EdgeWear/RingWear/Scuffs/Yellowingシミ)。
+  変形前の平面でZStack+clipShape(jacketCornerRadius)重畳。
+  面の一部なので(c)の変形に追従する。各オーバーレイは
+  `.allowsHitTesting(false)`必須(タップ再生・D&D・右クリックを食わないため)
+- (c) `transformJacketSurface` — ジャケット+全オーバーレイの合成物を
+  1枚の面として変形するフック。LeanDepthのrotation3DEffectはここ
+- (d) `transformCell` — セル全体(面+既定影+ホバー)を包む装飾
+  (LeanDepthの接地影)
+
+CAC-9の教訓: 旧設計では変形がtransformJacketにあり「全transform畳み込み→
+全オーバーレイ」の順だったため、rotation3DEffect(描画だけ変形し
+レイアウト境界は不変)の外側にオーバーレイが残り平面にずれて見えた。
+**面を変形するプラグインは必ずtransformJacketSurfaceに実装すること**。
+rotation3DEffectはレイアウト境界(=ヒット領域)を変えないので
+タップ/D&D判定は変形の有無に関わらず同一。
+
+各プラグインは`logAppliedOnce`でプロセス内1回だけ解決値をnoticeログに出す
+(セル描画のたびに呼ばれるため毎回は出さない)。コンテキストは
+`ShelfPluginRegistry.resolve(settings:cellSize:cellIndex:)`がセルごとに
+解決(パラメータ値+セル中心の正規化座標+グリッド次元)。
+セル座標ハッシュ(sinハッシュ)でパターンを決定論的にばらつかせるのが
+各プラグイン共通の作法。
+
 ## データ
 
 - シェルフ一覧: `~/Library/Application Support/Records/shelves.json`
