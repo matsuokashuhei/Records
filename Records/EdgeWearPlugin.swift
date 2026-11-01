@@ -151,13 +151,14 @@ struct EdgeWearPlugin: ShelfPlugin {
         guard maxStrength > Self.minEffectiveStrength else { return nil }
         logAppliedOnce(amount: amount, corners: corners)
 
-        let cornerRadius = ShelfPluginLayout.jacketCornerRadius
+        let cornerRadii = ShelfPluginLayout.jacketCornerRadii(
+            cellIndex: context.cellIndex)
         return AnyView(
             Canvas { gc, size in
                 for (edge, strength) in zip(Edge.allCases, edgeStrengths)
                 where strength > 0 {
                     drawEdgeWear(gc: &gc, size: size, edge: edge,
-                                 strength: strength, inset: cornerRadius,
+                                 strength: strength, radii: cornerRadii,
                                  context: context)
                 }
                 for (corner, strength) in zip(Corner.allCases, cornerStrengths)
@@ -180,24 +181,30 @@ struct EdgeWearPlugin: ShelfPlugin {
     /// 実物の輪郭にする
     private func drawEdgeWear(
         gc: inout GraphicsContext, size: CGSize, edge: Edge,
-        strength: Double, inset: CGFloat, context: ShelfPluginContext
+        strength: Double, radii: RectangleCornerRadii, context: ShelfPluginContext
     ) {
         let w = size.width
         let h = size.height
-        // 辺の線分(角丸の分だけ両端を詰める)とセル内側への法線
+        // 辺の線分(両端は隣接する角の角丸半径の分だけ詰める)と
+        // セル内側への法線
+        let inset0: CGFloat, inset1: CGFloat
         let p0: CGPoint, p1: CGPoint, n: CGPoint
         switch edge {
         case .top:
-            p0 = CGPoint(x: inset, y: 0); p1 = CGPoint(x: w - inset, y: 0)
+            inset0 = radii.topLeading; inset1 = radii.topTrailing
+            p0 = CGPoint(x: inset0, y: 0); p1 = CGPoint(x: w - inset1, y: 0)
             n = CGPoint(x: 0, y: 1)
         case .bottom:
-            p0 = CGPoint(x: inset, y: h); p1 = CGPoint(x: w - inset, y: h)
+            inset0 = radii.bottomLeading; inset1 = radii.bottomTrailing
+            p0 = CGPoint(x: inset0, y: h); p1 = CGPoint(x: w - inset1, y: h)
             n = CGPoint(x: 0, y: -1)
         case .left:
-            p0 = CGPoint(x: 0, y: inset); p1 = CGPoint(x: 0, y: h - inset)
+            inset0 = radii.topLeading; inset1 = radii.bottomLeading
+            p0 = CGPoint(x: 0, y: inset0); p1 = CGPoint(x: 0, y: h - inset1)
             n = CGPoint(x: 1, y: 0)
         case .right:
-            p0 = CGPoint(x: w, y: inset); p1 = CGPoint(x: w, y: h - inset)
+            inset0 = radii.topTrailing; inset1 = radii.bottomTrailing
+            p0 = CGPoint(x: w, y: inset0); p1 = CGPoint(x: w, y: h - inset1)
             n = CGPoint(x: -1, y: 0)
         }
         let dx = p1.x - p0.x
@@ -303,8 +310,8 @@ struct EdgeWearPlugin: ShelfPlugin {
 
         // 紙むけ点: 角丸アークのすぐ内側(対角線上1.8〜3.0pt)に
         // 小さな明るい点。位置はセル固有ハッシュでずらす。
-        // 頂点から対角線1.66pt未満は角丸クリップの外なので
-        // 見えない領域には置かない
+        // 頂点から対角線0.4〜0.8pt(角丸半径1〜2pt分)は角丸クリップの
+        // 外なので、見えない領域には置かない
         let hOff = hash01(40 + Double(corner.rawValue), context: context)
         let spotOffset = CGFloat(1.8 + 1.2 * hOff)
         let spotRadius = CGFloat(0.9 + 1.7 * strength)

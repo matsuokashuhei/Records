@@ -11,12 +11,36 @@
 import SwiftUI
 import os
 
-/// ジャケット描画まわりでプラグイン基盤とセルが共有する定数
+/// ジャケット描画まわりでプラグイン基盤とセルが共有する定数・形状
 enum ShelfPluginLayout {
-    /// ジャケットの角丸半径。AlbumSlotViewのclipShape/contentShapeと、
-    /// ジャケットオーバーレイのクリップで同じ値を使う。
-    /// LPジャケットは四角いので0(以前は4ptの角丸だった)
-    static let jacketCornerRadius: CGFloat = 0
+    /// ジャケットの角丸半径。実物のレコードジャケットは完全な直角では
+    /// なく角ごとにわずかに丸いので、角ごとに1または2ptで丸める。
+    /// 半径はセルindexだけから決まる決定論的疑似乱数(sinハッシュ、
+    /// 摩耗プラグインと同じ方式)で選ぶため、同じセルは再描画・
+    /// リロード・再起動を経ても同じ角丸になる
+    static func jacketCornerRadii(cellIndex: Int) -> RectangleCornerRadii {
+        RectangleCornerRadii(
+            topLeading: cornerRadius(cellIndex: cellIndex, corner: 0),
+            bottomLeading: cornerRadius(cellIndex: cellIndex, corner: 1),
+            bottomTrailing: cornerRadius(cellIndex: cellIndex, corner: 2),
+            topTrailing: cornerRadius(cellIndex: cellIndex, corner: 3)
+        )
+    }
+
+    /// ジャケットの輪郭(角ごとの角丸入り)。AlbumSlotViewの
+    /// clipShape/contentShapeとジャケットオーバーレイのクリップ、
+    /// ドラッグゴーストのマスクで同じ形を使う
+    static func jacketShape(cellIndex: Int) -> UnevenRoundedRectangle {
+        UnevenRoundedRectangle(
+            cornerRadii: jacketCornerRadii(cellIndex: cellIndex))
+    }
+
+    /// 角(0=左上,1=左下,2=右下,3=右上)の半径を1または2ptで返す
+    private static func cornerRadius(cellIndex: Int, corner: Int) -> CGFloat {
+        let seed = Double(cellIndex) * 127.1 + Double(corner) * 311.7 + 74.7
+        let v = sin(seed) * 43758.5453123
+        return (v - v.rounded(.down)) < 0.5 ? 1 : 2
+    }
 }
 
 /// プラグインのフックに渡される実行コンテキスト。
@@ -24,6 +48,9 @@ enum ShelfPluginLayout {
 struct ShelfPluginContext {
     /// セル(ジャケット)1辺のポイント数。サイズ比例の効果に使う
     let cellSize: CGFloat
+    /// グリッド内の行優先スロット位置(0始まり)。角ごとの角丸半径
+    /// (ShelfPluginLayout.jacketCornerRadii)の種に使う
+    let cellIndex: Int
     /// パラメータID→値(specのデフォルト値で解決済み)
     let values: [String: PluginParameterValue]
     /// このセル中心の、グリッド内での正規化座標(0〜1)。
@@ -168,6 +195,7 @@ enum ShelfPluginRegistry {
                 plugin: plugin,
                 context: ShelfPluginContext(
                     cellSize: cellSize,
+                    cellIndex: cellIndex,
                     values: state.resolvedValues(specs: plugin.parameterSpecs),
                     cellCenter: cellCenter,
                     gridColumns: columns,
@@ -197,8 +225,10 @@ extension View {
     /// 重ね、(c)最後に面全体の変形(3D回転等)をレジストリ順に掛ける。
     /// オーバーレイは(c)の内側で重なっているため、面の変形に
     /// ジャケットと一緒に追従する。
+    /// cellIndexはオーバーレイのクリップをジャケットと同じ角丸にする
+    /// ために使う(ジャケット側のclipShapeは呼び出し側が適用済み)
     /// プラグインが無ければ入力のまま(構造も変えない)
-    func applyingJacketPlugins(_ resolved: [ResolvedShelfPlugin]) -> AnyView {
+    func applyingJacketPlugins(_ resolved: [ResolvedShelfPlugin], cellIndex: Int) -> AnyView {
         guard !resolved.isEmpty else { return AnyView(self) }
         // (a) ジャケット画像本体の修飾: 前のプラグインの出力が次の入力
         var surface = resolved.reduce(AnyView(self)) { view, r in
@@ -217,7 +247,7 @@ extension View {
                 // ジャケットのclipShapeは(a)の前に積まれているため、
                 // ここで改めて角丸クリップしないと、セル端まで描く
                 // オーバーレイ(斜め帯等)が角丸の外にはみ出す
-                .clipShape(RoundedRectangle(cornerRadius: ShelfPluginLayout.jacketCornerRadius))
+                .clipShape(ShelfPluginLayout.jacketShape(cellIndex: cellIndex))
             })
         }
         // (c) 面全体の変形: ジャケット+全オーバーレイの合成物を

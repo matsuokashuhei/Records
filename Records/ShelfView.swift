@@ -1021,7 +1021,16 @@ struct ShelfView: View {
             }
             // モーフィング開始のログはオーバーレイ側(morphTo)が
             // id・元サイズ・目標サイズを1行で出す(重複ログを避ける)
-            self.overlayHandle.morphTo(image: image, id: id, size: cell)
+            // 角丸はホバー中の挿入スロットのもの(未確定なら0番。
+            // 着地先とずれても1〜2pt差でほぼ視認できない)
+            let slotIndex = self.dropTargetSlotID.flatMap { slotID in
+                self.store.paddedSlots().enumerated().first {
+                    ($0.element?.id ?? "empty-\($0.offset)") == slotID
+                }?.offset
+            } ?? 0
+            self.overlayHandle.morphTo(
+                image: image, id: id, size: cell,
+                cornerRadii: ShelfPluginLayout.jacketCornerRadii(cellIndex: slotIndex))
         }
     }
 
@@ -1112,9 +1121,14 @@ struct ShelfView: View {
             }
             self.ghostEntryID = entry.id
             let cell = self.store.settings.artworkSize.points
+            // ドラッグ元スロットの角丸でゴーストを切る
+            // (セルのジャケットと同じ形にする)
+            let slotIndex = self.store.paddedSlots()
+                .firstIndex(where: { $0?.id == entry.id }) ?? 0
             self.ghost.show(
                 image, at: NSEvent.mouseLocation, cell: cell,
-                parent: self.windowBox.window, owner: self.shelfID
+                parent: self.windowBox.window, owner: self.shelfID,
+                cornerRadii: ShelfPluginLayout.jacketCornerRadii(cellIndex: slotIndex)
             )
         }
     }
@@ -1339,15 +1353,16 @@ private final class GhostController {
 
     /// パネルをparentの子ウィンドウにして表示する。
     /// 子ウィンドウにしておくと元ウィンドウが閉じた/隠れたときに
-    /// ゴーストも一緒に消える
-    func show(_ image: NSImage, at screenPoint: CGPoint, cell: CGFloat, parent: NSWindow?, owner: String) {
+    /// ゴーストも一緒に消える。cornerRadiiはドラッグ元/着地予定
+    /// スロットのジャケット角丸(ShelfPluginLayout.jacketCornerRadii)
+    func show(_ image: NSImage, at screenPoint: CGPoint, cell: CGFloat, parent: NSWindow?, owner: String, cornerRadii: RectangleCornerRadii) {
         self.owner = owner
         self.trackingEnabled = true
         if let parent, panel.parent !== parent {
             panel.parent?.removeChildWindow(panel)
             parent.addChildWindow(panel, ordered: .above)
         }
-        panel.show(image, at: screenPoint, cell: cell)
+        panel.show(image, at: screenPoint, cell: cell, cornerRadii: cornerRadii)
     }
 
     /// ドロップ先シェルフへの所有権移譲。以降のfly/hideはそちらが行う。
@@ -1397,9 +1412,12 @@ private final class GhostPanel: NSPanel {
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
     /// シャドウ担当(クリップしない)
     private let container = NSView()
-    /// 画像担当(角丸4ptでクリップ。セルのジャケットと形を揃える)
+    /// 画像担当(角ごとに1〜2ptの角丸でクリップ。セルのジャケットと形を揃える)
     private let imageView = NSImageView()
+    /// 角丸が角ごとに違うのでcornerRadiusではなくパスマスクで切る
+    private let imageMask = CAShapeLayer()
     private var cellSize: CGFloat = 0
+    private var cornerRadii = RectangleCornerRadii()
 
     init() {
         super.init(
@@ -1422,7 +1440,7 @@ private final class GhostPanel: NSPanel {
         container.layer?.shadowOffset = CGSize(width: 0, height: -2)
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.wantsLayer = true
-        imageView.layer?.cornerRadius = ShelfPluginLayout.jacketCornerRadius
+        imageView.layer?.mask = imageMask
         imageView.layer?.masksToBounds = true
         container.addSubview(imageView)
         contentView = container
@@ -1436,14 +1454,34 @@ private final class GhostPanel: NSPanel {
         )
     }
 
-    func show(_ image: NSImage, at screenPoint: CGPoint, cell: CGFloat) {
+    /// imageViewをジャケットと同じ形(角ごと1〜2ptの角丸)で切る。
+    /// このビューは非反転座標(左下原点)なので、SwiftUIの
+    /// 「上側」の角丸は上下を入れ替えてパスを作る
+    private func applyCornerMask() {
+        guard cellSize > 0 else { return }
+        let rect = CGRect(origin: .zero,
+                          size: CGSize(width: cellSize, height: cellSize))
+        let flipped = RectangleCornerRadii(
+            topLeading: cornerRadii.bottomLeading,
+            bottomLeading: cornerRadii.topLeading,
+            bottomTrailing: cornerRadii.topTrailing,
+            topTrailing: cornerRadii.bottomTrailing
+        )
+        imageMask.frame = rect
+        imageMask.path = UnevenRoundedRectangle(cornerRadii: flipped)
+            .path(in: rect).cgPath
+    }
+
+    func show(_ image: NSImage, at screenPoint: CGPoint, cell: CGFloat, cornerRadii: RectangleCornerRadii) {
         cellSize = cell
+        self.cornerRadii = cornerRadii
         imageView.image = image
         imageView.frame = CGRect(origin: .zero, size: CGSize(width: cell, height: cell))
+        applyCornerMask()
         setFrame(frame(centeredAt: screenPoint), display: false)
         // 非アクティブ(外部アプリのドラッグ中)でも必ず前面に出す
         orderFrontRegardless()
-        Self.logger.notice("ghost shown at frame=\(NSStringFromRect(self.frame), privacy: .public)")
+        Self.logger.notice("ghost shown at frame=\(NSStringFromRect(self.frame), privacy: .public) radii(tl,bl,br,tr)=(\(cornerRadii.topLeading, privacy: .public),\(cornerRadii.bottomLeading, privacy: .public),\(cornerRadii.bottomTrailing, privacy: .public),\(cornerRadii.topTrailing, privacy: .public))")
     }
 
     /// ポインタ追従移動(アニメーションなし、即時)
@@ -1457,6 +1495,7 @@ private final class GhostPanel: NSPanel {
         guard isVisible else { return }
         cellSize = cell
         imageView.frame = CGRect(origin: .zero, size: CGSize(width: cell, height: cell))
+        applyCornerMask()
         setFrame(frame(centeredAt: center), display: true)
     }
 
@@ -1617,7 +1656,7 @@ private final class ExternalDropOverlayView: NSView {
     /// 同じ描画)でこのシェルフのレコードサイズに描く。
     /// Musicのアルバム/プレイリストは単一アイテム前提で、サイズ・位置は
     /// item[0]に合わせる(複数アイテムのドラッグでも先頭基準で扱う)
-    func morphTo(image: NSImage, id: String, size: CGFloat) {
+    func morphTo(image: NSImage, id: String, size: CGFloat, cornerRadii: RectangleCornerRadii) {
         guard currentInfo != nil else {
             Self.logger.notice("drag image morph ignored: no active external drag id=\(id, privacy: .public)")
             return
@@ -1640,14 +1679,15 @@ private final class ExternalDropOverlayView: NSView {
         morphTargetSide = size
         morphStartSide = original
         morphStartTime = CACurrentMediaTime()
-        Self.logger.notice("drag image morph: id=\(id, privacy: .public) \(original, privacy: .public)pt -> \(size, privacy: .public)pt")
+        Self.logger.notice("drag image morph: id=\(id, privacy: .public) \(original, privacy: .public)pt -> \(size, privacy: .public)pt radii(tl,bl,br,tr)=(\(cornerRadii.topLeading, privacy: .public),\(cornerRadii.bottomLeading, privacy: .public),\(cornerRadii.bottomTrailing, privacy: .public),\(cornerRadii.topTrailing, privacy: .public))")
         hideSystemImage()
         GhostController.shared.show(
             image,
             at: panelCenter(),
             cell: original,
             parent: window,
-            owner: shelfID
+            owner: shelfID,
+            cornerRadii: cornerRadii
         )
         panelShown = true
         // ドラッグ中はイベントトラッキングモードなので.commonで登録する
@@ -1891,8 +1931,8 @@ private final class ExternalDropOverlayView: NSView {
 private final class ExternalDropOverlayHandle {
     weak var view: ExternalDropOverlayView?
 
-    func morphTo(image: NSImage, id: String, size: CGFloat) {
-        view?.morphTo(image: image, id: id, size: size)
+    func morphTo(image: NSImage, id: String, size: CGFloat, cornerRadii: RectangleCornerRadii) {
+        view?.morphTo(image: image, id: id, size: size, cornerRadii: cornerRadii)
     }
 }
 
@@ -2073,14 +2113,14 @@ private struct AlbumSlotView: View {
                     .scaledToFit()
             } else {
                 ZStack {
-                    RoundedRectangle(cornerRadius: ShelfPluginLayout.jacketCornerRadius)
+                    ShelfPluginLayout.jacketShape(cellIndex: slotIndex)
                         .fill(Color.secondary.opacity(0.15))
                     ProgressView()
                 }
                 .aspectRatio(1, contentMode: .fit)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: ShelfPluginLayout.jacketCornerRadius))
+        .clipShape(ShelfPluginLayout.jacketShape(cellIndex: slotIndex))
     }
 
     var body: some View {
@@ -2093,7 +2133,7 @@ private struct AlbumSlotView: View {
         )
         jacket
             // (a) ジャケット画像の修飾 + (b) オーバーレイ + (c) 面の変形
-            .applyingJacketPlugins(plugins)
+            .applyingJacketPlugins(plugins, cellIndex: slotIndex)
         .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
         .overlay {
             if isHovered {
@@ -2115,7 +2155,7 @@ private struct AlbumSlotView: View {
         // ジェスチャ/ヒットテストより外側に積んでもセルの
         // インタラクションは維持される
         .applyingCellPlugins(plugins)
-        .contentShape(RoundedRectangle(cornerRadius: ShelfPluginLayout.jacketCornerRadius))
+        .contentShape(ShelfPluginLayout.jacketShape(cellIndex: slotIndex))
         .onHover { hovered in
             isHovered = hovered
         }

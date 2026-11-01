@@ -309,7 +309,7 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   **幾何変形(3D回転等)をここに積むとオーバーレイが面からずれる**
 - (b) `jacketOverlay` — ジャケット面上に描くオーバーレイ
   (SleeveGloss/EdgeWear/RingWear/Scuffs/Yellowingシミ)。
-  変形前の平面でZStack+clipShape(jacketCornerRadius)重畳。
+  変形前の平面でZStack+clipShape(jacketShape(cellIndex:))重畳。
   面の一部なので(c)の変形に追従する。各オーバーレイは
   `.allowsHitTesting(false)`必須(タップ再生・D&D・右クリックを食わないため)
 - (c) `transformJacketSurface` — ジャケット+全オーバーレイの合成物を
@@ -327,7 +327,14 @@ rotation3DEffectはレイアウト境界(=ヒット領域)を変えないので
 各プラグインは`logAppliedOnce`でプロセス内1回だけ解決値をnoticeログに出す
 (セル描画のたびに呼ばれるため毎回は出さない)。コンテキストは
 `ShelfPluginRegistry.resolve(settings:cellSize:cellIndex:)`がセルごとに
-解決(パラメータ値+セル中心の正規化座標+グリッド次元)。
+解決(パラメータ値+セルindex+セル中心の正規化座標+グリッド次元)。
+
+ジャケットの角丸は角ごとに1または2pt(ShelfPluginLayout.jacketCornerRadii/
+jacketShape(cellIndex:)。実物のLPジャケットは角ごとにわずかに丸い)。
+半径はセルindex+角番号だけから決まるsinハッシュ(摩耗プラグインと同じ
+決定論)なので、同じセルは常に同じ角丸。セルのclipShape/contentShape・
+オーバーレイクリップ・ドラッグゴーストのパスマスク(非反転座標なので
+上下をswap)がすべてこの形を共有する。
 セル座標ハッシュ(sinハッシュ)でパターンを決定論的にばらつかせるのが
 各プラグイン共通の作法。
 
