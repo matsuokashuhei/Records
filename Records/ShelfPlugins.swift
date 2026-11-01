@@ -108,7 +108,8 @@ enum ShelfPluginRegistry {
     /// セル合成まで全部通る
     static let all: [any ShelfPlugin] = [
         LeanDepthPlugin(),
-        // 例: SleeveGlossPlugin(), TopLightPlugin()
+        SleeveGlossPlugin(),
+        // 例: TopLightPlugin()
     ]
 
     static func plugin(id: String) -> (any ShelfPlugin)? {
