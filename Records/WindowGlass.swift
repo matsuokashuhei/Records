@@ -195,6 +195,11 @@ struct WindowConfigurator: NSViewRepresentable {
             // フルスクリーン出入り等でAppKitがタイトルバークロームを再構築すると
             // isHiddenが巻き戻ることがあるため、更新のたびに冪等に再適用する
             view.refreshChrome()
+            // SwiftUI側の状態(@StateObject等)が再構築されてもNSViewが
+            // 再利用されるとviewDidMoveToWindowは再発火しないため、
+            // ここでもonWindowReadyを呼んで呼び出し側のwindow参照・
+            // イベントモニタを最新状態に再同期させる
+            view.onWindowReady?(view.window)
         }
         Self.configure(nsView.window)
     }

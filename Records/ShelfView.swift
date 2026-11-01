@@ -40,6 +40,15 @@ struct ShelfView: View {
     /// 重複ウィンドウと判定され、アタッチ次第自分を閉じるフラグ
     /// (onAppear時点ではwindowBox.windowがまだ無い場合があるため)
     @State private var isDuplicateWindow = false
+    /// ウィンドウごとのイベントモニタ一式(右クリックメニュー・chromeの
+    /// 活動監視・メニュー開閉監視)。
+    /// モニタを@Stateに持つと、SwiftUIの状態再構築でselfが差し替わった際に
+    /// 別ストレージへ書き込まれてremoveMonitorが効かず、取り残された
+    /// モニタが二重に動き続ける(2026-11-01実機: 起動直後からアクティビティ
+    /// モニタが2本存在)。モニタはNSWindowにぶら下がるリソースなので、
+    /// ウィンドウのObjectIdentifierをキーにしたレジストリで
+    /// 「窓ごと1組」を保証し、張り直し時に旧セットごと剥がす
+    private static var monitorsByWindow = [ObjectIdentifier: WindowMonitorSet]()
     /// ドロップ追加の失敗(重複/満杯/取得エラー)をアラートで出すための
     /// メッセージ。非nilの間ダイアログを表示する。
     @State private var addError: String?
@@ -76,21 +85,12 @@ struct ShelfView: View {
     /// コールバックが無いので、ドラッグ中だけ発生しないイベント
     /// (mouseUp/mouseMoved)を拾ってdraggedIDをクリアする
     @State private var dragEndMonitor: Any?
-    /// 右クリック(コンテキストメニュー)用のイベントモニタ。
-    /// SwiftUIの.contextMenuはセルの.onTapGestureと競合してレコード上で
-    /// 開かないため、AppKit側で拾ってメニューを出し分ける(2026-10-25実測)
-    @State private var contextMenuMonitor: Any?
     /// タイトルバー(信号ボタン)と右上ツールバーの自動表示。
     /// アクティブなウィンドウでマウスが動いたら表示し、3秒動かなければ隠す
     @StateObject private var chrome = ChromeVisibilityController()
-    /// マウス移動/クリックを拾ってchrome.noteActivity()するモニタ
-    @State private var activityMonitor: Any?
     /// 出しているコンテキストメニューのNSMenuItem.target(クロージャ保持用)。
     /// NSMenuItem.targetは保持されないので、メニューが閉じるまで生かしておく
     @State private var contextMenuTargets: [ContextMenuAction] = []
-    /// メニューの開閉通知(NSMenu.didBeginTracking/didEndTracking)の監視。
-    /// 開いている間はchromeを自動で隠さないようにする
-    @State private var menuTrackingObservers: [NSObjectProtocol] = []
     /// ゴーストのポインタ追従用タイマー。leftMouseDraggedはドラッグ
     /// セッションに吸収されてモニタへ届かないため(2026-10-24実測)、
     /// 60fpsでmouseLocationをポーリングして追従させる
@@ -184,10 +184,9 @@ struct ShelfView: View {
         // 開始/停止だけ行う(画面全体の2秒おき再描画を避ける)。
         // 複数ウィンドウあるので監視は参照カウント式(片方が閉じても他方で継続)
             .onAppear {
+                Self.logger.notice("shelf view appeared: shelf=\(self.shelfID, privacy: .public)")
                 PlaybackMonitor.shared.start()
-                installContextMenuMonitor()
-                installActivityMonitor()
-                installMenuTrackingMonitor()
+                installMonitors()
                 // 検証用: `--chrome-preview` で起動すると1.5秒後にツールバー/
                 // 信号ボタンを強制表示する(UIを目視できないエージェントが
                 // スクリーンショットで見た目を確認するための経路。--catalog-testと
@@ -236,19 +235,11 @@ struct ShelfView: View {
                 }
             }
             .onDisappear {
+                Self.logger.notice("shelf view disappeared: shelf=\(self.shelfID, privacy: .public) removing monitors")
                 // stopPollingはonAppearのstart()と対なので重複ウィンドウ
                 // でも呼ぶ。noteWindowClosedは登録した側だけが呼ぶ
                 PlaybackMonitor.shared.stopPolling()
-                if let contextMenuMonitor {
-                    NSEvent.removeMonitor(contextMenuMonitor)
-                    self.contextMenuMonitor = nil
-                }
-                if let activityMonitor {
-                    NSEvent.removeMonitor(activityMonitor)
-                    self.activityMonitor = nil
-                }
-                menuTrackingObservers.forEach { NotificationCenter.default.removeObserver($0) }
-                menuTrackingObservers = []
+                removeMonitors()
                 if !isDuplicateWindow {
                     ShelfManager.shared.noteWindowClosed(shelfID)
                 }
@@ -483,7 +474,21 @@ struct ShelfView: View {
         .background {
             WindowConfigurator(
                 onWindowReady: {
+                    let oldWindow = self.windowBox.window
+                    if oldWindow !== $0 {
+                        Self.logger.notice("window changed: shelf=\(self.shelfID, privacy: .public) \(oldWindow?.windowNumber ?? -1, privacy: .public) -> \($0?.windowNumber ?? -1, privacy: .public)")
+                        if let oldWindow { Self.removeMonitors(for: oldWindow) }
+                    }
                     self.windowBox.window = $0
+                    // ウィンドウが変わった時、またはこの窓のモニタがレジストリに
+                    // 無い時(onDisappearだけ走った/状態再構築でselfが入れ替わり
+                    // モニタが旧selfを掴んだまま)だけ張り直す。updateNSView経由で
+                    // 毎回呼ばれるため、差分がある時だけに絞る(冪等)
+                    if let window = $0,
+                       oldWindow !== $0 || Self.monitorsByWindow[ObjectIdentifier(window)] == nil {
+                        Self.logger.notice("monitors (re)installed: windowNumber=\(window.windowNumber, privacy: .public) shelf=\(self.shelfID, privacy: .public)")
+                        self.installMonitors()
+                    }
                     if self.isDuplicateWindow { $0?.close() }
                 },
                 onBecameKey: { ShelfManager.shared.shelfWindowBecameKey(self.store) },
@@ -548,17 +553,62 @@ struct ShelfView: View {
         return entry(atGridPoint: overlayGridPoint(topLeft))
     }
 
+    /// モニタ一式を張ってレジストリに登録する。
+    /// 同じウィンドウに旧モニタ(状態再構築前のselfが張った取り残しを含む)が
+    /// 残っていても先にセットごと剥がすので、窓ごと常に1組になる(冪等)。
+    /// 設定変更などでSwiftUIの状態が再構築されても、WindowConfiguratorの
+    /// updateNSView経由でonWindowReadyが呼ばれるたびにここへ来るため、
+    /// モニタのクロージャが掴むselfとwindow参照が常に最新に追従する
+    /// (2026-11-01実機: 設定変更後にツールバー/信号ボタンが出ない障害)
+    private func installMonitors() {
+        guard let window = windowBox.window else { return }
+        let key = ObjectIdentifier(window)
+        Self.monitorsByWindow[key]?.removeAll()
+        Self.monitorsByWindow[key] = WindowMonitorSet(
+            contextMenu: makeContextMenuMonitor(for: window),
+            activity: makeActivityMonitor(for: window),
+            menuTracking: makeMenuTrackingObservers(),
+            willCloseObserver: Self.installWillCloseCleanup(for: window)
+        )
+    }
+
+    /// 自分のウィンドウのモニタ一式を剥がす(onDisappear時)
+    private func removeMonitors() {
+        guard let window = windowBox.window else { return }
+        Self.removeMonitors(for: window)
+    }
+
+    /// 指定ウィンドウのモニタ一式を剥がしてレジストリから消す
+    private static func removeMonitors(for window: NSWindow) {
+        let key = ObjectIdentifier(window)
+        monitorsByWindow[key]?.removeAll()
+        monitorsByWindow[key] = nil
+    }
+
+    /// ウィンドウが閉じた時にレジストリのモニタ一式を掃除する監視。
+    /// onDisappearが来ない経路(ビューが畳まれずウィンドウだけ閉じた等)でも
+    /// モニタとそれが掴むselfが残り続けないようにする保険
+    private static func installWillCloseCleanup(for window: NSWindow) -> NSObjectProtocol {
+        let key = ObjectIdentifier(window)
+        return NotificationCenter.default.addObserver(
+            forName: NSWindow.willCloseNotification, object: window, queue: .main
+        ) { _ in
+            monitorsByWindow[key]?.removeAll()
+            monitorsByWindow[key] = nil
+        }
+    }
+
     /// ウィンドウの右クリックを拾ってレコードのメニューを出すモニタ。
     /// 信号ボタン・右上ツールバーの上はクロームに任せ、Ctrl+クリックも
-    /// メニューとして扱う(通常の左クリック=再生/停止はそのまま)
-    private func installContextMenuMonitor() {
-        if let contextMenuMonitor {
-            NSEvent.removeMonitor(contextMenuMonitor)
-        }
-        contextMenuMonitor = NSEvent.addLocalMonitorForEvents(
+    /// メニューとして扱う(通常の左クリック=再生/停止はそのまま)。
+    /// ガードはwindowBox経由ではなく張った時点のwindowで直接比較する。
+    /// 状態再構築でwindowBoxが差し替わっても、このモニタは張られた
+    /// ウィンドウのイベントだけに正確に反応し続ける
+    private func makeContextMenuMonitor(for window: NSWindow) -> Any? {
+        NSEvent.addLocalMonitorForEvents(
             matching: [.rightMouseDown, .leftMouseDown]
         ) { event in
-            guard let window = self.windowBox.window, event.window === window else { return event }
+            guard event.window === window else { return event }
             if event.type == .leftMouseDown, !event.modifierFlags.contains(.control) {
                 return event
             }
@@ -570,14 +620,13 @@ struct ShelfView: View {
         }
     }
 
-    /// メニューの開閉を拾ってchromeの自動非表示を止める。
+    /// メニューの開閉を拾ってchromeの自動非表示を止める監視。
     /// 3点リーダーのメニューや右クリックメニューを開いたまま3秒経つと
     /// カプセル/信号ボタンごと消えてしまうため、開いている間は隠さない
     /// (SwiftUIのMenuもNSMenuなのでdidBeginTracking/didEndTrackingが来る)
-    private func installMenuTrackingMonitor() {
-        menuTrackingObservers.forEach { NotificationCenter.default.removeObserver($0) }
+    private func makeMenuTrackingObservers() -> [NSObjectProtocol] {
         let center = NotificationCenter.default
-        menuTrackingObservers = [
+        return [
             center.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { _ in
                 self.chrome.setHold("menu", active: true)
             },
@@ -589,15 +638,19 @@ struct ShelfView: View {
 
     /// マウス移動/クリック/スクロールを拾ってツールバーの自動表示を駆動する。
     /// ウィンドウはacceptsMouseMovedEvents=trueにしてあるので
-    /// mouseMovedがここへ届く(WindowConfigurator.configure)
-    private func installActivityMonitor() {
-        if let activityMonitor {
-            NSEvent.removeMonitor(activityMonitor)
-        }
-        activityMonitor = NSEvent.addLocalMonitorForEvents(
+    /// mouseMovedがここへ届く(WindowConfigurator.configure)。
+    /// ガードはコンテキストメニューと同じく張った時点のwindowで比較する
+    private func makeActivityMonitor(for window: NSWindow) -> Any? {
+        NSEvent.addLocalMonitorForEvents(
             matching: [.mouseMoved, .leftMouseDragged, .leftMouseDown, .rightMouseDown, .scrollWheel]
         ) { event in
-            guard let window = self.windowBox.window, event.window === window else { return event }
+            guard event.window === window else {
+                // mouseMovedは毎フレーム届くので、ログはクリック系だけに絞る
+                if event.type != .mouseMoved, event.type != .scrollWheel {
+                    Self.logger.notice("activity event rejected: type=\(event.type.rawValue, privacy: .public) evWin=\(event.window?.windowNumber ?? -1, privacy: .public) win=\(window.windowNumber, privacy: .public)")
+                }
+                return event
+            }
             self.chrome.noteActivity()
             return event
         }
@@ -1227,6 +1280,42 @@ struct ShelfView: View {
 /// 読む側は直接プロパティを参照する
 private final class WindowBox: ObservableObject {
     weak var window: NSWindow?
+}
+
+/// 1つのNSWindowに張ったイベントモニタ一式のトークン束。
+/// @Stateに持つとSwiftUIの状態再構築でストレージが分かれ、書き込みが
+/// 別ストレージへ行ってremoveMonitorできない取り残しモニタが発生する
+/// (2026-11-01実機: 起動直後からアクティビティモニタが2本存在した)。
+/// そのためShelfView.monitorsByWindow(ウィンドウのObjectIdentifierキー)
+/// で管理し、張り直し時にセットごと剥がして「窓ごと1組」を保証する
+private struct WindowMonitorSet {
+    /// 右クリックメニュー用。SwiftUIの.contextMenuはセルの
+    /// .onTapGestureと競合してレコード上で開かないため、AppKit側で拾う
+    /// (2026-10-25実測)
+    var contextMenu: Any?
+    /// マウス移動/クリックを拾ってchrome.noteActivity()するモニタ
+    var activity: Any?
+    /// メニュー開閉通知の監視(開いている間はchromeを隠さない)
+    var menuTracking: [NSObjectProtocol] = []
+    /// ウィンドウを閉じた時にこのセットをレジストリから掃除する監視
+    var willCloseObserver: NSObjectProtocol?
+
+    mutating func removeAll() {
+        if let contextMenu {
+            NSEvent.removeMonitor(contextMenu)
+            self.contextMenu = nil
+        }
+        if let activity {
+            NSEvent.removeMonitor(activity)
+            self.activity = nil
+        }
+        menuTracking.forEach { NotificationCenter.default.removeObserver($0) }
+        menuTracking = []
+        if let willCloseObserver {
+            NotificationCenter.default.removeObserver(willCloseObserver)
+            self.willCloseObserver = nil
+        }
+    }
 }
 
 /// ゴースト(自前ドラッグ画像)の制御窓口。GhostPanelを保持し、
