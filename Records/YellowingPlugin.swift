@@ -181,7 +181,7 @@ struct YellowingPlugin: ShelfPlugin {
     /// 再描画・リロード・再起動で同じセルには同じパターンが出る
     private func stainMarks(stains: Double, context: ShelfPluginContext) -> [StainMark] {
         // 個数: 常に1個は出し、stainsに比例して最大+3個。
-        // stains=1でも0個のセルを作りたいので個数自体もハッシュ幅あり
+        // 個数自体もハッシュ幅を持たせてセルごとにばらつかせる
         let extra = Int(
             hash01(21, context: context)
             * Double(Self.maxExtraStains + 1) * stains)
@@ -189,7 +189,7 @@ struct YellowingPlugin: ShelfPlugin {
         return (0..<count).map { i in
             // シミごとに離れたsalt帯を使い、各属性を独立させる
             let base = 30.0 + Double(i) * 10
-            // yは二乗で下端寄りに偏らせる(湿気シミは裾に残りやすい)
+            // yは0.7乗で下端寄りに偏らせる(湿気シミは裾に残りやすい)
             let x = 0.08 + 0.84 * hash01(base + 1, context: context)
             let h = hash01(base + 2, context: context)
             let y = 0.08 + 0.84 * pow(h, 0.7)

@@ -137,6 +137,8 @@ struct ScuffsPlugin: ShelfPlugin {
             ? 0 : lineCount(amount: amount, context: context)
         let clusterCount = style == .hairline
             ? 0 : clusterCount(amount: amount, context: context)
+        // 傷が1つも無いセルでは空のCanvasを積まずオーバーレイを返さない
+        guard lineCount > 0 || clusterCount > 0 else { return nil }
         // ログのamountは設定値そのまま(セルごとの本数は参考情報)
         logAppliedOnce(amount: amount, style: style,
                        lines: lineCount, clusters: clusterCount)
