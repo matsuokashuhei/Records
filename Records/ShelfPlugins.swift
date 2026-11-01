@@ -106,7 +106,8 @@ enum ShelfPluginRegistry {
     /// 登録済みプラグイン一覧。ここに足すだけで設定画面・永続化・
     /// セル合成まで全部通る
     static let all: [any ShelfPlugin] = [
-        // 例: LeanDepthPlugin(), SleeveGlossPlugin(), TopLightPlugin()
+        LeanDepthPlugin(),
+        // 例: SleeveGlossPlugin(), TopLightPlugin()
     ]
 
     static func plugin(id: String) -> (any ShelfPlugin)? {
