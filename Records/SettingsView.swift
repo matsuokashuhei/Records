@@ -208,7 +208,10 @@ private struct ShelfEffectSettings: View {
     @ViewBuilder
     private func pluginRow(_ plugin: any ShelfPlugin) -> some View {
         Toggle(isOn: enabledBinding(plugin)) {
-            Text(plugin.displayName)
+            // displayName/labelはStringなのでText(String)=verbatim initに
+            // 解決されてしまう。LocalizedStringKey経由にしてカタログを
+            // 引かせる(キーが無ければそのまま表示される)
+            Text(LocalizedStringKey(plugin.displayName))
         }
         // 有効時だけパラメータ調整UIを出す(無効なら行ごと畳む)
         if isEnabled(plugin) {
@@ -295,11 +298,11 @@ private struct PluginSliderRow: View {
         Group {
             if let step = spec.step {
                 Slider(value: sliderBinding, in: spec.range, step: step) {
-                    Text(spec.label)
+                    Text(LocalizedStringKey(spec.label))
                 }
             } else {
                 Slider(value: sliderBinding, in: spec.range) {
-                    Text(spec.label)
+                    Text(LocalizedStringKey(spec.label))
                 }
             }
         }
