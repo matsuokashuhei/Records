@@ -2089,7 +2089,8 @@ private struct AlbumSlotView: View {
         let plugins = ShelfPluginRegistry.resolve(
             settings: store.settings,
             cellSize: store.settings.artworkSize.points,
-            cellIndex: slotIndex
+            cellIndex: slotIndex,
+            recordID: entry.id
         )
         jacket
             // (a) ジャケット本体への修飾 + (b) ジャケット上のオーバーレイ

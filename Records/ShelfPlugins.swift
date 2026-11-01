@@ -35,6 +35,11 @@ struct ShelfPluginContext {
     let gridColumns: Int
     /// グリッドの行数(1以上)。全セル中心の列挙に使う
     let gridRows: Int
+    /// このセルのレコードを一意に識別するID(MediaEntry.id)。
+    /// 「レコードごとに違う見た目」の決定論的乱数のシードに使う
+    /// (スロット位置ではなくレコード自身に紐づくので、並べ替えても
+    /// 同じレコードの劣化/質感は変わらない)
+    let recordID: String
 
     /// 数値パラメータ。未設定/型違いはfallback
     func number(_ id: String, default fallback: Double = 0) -> Double {
@@ -47,6 +52,26 @@ struct ShelfPluginContext {
     /// 文字列パラメータ(将来のenum選択型spec用)
     func text(_ id: String, default fallback: String = "") -> String {
         values[id]?.string ?? fallback
+    }
+
+    /// recordIDから導く決定論的疑似乱数(0〜1)。同じレコードでは
+    /// 再描画・リロード・リブートを経ても同じ値になる
+    /// (乱数生成器や状態の保持はしない)。
+    /// saltは同じレコードから複数の独立した値を取るための種
+    /// (プラグインは用途ごとに異なるsaltを使う)
+    func hash01(_ salt: Double) -> Double {
+        // FNV-1a(64bit)で recordID を1つのハッシュに畳み、saltを
+        // 混ぜて splitmix64 で散らす。sinハッシュと違い文字列シード
+        // の分布が安定する
+        var h: UInt64 = 0xcbf29ce484222325
+        for byte in recordID.utf8 {
+            h = (h ^ UInt64(byte)) &* 0x100000001b3
+        }
+        var z = h &+ UInt64(bitPattern: Int64(salt * 1000 + 1)) &+ 0x9e3779b97f4a7c15
+        z = (z ^ (z >> 30)) &* 0xbf58476d1ce4e5b9
+        z = (z ^ (z >> 27)) &* 0x94d049bb133111eb
+        z = z ^ (z >> 31)
+        return Double(z >> 11) / Double(1 << 53)
     }
 }
 
@@ -129,9 +154,11 @@ enum ShelfPluginRegistry {
     /// settingsで有効なプラグインをレジストリ順に、解決済み
     /// コンテキストつきで返す。未登録/無効は含まない。
     /// cellIndexはグリッド内の行優先スロット位置(0始まり)で、
-    /// セル中心の正規化座標はここで1回だけ計算する
+    /// セル中心の正規化座標はここで1回だけ計算する。
+    /// recordIDはそのセルに置かれたレコードのMediaEntry.id
+    /// (レコード単位の乱数シードに使う)
     /// セル描画のたびに呼ばれる軽量な変換(辞書参照+マージ+数式数個)
-    static func resolve(settings: ShelfSettings, cellSize: CGFloat, cellIndex: Int) -> [ResolvedShelfPlugin] {
+    static func resolve(settings: ShelfSettings, cellSize: CGFloat, cellIndex: Int, recordID: String) -> [ResolvedShelfPlugin] {
         checkDuplicateIDs()
         // グリッド次元はsettingsから1以上に正規化
         // (設定UIが1以上に制約しているが、手編集値もここで保護する)
@@ -154,7 +181,8 @@ enum ShelfPluginRegistry {
                     values: state.resolvedValues(specs: plugin.parameterSpecs),
                     cellCenter: cellCenter,
                     gridColumns: columns,
-                    gridRows: rows
+                    gridRows: rows,
+                    recordID: recordID
                 )
             )
         }
