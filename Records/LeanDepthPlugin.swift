@@ -10,7 +10,7 @@
 //  印象を強める(影の濃さは傾き角度に比例する)。
 //
 //  設定は「立てかけ具合」1本だけ。棚の奥行きに対してジャケットの
-//  上辺がどの位置まで届くか(0=直立、100=背板いっぱい)を
+//  上辺がどの位置まで届くか(0=直立、50=奥行きの半分まで)を
 //  スライダーで指定し、そこから実際の傾き角度を逆算する。
 //  投影パースは固定値(0.7)。物理モデル: 棚の奥行きD=
 //  ジャケット高さH×sin(最大角)で固定。上辺の奥へのずれd=
@@ -31,13 +31,17 @@ struct LeanDepthPlugin: ShelfPlugin {
     /// パラメータID。PluginState.valuesの永続化キーになるので
     /// 一度決めたら変更しない(変えると保存済みの値が効かなくなる)
     private enum Param {
-        /// 立てかけ具合(0-100%)。棚の奥行きの何%の位置まで
+        /// 立てかけ具合(0-50%)。棚の奥行きの何%の位置まで
         /// ジャケットの上辺が届くか
         static let lean = "lean"
     }
 
-    /// 最大の傾き角(度)。立てかけ具合100%でこの角度になる
+    /// 棚の奥行きを決める参照角(度)。奥行きD=
+    /// ジャケット高さ×sin(この角度)で固定する
     static let maxAngle: Double = 15
+    /// 立てかけ具合の最大値(%)。棚の奥行きの半分まで。
+    /// 15°より強い傾きは実用上不自然なので半分に制限する
+    static let maxLean: Double = 50
     /// デフォルトの立てかけ具合(%)。cubby-shelf-uiで実機検証済みの
     /// 5°相当 = sin(5°)/sin(15°)≈34%を丸めた値
     static let defaultLean: Double = 35
@@ -57,8 +61,8 @@ struct LeanDepthPlugin: ShelfPlugin {
             .slider(.init(
                 id: Param.lean,
                 label: "Lean",
-                range: 0...100,
-                step: 5,
+                range: 0...Self.maxLean,
+                step: 2.5,
                 defaultValue: Self.defaultLean
             )),
         ]
@@ -111,8 +115,8 @@ struct LeanDepthPlugin: ShelfPlugin {
     // MARK: - パラメータ解決
 
     private func resolvedLean(context: ShelfPluginContext) -> Double {
-        // 負値/100超の手編集値が入ってもUI範囲に収める
-        min(100, max(0, context.number(Param.lean, default: Self.defaultLean)))
+        // 負値/上限超の手編集値が入ってもUI範囲に収める
+        min(Self.maxLean, max(0, context.number(Param.lean, default: Self.defaultLean)))
     }
 
     /// 立てかけ具合(%)→実際の傾き角(度)。
@@ -120,7 +124,7 @@ struct LeanDepthPlugin: ShelfPlugin {
     /// 奥へのずれが奥行きのlean%分になる角度をasinで逆算する
     static func angle(forLeanPercent lean: Double) -> Double {
         // 範囲外を渡されてもasinの定義域を外れないようクランプする
-        let clamped = min(100, max(0, lean))
+        let clamped = min(Self.maxLean, max(0, lean))
         let maxRadians = Self.maxAngle * .pi / 180
         return asin((clamped / 100) * sin(maxRadians)) * 180 / .pi
     }
