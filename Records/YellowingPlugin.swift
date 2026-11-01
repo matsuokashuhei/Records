@@ -14,8 +14,10 @@
 //     暗部はほぼ変化しない(黒は黒のまま)
 //   - 局所的なシミ: jacketOverlayで、ハッシュ生成した位置・半径・
 //     個数のソフトな茶系ラジアルシミをmultiplyブレンドで散らす。
-//     周縁の「たまり線」(濃い輪郭)をstopsで作って湿気シミの
-//     実感にする。シミは黄変が効くセル(eff>0)にだけ描く
+//     1シミは中心をわずかにずらした2〜3個の円/楕円ブロブの重ね
+//     合わせで描き、中心が濃く外へ滲んで消える不定形の斑点
+//     (フォクシング/湿気ジミ)にする。シミは黄変が効くセル
+//     (eff>0)にだけ描く
 //
 //  セルごとの黄変量・シミパターンはsinハッシュ(SleeveGlossPluginと
 //  同じ方式)で決定論的に変える。無効時・intensity=0時は修飾も
@@ -58,7 +60,7 @@ struct YellowingPlugin: ShelfPlugin {
 
     /// シミの茶系色(湿気・日焼けで残るセピア調)。
     /// multiplyブレンドなので下地の色に乗算されて沈む
-    private static let stainColor = Color(red: 0.52, green: 0.36, blue: 0.16)
+    private static let stainColor = Color(red: 0.62, green: 0.47, blue: 0.27)
 
     let id = "yellowing"
     let displayName = "Yellowing"
@@ -111,6 +113,26 @@ struct YellowingPlugin: ShelfPlugin {
 
     // MARK: - (b) ジャケットへのオーバーレイ重畳(局所的なシミ)
 
+    /// 1個のシミを構成する1ブロブの描画パラメータ。
+    /// シミ中心からわずかにずらした円/楕円を2〜3個重ねて
+    /// アメーバ状の滲みにする
+    private struct StainBlob: Identifiable {
+        let id: Int
+        /// シミ中心からのオフセット(シミ半径比)
+        let dx: Double
+        let dy: Double
+        /// シミ半径に対する半径比(主ブロブ=1)
+        let radiusRatio: Double
+        /// ブロブ単位の不透明度係数。multiplyで重なった芯が
+        /// シミのピーク不透明度付近に収まるよう、1個あたりは
+        /// 薄め(0.5〜0.75)にしてある
+        let opacityScale: Double
+        /// 楕円の歪み(1=正円)と回転
+        let stretchX: Double
+        let stretchY: Double
+        let rotation: Double
+    }
+
     /// 1個のシミの描画パラメータ。セル内正規化座標・セル一辺比で
     /// 持ち、生成はセル座標のsinハッシュで決定論的
     private struct StainMark: Identifiable {
@@ -118,14 +140,12 @@ struct YellowingPlugin: ShelfPlugin {
         /// セル内の中心位置(0〜1)。下端寄りにやや偏る
         let x: Double
         let y: Double
-        /// 半径(セル一辺に対する割合)
+        /// 半径(セル一辺に対する割合)。ブロブ重ね合わせの基準半径
         let radius: Double
-        /// 中心のピーク不透明度
+        /// シミのピーク不透明度(ブロブが重なった芯で実現する上限)
         let opacity: Double
-        /// 楕円の歪み(1=正円)と回転
-        let stretchX: Double
-        let stretchY: Double
-        let rotation: Double
+        /// 重ね合わせるブロブ群(2〜3個)
+        let blobs: [StainBlob]
     }
 
     func jacketOverlay(context: ShelfPluginContext) -> AnyView? {
@@ -142,29 +162,28 @@ struct YellowingPlugin: ShelfPlugin {
         return AnyView(
             ZStack {
                 ForEach(marks) { mark in
-                    Circle()
-                        .fill(RadialGradient(
-                            stops: [
-                                // 中心は薄く、外側へ一度フェードしてから
-                                // 縁直前に濃い「たまり線」を挟み、
-                                // 縁でclearに落とす(湿気シミの輪郭)
-                                .init(color: Self.stainColor.opacity(mark.opacity),
-                                      location: 0),
-                                .init(color: Self.stainColor.opacity(mark.opacity * 0.5),
-                                      location: 0.55),
-                                .init(color: Self.stainColor.opacity(min(1, mark.opacity * 1.6)),
-                                      location: 0.78),
-                                .init(color: .clear, location: 1)
-                            ],
-                            center: .center,
-                            startRadius: 0,
-                            endRadius: mark.radius * size
-                        ))
-                        .frame(width: mark.radius * size * 2,
-                               height: mark.radius * size * 2)
-                        .scaleEffect(x: mark.stretchX, y: mark.stretchY)
-                        .rotationEffect(.radians(mark.rotation))
-                        .position(x: mark.x * size, y: mark.y * size)
+                    // 中心をずらしたブロブを重ねて不定形の斑点にする
+                    ForEach(mark.blobs) { blob in
+                        let blobRadius = mark.radius * blob.radiusRatio
+                        Circle()
+                            .fill(RadialGradient(
+                                // 中心がピークで半径方向に単調減衰し、
+                                // 外縁でclearに落ちる(滲んで消える斑点。
+                                // 輪郭線・リング状にはしない)
+                                stops: Self.stainStops(
+                                    peakOpacity: mark.opacity * blob.opacityScale),
+                                center: .center,
+                                startRadius: 0,
+                                endRadius: blobRadius * size
+                            ))
+                            .frame(width: blobRadius * size * 2,
+                                   height: blobRadius * size * 2)
+                            .scaleEffect(x: blob.stretchX, y: blob.stretchY)
+                            .rotationEffect(.radians(blob.rotation))
+                            .position(
+                                x: (mark.x + blob.dx * mark.radius) * size,
+                                y: (mark.y + blob.dy * mark.radius) * size)
+                    }
                 }
             }
             // 茶系色を下地へ乗算して沈んだシミにする
@@ -188,7 +207,8 @@ struct YellowingPlugin: ShelfPlugin {
         let count = 1 + min(Self.maxExtraStains, extra)
         return (0..<count).map { i in
             // シミごとに離れたsalt帯を使い、各属性を独立させる
-            let base = 30.0 + Double(i) * 10
+            // (1シミあたりsalt 40幅: 位置・半径・不透明度 + ブロブ群)
+            let base = 30.0 + Double(i) * 40
             // yは0.7乗で下端寄りに偏らせる(湿気シミは裾に残りやすい)
             let x = 0.08 + 0.84 * hash01(base + 1, context: context)
             let h = hash01(base + 2, context: context)
@@ -196,18 +216,63 @@ struct YellowingPlugin: ShelfPlugin {
             // 小さめの点状シミ〜大きな滲みまで。stainsが強いほど大きくなる
             let radius = (0.06 + 0.14 * hash01(base + 3, context: context))
                 * (0.6 + 0.4 * stains)
-            let opacity = (0.10 + 0.22 * hash01(base + 4, context: context)) * stains
+            let opacity = (0.07 + 0.15 * hash01(base + 4, context: context)) * stains
             return StainMark(
                 id: i,
                 x: x,
                 y: y,
                 radius: radius,
                 opacity: opacity,
-                stretchX: 0.7 + 0.6 * hash01(base + 5, context: context),
-                stretchY: 0.7 + 0.6 * hash01(base + 6, context: context),
-                rotation: hash01(base + 7, context: context) * .pi
+                blobs: stainBlobs(base: base + 8, context: context)
             )
         }
+    }
+
+    /// 1シミを形作るブロブ群(2〜3個)を生成する。
+    /// 中心をずらした円/楕円を重ねてアメーバ状の滲みにする。
+    /// 個数・オフセット・半径比もsinハッシュで決定論的
+    private func stainBlobs(base: Double,
+                            context: ShelfPluginContext) -> [StainBlob] {
+        // 2個か3個
+        let count = 2 + Int(hash01(base, context: context) * 2)
+        return (0..<count).map { j in
+            // ブロブごとにsalt 8幅を割り当てて各属性を独立させる
+            let b = base + 1 + Double(j) * 8
+            let isPrimary = (j == 0)
+            // 主ブロブは中心近く(±0.15R)、衛星ブロブは±0.55Rまでずらし、
+            // 輪郭が円にならないアメーバ状の塊にする
+            let spread = isPrimary ? 0.3 : 1.1
+            let dx = (hash01(b, context: context) - 0.5) * spread
+            let dy = (hash01(b + 1, context: context) - 0.5) * spread
+            let radiusRatio = isPrimary
+                ? 1.0
+                : 0.45 + 0.4 * hash01(b + 2, context: context)
+            return StainBlob(
+                id: j,
+                dx: dx,
+                dy: dy,
+                radiusRatio: radiusRatio,
+                opacityScale: 0.5 + 0.25 * hash01(b + 3, context: context),
+                stretchX: 0.7 + 0.6 * hash01(b + 4, context: context),
+                stretchY: 0.7 + 0.6 * hash01(b + 5, context: context),
+                rotation: hash01(b + 6, context: context) * .pi
+            )
+        }
+    }
+
+    /// シミのブロブを塗る単調減衰グラデーション。
+    /// 中心がピーク不透明度で半径方向に滑らかに減り、
+    /// 外縁でclearに落ちる(たまり線/輪郭線は作らない)
+    private static func stainStops(peakOpacity: Double) -> [Gradient.Stop] {
+        [
+            .init(color: stainColor.opacity(peakOpacity),
+                  location: 0),
+            .init(color: stainColor.opacity(peakOpacity * 0.55),
+                  location: 0.45),
+            .init(color: stainColor.opacity(peakOpacity * 0.18),
+                  location: 0.75),
+            .init(color: .clear, location: 1)
+        ]
     }
 
     // MARK: - パラメータ解決・ハッシュ
