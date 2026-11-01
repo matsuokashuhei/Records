@@ -15,9 +15,16 @@
 //  描画は jacketOverlay フックで、セル中心±微小オフセットを円心とする
 //  複数の「軌跡リング」を重ねて返す。リングは完全な一様円ではなく、
 //  長年の収納で盤の位置が微妙に変わった想定で:
-//   - 主軌跡1本 + ずれた位置の残像リング1〜2本(より薄く)
+//   - 主軌跡1本 + 残像リング1〜2本(より薄く。ずれた位置 or
+//     ほぼ同心で半径だけ違う二重リング)
 //   - 各軌跡を短い弧(セクター)に分割し、弧ごとに濃さ・太さを変える
-//   - 円周上のどこか1方向が特に強く擦れている(重力や出し入れの偏り)
+//   - 濃さは円周上の角度プロファイル(1〜3個のvon Mises bumpの
+//     確率積混合)で決め、「狭い弧だけ濃い」「半周+局所ピーク」
+//     「ほぼ一周うっすら」がレコードごとに混在する。
+//     半数のbumpは下半周に偏る(収納時に盤が下へ寄るため)
+//   - 色調は明るい擦れ/暗い食い込み/中間調(印刷が削れて背景の
+//     明暗が中間調に近づく擦れ)の3系統
+//   - 約半数の軌跡は細線に加えて「帯」(盤の面の太いすり跡)を持つ
 //  半径・円心のずれ・線の太さ・濃さ・明暗・軌跡パターンはセル座標からの
 //  sinハッシュ(SleeveGlossPlugin.hash01と同じ方式)で決定論的に
 //  ばらつかせ、出現率はfrequencyパラメータで制御する
@@ -93,18 +100,22 @@ struct RingWearPlugin: ShelfPlugin {
         static let lineWidth = 5.0
         /// 濃さのばらつき用
         static let strength = 6.0
-        /// 明るいリング/暗いリングの振り分け用
+        /// 明るい/中間調/暗いリングの振り分け用
         static let tone = 7.0
         /// リングのぼかし量のばらつき用
         static let blur = 8.0
+        /// 内側の色調差の強さ(面として浮き出る個体)用
+        static let face = 9.0
         /// 残像リングの本数用
         static let ghostCount = 10.0
         /// 軌跡ごとの属性帯の基点(軌跡iは traceBase + i*traceStride。
-        /// 帯内: +1〜+5=軌跡属性、+6=強く擦れる側の方向、
-        /// +10+j=セクターjの濃さ、+20+j=セクターjの太さ)
+        /// 帯内: +1〜+5=軌跡属性、+6=濃い区間の個数、+7/+8=base、
+        /// +9=帯の有無/太さ、+10+j=セクターjの濃さ、+20+j=セクターjの
+        /// 太さ、+30+i*4/+31+i*4/+32+i*4/+33+i*4=bump i の
+        /// 中心角/集中度/強さ/角度モード、+42=残像の同心/ずれモード)
         static let traceBase = 20.0
-        /// 軌跡ごとのsalt帯のストライド(帯内最大+27なので40あれば衝突しない)
-        static let traceStride = 40.0
+        /// 軌跡ごとのsalt帯のストライド(帯内最大+42なので100あれば衝突しない)
+        static let traceStride = 100.0
     }
 
     /// リング半径の範囲(セル一辺に対する比)。
@@ -141,16 +152,55 @@ struct RingWearPlugin: ShelfPlugin {
     /// 実物は圧倒的に明るいすり跡が多いので少数派に留める
     private static let darkRingChance: Double = 0.15
 
-    /// 明るいリングの不透明度の係数(実効濃さに掛ける)。
-    /// 白いすり跡がジャケット上で自然に読める上限
-    private static let brightRingOpacity: Double = 0.4
+    /// 中間調リングになる確率(暗いリング判定の後に振り分け)。
+    /// 印刷が削れて地色が透けた擦れは、背景の明部では暗く
+    /// 暗部では明るく見える=中間調への近づきとして表現する
+    private static let neutralRingChance: Double = 0.3
 
-    /// 暗いリングの不透明度の係数。明るいリングより控えめに
-    private static let darkRingOpacity: Double = 0.3
+    /// リングの色調の系統
+    private enum RingTone {
+        /// 表面印刷が薄く削れた白っぽいすり跡(最多)
+        case bright
+        /// 明暗を中間調へ近づける擦れ(明部で暗く・暗部で明るく見える)
+        case neutral
+        /// 盤の縁が食い込んだ暗い影
+        case dark
+
+        var color: Color {
+            switch self {
+            case .bright: return .white
+            case .neutral: return Color(white: 0.5)
+            case .dark: return .black
+            }
+        }
+
+        /// 不透明度係数(実効濃さに掛ける)
+        var opacityCoefficient: Double {
+            switch self {
+            case .bright: return 0.4
+            case .neutral: return 0.35
+            case .dark: return 0.3
+            }
+        }
+    }
 
     /// リング内側の色調差の不透明度係数。
     /// 「ごく薄い色調差」なのでリングよりかなり薄い
     private static let innerOpacityRatio: Double = 0.05
+
+    /// 内側色調差の個体差の上限(1+この値倍までハッシュで増やす)。
+    /// 盤の面全体が色調差として浮き出る個体を表現する
+    private static let faceBoostMax: Double = 3.0
+
+    /// 「帯」(細線ではなく盤の面の太いすり跡)を持つ軌跡の確率
+    private static let bandChance: Double = 0.5
+
+    /// 帯の太さの範囲(軌跡半径に対する比)
+    private static let bandWidthRange: ClosedRange<Double> = 0.03...0.08
+
+    /// 帯の濃さ(軌跡のセクター濃さに掛ける係数)。
+    /// 広い面なので細線より薄くする
+    private static let bandOpacityFactor: Double = 0.35
 
     /// 1つの軌跡リングを分割する弧(セクター)の数。
     /// 弧ごとに濃さ・太さを変えて一様円にならないようにする
@@ -183,16 +233,23 @@ struct RingWearPlugin: ShelfPlugin {
     /// 古い跡ほどエッジがにじんで曖昧なので少し強めにぼかす
     private static let ghostBlurFactor: Double = 1.25
 
+    /// 残像が「ほぼ同心で半径だけ違う二重リング」になる確率。
+    /// 残りは従来の円心ずれ(収納位置が変わった跡)
+    private static let ghostConcentricChance: Double = 0.4
+
+    /// 同心残像の円心ずれ(ごく微小。完全同心だと人工的すぎる)
+    private static let ghostConcentricShiftRange: ClosedRange<Double> = 0.001...0.008
+
+    /// 同心残像の半径差(主軌跡半径に対する±比)。
+    /// 主リングと視認できる程度に離す
+    private static let ghostConcentricRadiusOffset: ClosedRange<Double> = 0.015...0.055
+
     /// セクター濃さの下限係数(この値〜1.0にハッシュで変化)。
     /// 0にすると弧が途切れて破線になるので残す
     private static let sectorOpacityFloor: Double = 0.35
 
     /// セクター太さの下限係数(この値〜+0.6倍にハッシュで変化)
     private static let sectorWidthFloor: Double = 0.7
-
-    /// 「強く擦れている側」の偏り強度。
-    /// 円周上の1方向に向かって濃さを最大この値だけ底上げする
-    private static let heavySideBoost: Double = 0.45
 
     func jacketOverlay(context: ShelfPluginContext) -> AnyView? {
         let visibility = resolvedVisibility(context: context)
@@ -233,14 +290,20 @@ struct RingWearPlugin: ShelfPlugin {
         let blur = Self.ringBlurRange.lowerBound
             + (Self.ringBlurRange.upperBound - Self.ringBlurRange.lowerBound)
                 * hash01(Salt.blur, context: context)
-        let dark = hash01(Salt.tone, context: context) < Self.darkRingChance
+        // 色調の振り分け: 暗い食い込み(15%)→中間調(30%)→
+        // 残りは明るいすり跡
+        let toneH = hash01(Salt.tone, context: context)
+        let tone: RingTone = toneH < Self.darkRingChance ? .dark
+            : (toneH < Self.darkRingChance + Self.neutralRingChance
+                ? .neutral : .bright)
+        let ringColor = tone.color
+        let ringOpacity = strength * tone.opacityCoefficient
 
-        // 明るいすり跡=表面印刷が薄く削れた白っぽさ。
-        // 暗い跡=盤の縁が食い込んだ影
-        let ringColor: Color = dark ? .black : .white
-        let ringOpacity = strength
-            * (dark ? Self.darkRingOpacity : Self.brightRingOpacity)
-        let innerOpacity = strength * Self.innerOpacityRatio
+        // 内側の色調差はセルごとに強さを変える
+        // (盤の面全体が浮き出る個体〜ごく薄い個体)
+        let faceBoost = 1 + Self.faceBoostMax
+            * pow(hash01(Salt.face, context: context), 2)
+        let innerOpacity = strength * Self.innerOpacityRatio * faceBoost
 
         // 軌跡リング群: 主軌跡 + 盤の収納位置が変わった跡の残像
         let traces = ringTraces(
@@ -257,7 +320,7 @@ struct RingWearPlugin: ShelfPlugin {
                 // リング内側のごく薄い色調差
                 // (盤が密着して擦れた面。強くぼかして輪郭を消す)
                 Circle()
-                    .fill(Color.white.opacity(innerOpacity))
+                    .fill(ringColor.opacity(innerOpacity))
                     .frame(width: radius * 2, height: radius * 2)
                     .blur(radius: Self.innerBlur)
                     .offset(x: offset.x, y: offset.y)
@@ -277,6 +340,17 @@ struct RingWearPlugin: ShelfPlugin {
 
     // MARK: - 軌跡リング
 
+    /// 円周上の「残りやすい向き」1個分。
+    /// von Mises分布で中心角・集中度・強さを持つ
+    private struct Bump {
+        /// 中心角(rad)
+        let angle: Double
+        /// 集中度κ。小さいほど広い弧、大きいほど局所的な弧になる
+        let concentration: Double
+        /// 強さ(0〜1)。bump間の強弱差を生む
+        let weight: Double
+    }
+
     /// 1本分のすり跡の軌跡。盤がある位置に収まっていた期間の
     /// 痕跡で、円心・半径・濃さ・太さ・ぼかしを持つ
     private struct RingTrace {
@@ -292,8 +366,12 @@ struct RingWearPlugin: ShelfPlugin {
         let blur: CGFloat
         /// セクター乱数のsalt基点(帯内オフセットで各属性を引く)
         let salt: Double
-        /// 「強く擦れている側」の方向(円周比0〜1)
-        let heavySide: Double
+        /// 濃い区間の角度プロファイル(1〜3個のbump)
+        let bumps: [Bump]
+        /// bumpの外側に残る薄さ(0〜0.1)。0なら消える区間がある
+        let base: Double
+        /// 「帯」の太さ(pt)。0なら帯なし(細線のみ)
+        let bandWidth: CGFloat
     }
 
     /// 主軌跡と残像リングを生成する。残像は主軌跡の円心から
@@ -303,6 +381,7 @@ struct RingWearPlugin: ShelfPlugin {
                             radius: CGFloat, offset: CGPoint,
                             lineWidth: CGFloat, blur: CGFloat,
                             opacity: Double) -> [RingTrace] {
+        let main = ringBumps(saltBase: Salt.traceBase, context: context)
         var traces = [
             RingTrace(
                 center: offset,
@@ -311,7 +390,10 @@ struct RingWearPlugin: ShelfPlugin {
                 lineWidth: lineWidth,
                 blur: blur,
                 salt: Salt.traceBase,
-                heavySide: hash01(Salt.traceBase + 6, context: context)
+                bumps: main.bumps,
+                base: main.base,
+                bandWidth: ringBand(saltBase: Salt.traceBase,
+                                    radius: radius, context: context)
             )
         ]
         // 残像の本数(1〜2本)
@@ -320,16 +402,28 @@ struct RingWearPlugin: ShelfPlugin {
                 * Double(Self.ghostCountRange.count))
         for i in 0..<ghosts {
             let b = Salt.traceBase + Double(i + 1) * Salt.traceStride
+            // 40%はほぼ同心で半径だけ違う二重リング、
+            // 60%は円心ずれ(収納位置が変わった跡)
+            let concentric = hash01(b + 42, context: context)
+                < Self.ghostConcentricChance
             let dir = hash01(b + 1, context: context) * 2 * .pi
+            let shift = concentric
+                ? Self.ghostConcentricShiftRange
+                : Self.ghostShiftRange
             let dist = context.cellSize
-                * (Self.ghostShiftRange.lowerBound
-                    + (Self.ghostShiftRange.upperBound
-                        - Self.ghostShiftRange.lowerBound)
+                * (shift.lowerBound
+                    + (shift.upperBound - shift.lowerBound)
                         * hash01(b + 2, context: context))
-            let rf = Self.ghostRadiusFactorRange.lowerBound
-                + (Self.ghostRadiusFactorRange.upperBound
-                    - Self.ghostRadiusFactorRange.lowerBound)
-                    * hash01(b + 3, context: context)
+            let rfh = hash01(b + 3, context: context)
+            let rfSpan = Self.ghostConcentricRadiusOffset.upperBound
+                - Self.ghostConcentricRadiusOffset.lowerBound
+            let rf = concentric
+                ? 1 + (rfh < 0.5 ? -1 : 1)
+                    * (Self.ghostConcentricRadiusOffset.lowerBound
+                        + rfSpan * (rfh < 0.5 ? rfh * 2 : (rfh - 0.5) * 2))
+                : Self.ghostRadiusFactorRange.lowerBound
+                    + (Self.ghostRadiusFactorRange.upperBound
+                        - Self.ghostRadiusFactorRange.lowerBound) * rfh
             let of = Self.ghostOpacityRange.lowerBound
                 + (Self.ghostOpacityRange.upperBound
                     - Self.ghostOpacityRange.lowerBound)
@@ -338,6 +432,7 @@ struct RingWearPlugin: ShelfPlugin {
                 + (Self.ghostWidthFactorRange.upperBound
                     - Self.ghostWidthFactorRange.lowerBound)
                     * hash01(b + 5, context: context)
+            let gb = ringBumps(saltBase: b, context: context)
             traces.append(
                 RingTrace(
                     center: CGPoint(
@@ -349,11 +444,67 @@ struct RingWearPlugin: ShelfPlugin {
                     lineWidth: lineWidth * wf,
                     blur: blur * Self.ghostBlurFactor,
                     salt: b,
-                    heavySide: hash01(b + 6, context: context)
+                    bumps: gb.bumps,
+                    base: gb.base,
+                    bandWidth: ringBand(saltBase: b,
+                                        radius: radius * rf,
+                                        context: context)
                 )
             )
         }
         return traces
+    }
+
+    /// 軌跡の「濃い区間」の角度プロファイルを生成する。
+    /// 円周上の正規分布に相当するvon Mises分布を1〜3個混ぜ、
+    /// 個数・中心角・広さ・強さをレコードごとのハッシュで決める。
+    /// 帯内salt: +6=個数、+7/+8=base、+30+i*4=中心角、
+    /// +31+i*4=集中度、+32+i*4=強さ、+33+i*4=角度モード
+    private func ringBumps(saltBase: Double,
+                           context: ShelfPluginContext)
+        -> (bumps: [Bump], base: Double) {
+        // 個数: 1→40%、2→40%、3→20%
+        let r = hash01(saltBase + 6, context: context)
+        let count = r < 0.4 ? 1 : (r < 0.8 ? 2 : 3)
+        let bumps = (0..<count).map { i in
+            let a = hash01(saltBase + 30 + Double(i) * 4,
+                           context: context)
+            // 角度モード: 約半数は下半周に偏る(収納時に盤が
+            // 下へ寄り下側が強く擦れやすい。y下向き座標系で
+            // 下=π/2)。残りは円周上一様
+            let angle = hash01(saltBase + 33 + Double(i) * 4,
+                               context: context) < 0.5
+                ? .pi / 2 + (a * 2 - 1) * .pi * 0.75
+                : a * 2 * .pi
+            return Bump(
+                angle: angle,
+                // κは0.9〜5.9で3乗ばらつき。実物は広い弧の
+                // 個体が多いので小さいκ寄りに寄せる
+                concentration: 0.9
+                    + pow(hash01(saltBase + 31 + Double(i) * 4,
+                                 context: context), 3) * 5,
+                weight: 0.4
+                    + hash01(saltBase + 32 + Double(i) * 4,
+                             context: context) * 0.6
+            )
+        }
+        // base: 半数は0(消える区間あり)、半数はうっすら一周残る
+        let base = hash01(saltBase + 7, context: context) < 0.5
+            ? 0
+            : hash01(saltBase + 8, context: context) * 0.1
+        return (bumps, base)
+    }
+
+    /// 軌跡の「帯」(細線ではなく盤の面の太いすり跡)の太さを
+    /// 決める。約半数は帯なし(0)。帯内salt: +9
+    private func ringBand(saltBase: Double, radius: CGFloat,
+                          context: ShelfPluginContext) -> CGFloat {
+        let h = hash01(saltBase + 9, context: context)
+        guard h < Self.bandChance else { return 0 }
+        let t = h / Self.bandChance
+        return radius * (Self.bandWidthRange.lowerBound
+            + (Self.bandWidthRange.upperBound
+                - Self.bandWidthRange.lowerBound) * t)
     }
 
     /// 軌跡1本のCanvas描画。円をsectorCount個の弧に分け、
@@ -370,6 +521,22 @@ struct RingWearPlugin: ShelfPlugin {
                 let n = Double(Self.sectorCount)
                 let a0 = (Double(j) / n - Self.sectorOverlap) * 2 * .pi
                 let a1 = (Double(j + 1) / n + Self.sectorOverlap) * 2 * .pi
+                let so = sectorOpacity(trace, sector: j, context: context)
+                // 帯(盤の面の太いすり跡)。細線の内側に敷く
+                if trace.bandWidth > 0 {
+                    var bp = Path()
+                    bp.addArc(center: c,
+                              radius: trace.radius - trace.bandWidth / 2,
+                              startAngle: .radians(a0),
+                              endAngle: .radians(a1),
+                              clockwise: false)
+                    gc.stroke(
+                        bp,
+                        with: .color(color.opacity(
+                            so * Self.bandOpacityFactor)),
+                        lineWidth: trace.bandWidth
+                    )
+                }
                 var p = Path()
                 p.addArc(center: c, radius: trace.radius,
                          startAngle: .radians(a0),
@@ -377,8 +544,7 @@ struct RingWearPlugin: ShelfPlugin {
                          clockwise: false)
                 gc.stroke(
                     p,
-                    with: .color(color.opacity(
-                        sectorOpacity(trace, sector: j, context: context))),
+                    with: .color(color.opacity(so)),
                     lineWidth: sectorWidth(trace, sector: j, context: context)
                 )
             }
@@ -386,17 +552,24 @@ struct RingWearPlugin: ShelfPlugin {
     }
 
     /// セクター弧の濃さ。ハッシュで弧ごとにばらつかせつつ、
-    /// 「強く擦れている側」に向かって滑らかに底上げする
+    /// セクター中心角での角度プロファイル(bump混合)を掛ける。
+    /// profile = base + (1-base)·(1-Π(1-wᵢ·e^{κᵢ(cos(θ-θᵢ)-1)}))
+    /// とし、確率積で合成するのでbumpが重なっても1に漸近し
+    /// クリップ段差が出ない
     private func sectorOpacity(_ trace: RingTrace, sector: Int,
                                context: ShelfPluginContext) -> Double {
         let h = hash01(trace.salt + 10 + Double(sector), context: context)
         let vary = Self.sectorOpacityFloor
             + (1 - Self.sectorOpacityFloor) * h
-        // 円周比でのセクター中心位置と強擦れ側の角度差で重み付け
-        let f = (Double(sector) + 0.5) / Double(Self.sectorCount)
-        let bias = 1 + Self.heavySideBoost
-            * pow(max(0, cos((f - trace.heavySide) * 2 * .pi)), 1.5)
-        return min(1, trace.opacity * vary * bias)
+        let theta = (Double(sector) + 0.5) / Double(Self.sectorCount)
+            * 2 * .pi
+        var remain = 1.0
+        for b in trace.bumps {
+            remain *= 1 - b.weight
+                * exp(b.concentration * (cos(theta - b.angle) - 1))
+        }
+        let profile = trace.base + (1 - trace.base) * (1 - remain)
+        return min(1, trace.opacity * vary * profile)
     }
 
     /// セクター弧の太さ。ハッシュで弧ごとにばらつかせる
