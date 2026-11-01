@@ -119,7 +119,11 @@ enum ShelfPluginRegistry {
     static let all: [any ShelfPlugin] = [
         LeanDepthPlugin(),
         SleeveGlossPlugin(),
-        // 例: TopLightPlugin()
+        SunFadePlugin(),
+        EdgeWearPlugin(),
+        YellowingPlugin(),
+        RingWearPlugin(),
+        ScuffsPlugin(),
     ]
 
     static func plugin(id: String) -> (any ShelfPlugin)? {
