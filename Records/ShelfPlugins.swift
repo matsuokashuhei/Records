@@ -14,8 +14,9 @@ import os
 /// ジャケット描画まわりでプラグイン基盤とセルが共有する定数
 enum ShelfPluginLayout {
     /// ジャケットの角丸半径。AlbumSlotViewのclipShape/contentShapeと、
-    /// ジャケットオーバーレイのクリップで同じ値を使う
-    static let jacketCornerRadius: CGFloat = 4
+    /// ジャケットオーバーレイのクリップで同じ値を使う。
+    /// LPジャケットは四角いので0(以前は4ptの角丸だった)
+    static let jacketCornerRadius: CGFloat = 0
 }
 
 /// プラグインのフックに渡される実行コンテキスト。

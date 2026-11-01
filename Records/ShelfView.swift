@@ -1422,7 +1422,7 @@ private final class GhostPanel: NSPanel {
         container.layer?.shadowOffset = CGSize(width: 0, height: -2)
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.wantsLayer = true
-        imageView.layer?.cornerRadius = 4
+        imageView.layer?.cornerRadius = ShelfPluginLayout.jacketCornerRadius
         imageView.layer?.masksToBounds = true
         container.addSubview(imageView)
         contentView = container
