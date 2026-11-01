@@ -26,6 +26,7 @@
 		F161C579BE4930784F54DF03 /* ShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D593FE3DA37740B77984F0 /* ShelfView.swift */; };
 		F65C2F09BF00CE5D551F7D3A /* ShelfPlugins.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50F72400C0C7CB6F5FFD48FB /* ShelfPlugins.swift */; };
 		F9D1B2EDCE9D0B900030E688 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = BDB56EC137EBA234D33377C5 /* Localizable.xcstrings */; };
+		FD6D912A54B3738C307DFFD2 /* TopLightPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82CD26CE0D98BA644F8B8250 /* TopLightPlugin.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -41,6 +42,7 @@
 		5326779F8829EBA05B501896 /* PlaylistPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistPlayer.swift; sourceTree = "<group>"; };
 		54EF98EA96353F7782B148F9 /* ShelfStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfStore.swift; sourceTree = "<group>"; };
 		79AF5BE0A651670867B2A9B0 /* Records.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Records.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		82CD26CE0D98BA644F8B8250 /* TopLightPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TopLightPlugin.swift; sourceTree = "<group>"; };
 		B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackEngine.swift; sourceTree = "<group>"; };
 		BDB56EC137EBA234D33377C5 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackMonitor.swift; sourceTree = "<group>"; };
@@ -97,6 +99,7 @@
 				FA871A2E0C8D11E6A15AB79F /* SettingsView.swift */,
 				50F72400C0C7CB6F5FFD48FB /* ShelfPlugins.swift */,
 				29D593FE3DA37740B77984F0 /* ShelfView.swift */,
+				82CD26CE0D98BA644F8B8250 /* TopLightPlugin.swift */,
 				26E722075A65DABCA285C2CC /* WindowGlass.swift */,
 			);
 			path = Records;
@@ -224,6 +227,7 @@
 				BD77655F3C211E60D1C764F0 /* ShelfSettings.swift in Sources */,
 				695479100C2EE21BB2BC229C /* ShelfStore.swift in Sources */,
 				F161C579BE4930784F54DF03 /* ShelfView.swift in Sources */,
+				FD6D912A54B3738C307DFFD2 /* TopLightPlugin.swift in Sources */,
 				7C42B8D43EDC2D7DEB273951 /* WindowGlass.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

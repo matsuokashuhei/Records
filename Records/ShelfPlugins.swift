@@ -80,6 +80,12 @@ protocol ShelfPlugin {
     /// (c) セル単位の装飾(影・光等)。セル全体(ジャケット+オーバーレイ+
     /// 既定の影+ホバー表示)を包む修飾を返す
     func transformCell(_ cell: AnyView, context: ShelfPluginContext) -> AnyView
+
+    /// セルの既定影(ShelfView側の固定.shadow)をこのプラグインの
+    /// 光源表現で置き換えるならtrue。trueを返すプラグインが1つでも
+    /// 有効なら既定の影は積まれない(影の二重掛け防止 — P3-3)。
+    /// trueを返すプラグインはtransformCell等で自前の影を描くこと
+    var replacesDefaultCellShadow: Bool { get }
 }
 
 extension ShelfPlugin {
@@ -87,6 +93,7 @@ extension ShelfPlugin {
     func transformJacket(_ jacket: AnyView, context: ShelfPluginContext) -> AnyView { jacket }
     func jacketOverlay(context: ShelfPluginContext) -> AnyView? { nil }
     func transformCell(_ cell: AnyView, context: ShelfPluginContext) -> AnyView { cell }
+    var replacesDefaultCellShadow: Bool { false }
 }
 
 /// 有効化済みプラグインと解決済みコンテキストのペア
@@ -106,7 +113,8 @@ enum ShelfPluginRegistry {
     /// 登録済みプラグイン一覧。ここに足すだけで設定画面・永続化・
     /// セル合成まで全部通る
     static let all: [any ShelfPlugin] = [
-        // 例: LeanDepthPlugin(), SleeveGlossPlugin(), TopLightPlugin()
+        TopLightPlugin(),
+        // 例: LeanDepthPlugin(), SleeveGlossPlugin()
     ]
 
     static func plugin(id: String) -> (any ShelfPlugin)? {
