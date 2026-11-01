@@ -61,7 +61,7 @@ struct ScuffsPlugin: ShelfPlugin {
             .slider(.init(
                 id: Param.amount,
                 label: "Amount",
-                range: 0...2,
+                range: 0...1,
                 step: 0.01,
                 defaultValue: Self.defaultAmount
             )),
@@ -98,11 +98,10 @@ struct ScuffsPlugin: ShelfPlugin {
     /// クラスタの点1個が消費するsalt数(角度・半径・径・濃さ)
     private static let saltsPerSpeckleDot: Double = 4
 
-    /// 線傷の基準本数(amount=1・密度係数1のセル)。
-    /// 実物は数本〜十数本で、セルごとの密度係数(0.4〜1.0)を掛ける。
-    /// amountの範囲は0〜2なので最大2倍まで増やせる
+    /// 線傷の最大本数(amount=1・密度係数1のセル)。
+    /// 実物は数本〜十数本で、セルごとの密度係数(0.4〜1.0)を掛ける
     private static let maxLines: Double = 14
-    /// 斑点クラスタの基準個数(amount=1・密度係数1のセル)
+    /// 斑点クラスタの最大個数(amount=1・密度係数1のセル)
     private static let maxClusters: Double = 6
     /// クラスタ内の斑点の個数範囲(実物は小さな点の集まり)
     private static let dotsPerCluster: ClosedRange<Int> = 3...10
@@ -249,7 +248,7 @@ struct ScuffsPlugin: ShelfPlugin {
     // MARK: - パラメータ解決
 
     private func resolvedAmount(context: ShelfPluginContext) -> Double {
-        min(2, max(0,
+        min(1, max(0,
             context.number(Param.amount, default: Self.defaultAmount)))
     }
 
