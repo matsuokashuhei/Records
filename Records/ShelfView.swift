@@ -1997,10 +1997,16 @@ private struct AlbumSlotView: View {
             settings: store.settings,
             cellSize: store.settings.artworkSize.points
         )
+        // 光源系プラグイン(上からの光源等)が有効なら、既定の固定影は
+        // プラグイン側の影に統一して二重掛けを避ける(P3-3)。
+        // 無効なら従来通りの影がそのまま残る
+        let pluginShadow = plugins.contains { $0.plugin.replacesDefaultCellShadow }
         jacket
             // (a) ジャケット本体への修飾 + (b) ジャケット上のオーバーレイ
             .applyingJacketPlugins(plugins)
-        .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
+        .shadow(color: .black.opacity(pluginShadow ? 0 : 0.25),
+                radius: pluginShadow ? 0 : 3,
+                y: pluginShadow ? 0 : 2)
         .overlay {
             if isHovered {
                 // ボタンはセルサイズ比例(S=96ptで従来の44pt/17pt相当)
