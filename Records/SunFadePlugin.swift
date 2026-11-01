@@ -116,11 +116,9 @@ struct SunFadePlugin: ShelfPlugin {
                 // ジャケットと同じ角丸で塗り、ヒット判定は
                 // ジャケット側に通す(P4-5)
                 .overlay {
-                    RoundedRectangle(
-                        cornerRadius: ShelfPluginLayout.jacketCornerRadius
-                    )
-                    .fill(haze)
-                    .allowsHitTesting(false)
+                    ShelfPluginLayout.jacketShape(cellIndex: context.cellIndex)
+                        .fill(haze)
+                        .allowsHitTesting(false)
                 }
         )
     }
