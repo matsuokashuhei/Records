@@ -3,7 +3,8 @@
 //  Records
 //
 //  プラグイン「奥行き感(後傾)」(P1)。
-//  ジャケットを底辺(anchor .bottom)を軸にx軸回転させ、棚の背板に
+//  ジャケット面(ジャケット画像+全オーバーレイの合成物)を底辺
+//  (anchor .bottom)を軸にx軸回転させ、棚の背板に
 //  後ろへ立てかけた表現にする(feature/cubby-shelf-uiの検証済み値
 //  ベース)。
 //  あわせてセル下端に柔らかい接地影を足し、棚板に乗っている
@@ -68,20 +69,22 @@ struct LeanDepthPlugin: ShelfPlugin {
         ]
     }
 
-    // MARK: - (a) ジャケット本体への修飾
+    // MARK: - (c) ジャケット面の変形(後傾)
 
-    func transformJacket(_ jacket: AnyView, context: ShelfPluginContext) -> AnyView {
+    func transformJacketSurface(_ surface: AnyView, context: ShelfPluginContext) -> AnyView {
         let lean = resolvedLean(context: context)
         let angle = Self.angle(forLeanPercent: lean)
         // 0%なら修飾を積まず入力をそのまま返す
         // (有効だが0%の時も見た目・レイアウトは平面と同一)
-        guard angle > 0 else { return jacket }
+        guard angle > 0 else { return surface }
         logAppliedOnce(lean: lean, angle: angle)
-        // x軸・底辺アンカーで上辺を奥へ倒す。rotation3DEffectは
+        // x軸・底辺アンカーで上辺を奥へ倒す。入力はジャケット+
+        // 全オーバーレイの合成物(面)なので、擦り跡・シミ・帯も
+        // ジャケット面に乗ったまま一緒に傾く。rotation3DEffectは
         // 描画だけを変形しレイアウト境界(=ヒット領域)は変えないので、
         // タップ再生・D&D・右クリックの判定は従来通り(P1-4)
         return AnyView(
-            jacket.rotation3DEffect(
+            surface.rotation3DEffect(
                 .degrees(angle),
                 axis: (x: 1, y: 0, z: 0),
                 anchor: .bottom,
@@ -90,7 +93,7 @@ struct LeanDepthPlugin: ShelfPlugin {
         )
     }
 
-    // MARK: - (c) セル単位の装飾(接地影)
+    // MARK: - (d) セル単位の装飾(接地影)
 
     func transformCell(_ cell: AnyView, context: ShelfPluginContext) -> AnyView {
         let angle = Self.angle(forLeanPercent: resolvedLean(context: context))

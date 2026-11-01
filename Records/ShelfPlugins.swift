@@ -72,23 +72,34 @@ protocol ShelfPlugin {
     /// 調整可能パラメータの定義(並び=設定画面の表示順)
     var parameterSpecs: [PluginParameterSpec] { get }
 
-    /// (a) ジャケット本体への修飾(変形・回転等)。
+    /// (a) ジャケット画像本体への修飾(色調・フィルタ等)。
     /// 入力はクリップ済みジャケット。修飾を積んだビューを返す。
-    /// レジストリ順に前のプラグインの出力が次の入力になる
+    /// レジストリ順に前のプラグインの出力が次の入力になる。
+    /// ここでの修飾はジャケット画像にだけ掛かり、後段の
+    /// jacketOverlay で重ねる描画には掛からない。
+    /// ジャケット面全体の幾何変形(3D回転等)はここではなく
+    /// transformJacketSurface に実装すること(ここに回転を積むと
+    /// オーバーレイが面からずれて浮いて見える)
     func transformJacket(_ jacket: AnyView, context: ShelfPluginContext) -> AnyView
 
-    /// (b) ジャケットへのオーバーレイ重畳。nil=オーバーレイ無し。
+    /// (b) ジャケット面上へのオーバーレイ重畳。nil=オーバーレイ無し。
     /// transformJacket適用後のジャケットのレイアウト境界に重なり、
     /// 角丸(clipShape)で切られる。複数プラグインはレジストリ順に重なる。
-    /// 注意: transformJacketの変形(3D回転等)はビューの見た目だけを
-    /// 変える修飾であり、オーバーレイには適用されない(オーバーレイは
-    /// 変形前と同じ平面に描かれる)。後傾系プラグインと併用すると
-    /// 帯などがジャケット面からずれて見える場合があるので、
-    /// オーバーレイを返すプラグインは自前で同じ変形を当てるか、
-    /// ずれても成立する表現にすること
+    /// オーバーレイはジャケット面の一部として扱われ、後段の
+    /// transformJacketSurface の変形(後傾の3D回転等)に
+    /// ジャケットと一緒に追従する
     func jacketOverlay(context: ShelfPluginContext) -> AnyView?
 
-    /// (c) セル単位の装飾(影・光等)。セル全体(ジャケット+オーバーレイ+
+    /// (c) ジャケット面そのものの変形(3D回転等)。
+    /// (a)で修飾したジャケット画像+(b)の全オーバーレイを重ねた
+    /// 合成物を1枚の面として受け取り、面全体に掛かる変形を積んで返す。
+    /// transformJacket(ジャケット画像だけへの修飾)と違い、
+    /// オーバーレイにも同じ変形が掛かる。
+    /// ジャケット合成の最後の段として、レジストリ順に前の
+    /// プラグインの出力が次の入力になる
+    func transformJacketSurface(_ surface: AnyView, context: ShelfPluginContext) -> AnyView
+
+    /// (d) セル単位の装飾(影・光等)。セル全体(ジャケット面+
     /// 既定の影+ホバー表示)を包む修飾を返す
     func transformCell(_ cell: AnyView, context: ShelfPluginContext) -> AnyView
 }
@@ -97,6 +108,7 @@ extension ShelfPlugin {
     var parameterSpecs: [PluginParameterSpec] { [] }
     func transformJacket(_ jacket: AnyView, context: ShelfPluginContext) -> AnyView { jacket }
     func jacketOverlay(context: ShelfPluginContext) -> AnyView? { nil }
+    func transformJacketSurface(_ surface: AnyView, context: ShelfPluginContext) -> AnyView { surface }
     func transformCell(_ cell: AnyView, context: ShelfPluginContext) -> AnyView { cell }
 }
 
@@ -180,32 +192,42 @@ enum ShelfPluginRegistry {
 }
 
 extension View {
-    /// フック(a)+(b)の合成: 有効プラグインのジャケット修飾をレジストリ順に
-    /// 積み、その上に各プラグインのオーバーレイを重ねる。
+    /// フック(a)〜(c)の合成: (a)ジャケット画像本体の修飾をレジストリ順に
+    /// 積み、(b)その上に各プラグインのオーバーレイを角丸クリップ付きで
+    /// 重ね、(c)最後に面全体の変形(3D回転等)をレジストリ順に掛ける。
+    /// オーバーレイは(c)の内側で重なっているため、面の変形に
+    /// ジャケットと一緒に追従する。
     /// プラグインが無ければ入力のまま(構造も変えない)
     func applyingJacketPlugins(_ resolved: [ResolvedShelfPlugin]) -> AnyView {
         guard !resolved.isEmpty else { return AnyView(self) }
-        // (a) ジャケット本体修飾: 前のプラグインの出力が次の入力
-        let transformed = resolved.reduce(AnyView(self)) { view, r in
+        // (a) ジャケット画像本体の修飾: 前のプラグインの出力が次の入力
+        var surface = resolved.reduce(AnyView(self)) { view, r in
             r.plugin.transformJacket(view, context: r.context)
         }
-        // (b) オーバーレイ: nilでないものだけレジストリ順に重畳
+        // (b) オーバーレイ: nilでないものだけレジストリ順に重畳。
+        // クリップは(c)の面変形より前の平面の状態で掛ける
         let overlays = resolved.compactMap {
             $0.plugin.jacketOverlay(context: $0.context)
         }
-        guard !overlays.isEmpty else { return transformed }
-        return AnyView(transformed.overlay {
-            ZStack {
-                ForEach(overlays.indices, id: \.self) { overlays[$0] }
-            }
-            // ジャケットのclipShapeは変換前に積まれているため、
-            // ここで改めて角丸クリップしないと、セル端まで描く
-            // オーバーレイ(斜め帯等)が角丸の外にはみ出す
-            .clipShape(RoundedRectangle(cornerRadius: ShelfPluginLayout.jacketCornerRadius))
-        })
+        if !overlays.isEmpty {
+            surface = AnyView(surface.overlay {
+                ZStack {
+                    ForEach(overlays.indices, id: \.self) { overlays[$0] }
+                }
+                // ジャケットのclipShapeは(a)の前に積まれているため、
+                // ここで改めて角丸クリップしないと、セル端まで描く
+                // オーバーレイ(斜め帯等)が角丸の外にはみ出す
+                .clipShape(RoundedRectangle(cornerRadius: ShelfPluginLayout.jacketCornerRadius))
+            })
+        }
+        // (c) 面全体の変形: ジャケット+全オーバーレイの合成物を
+        // 1枚の面として、前のプラグインの出力が次の入力になる
+        return resolved.reduce(surface) { view, r in
+            r.plugin.transformJacketSurface(view, context: r.context)
+        }
     }
 
-    /// フック(c)の合成: セル全体を包む装飾をレジストリ順に積む
+    /// フック(d)の合成: セル全体を包む装飾をレジストリ順に積む
     func applyingCellPlugins(_ resolved: [ResolvedShelfPlugin]) -> AnyView {
         guard !resolved.isEmpty else { return AnyView(self) }
         return resolved.reduce(AnyView(self)) { view, r in

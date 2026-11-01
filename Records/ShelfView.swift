@@ -2092,7 +2092,7 @@ private struct AlbumSlotView: View {
             cellIndex: slotIndex
         )
         jacket
-            // (a) ジャケット本体への修飾 + (b) ジャケット上のオーバーレイ
+            // (a) ジャケット画像の修飾 + (b) オーバーレイ + (c) 面の変形
             .applyingJacketPlugins(plugins)
         .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
         .overlay {
@@ -2111,7 +2111,7 @@ private struct AlbumSlotView: View {
                 .transition(.opacity)
             }
         }
-        // (c) セル単位の装飾(影・光等)。ホバー表示も含むセル全体を包む。
+        // (d) セル単位の装飾(影・光等)。ホバー表示も含むセル全体を包む。
         // ジェスチャ/ヒットテストより外側に積んでもセルの
         // インタラクションは維持される
         .applyingCellPlugins(plugins)
