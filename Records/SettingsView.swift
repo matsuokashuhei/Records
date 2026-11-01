@@ -45,6 +45,14 @@ struct SettingsView: View {
                     ShelfPickers(store: store)
                 }
             }
+            // エフェクトプラグインのセクション。登録が1つも無いときは
+            // セクションごと出さない(基盤だけの状態で空セクションを
+            // 見せない — P0-7)。編集対象はピッカーと同じくフォーカス中シェルフ
+            if let store, !ShelfPluginRegistry.all.isEmpty {
+                Section("Effects") {
+                    ShelfEffectSettings(store: store)
+                }
+            }
         }
         .formStyle(.grouped)
         .frame(width: 480)
@@ -150,10 +158,12 @@ private struct ShelfPickers: View {
             get: { store.settings.artworkSize },
             set: { newValue in
                 Self.logger.notice("settings: artwork size picker changed to \(newValue.rawValue, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
+                // pluginsを引き継がないとエフェクト設定が消える
                 store.updateSettings(ShelfSettings(
                     columns: store.settings.columns,
                     rows: store.settings.rows,
-                    artworkSize: newValue
+                    artworkSize: newValue,
+                    plugins: store.settings.plugins
                 ))
             }
         )
@@ -162,11 +172,170 @@ private struct ShelfPickers: View {
     /// 列数/行数の変更をフォーカス中のシェルフの設定に反映する。
     /// 縮小で非表示になった再生中プレイリストは停止UIが消えるためここで止める。
     private func updateDisplaySettings(columns: Int, rows: Int) {
+        // pluginsを引き継がないとエフェクト設定が消える
         store.updateSettings(ShelfSettings(
             columns: columns,
             rows: rows,
-            artworkSize: store.settings.artworkSize
+            artworkSize: store.settings.artworkSize,
+            plugins: store.settings.plugins
         ))
         PlaybackMonitor.shared.stopIfActiveEntryHidden()
+    }
+}
+
+/// エフェクトプラグインの設定セクション(レジストリ列挙)。
+/// 各プラグイン = 有効トグル + 有効時はパラメータ調整UI(スライダー等)。
+/// ShelfPickersと同じく、store.settingsの更新で再描画されるよう
+/// @ObservedObjectでstoreを購読するサブビューに切り出してある。
+/// 変更はstore.updateSettingsでフォーカス中シェルフへ即時反映・永続化。
+private struct ShelfEffectSettings: View {
+
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
+    @ObservedObject var store: ShelfStore
+
+    var body: some View {
+        // レジストリ順=適用順=表示順(決定論的)
+        ForEach(ShelfPluginRegistry.all, id: \.id) { plugin in
+            pluginRow(plugin)
+        }
+        // スライダーのtransient更新が確定前に残らないよう、
+        // セクションが閉じる/畳まれる時点で必ず永続化する
+        // (変更が無ければcommitSettingsはno-op)
+        .onDisappear { store.commitSettings() }
+    }
+
+    @ViewBuilder
+    private func pluginRow(_ plugin: any ShelfPlugin) -> some View {
+        Toggle(isOn: enabledBinding(plugin)) {
+            Text(plugin.displayName)
+        }
+        // 有効時だけパラメータ調整UIを出す(無効なら行ごと畳む)
+        if isEnabled(plugin) {
+            ForEach(plugin.parameterSpecs, id: \.id) { spec in
+                parameterControl(plugin, spec: spec)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func parameterControl(_ plugin: any ShelfPlugin, spec: PluginParameterSpec) -> some View {
+        switch spec {
+        case .slider(let s):
+            PluginSliderRow(store: store, plugin: plugin, spec: s)
+        }
+    }
+
+    // MARK: - 状態アクセス
+
+    private func isEnabled(_ plugin: any ShelfPlugin) -> Bool {
+        store.settings.plugins[plugin.id]?.enabled ?? false
+    }
+
+    private func enabledBinding(_ plugin: any ShelfPlugin) -> Binding<Bool> {
+        Binding(
+            get: { isEnabled(plugin) },
+            set: { on in
+                Self.logger.notice("plugin toggled: \(plugin.id, privacy: .public) \(on ? "enabled" : "disabled", privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
+                updatePluginState(store: store, plugin: plugin) { $0.enabled = on }
+            }
+        )
+    }
+}
+
+/// フォーカス中シェルフのプラグイン状態を1件書き換える。
+/// persist=trueは即座にsettings.jsonへ保存(トグル等の単発変更)。
+/// persist=falseはメモリ上のライブ反映のみ(スライダーの連続変更。
+/// 呼び出し側がcommitSettingsで確定する)
+@MainActor
+private func updatePluginState(
+    store: ShelfStore,
+    plugin: any ShelfPlugin,
+    persist: Bool = true,
+    mutate: (inout PluginState) -> Void
+) {
+    var plugins = store.settings.plugins
+    var state = plugins[plugin.id] ?? PluginState()
+    mutate(&state)
+    plugins[plugin.id] = state
+    let newSettings = ShelfSettings(
+        columns: store.settings.columns,
+        rows: store.settings.rows,
+        artworkSize: store.settings.artworkSize,
+        plugins: plugins
+    )
+    if persist {
+        store.updateSettings(newSettings)
+    } else {
+        store.updateSettingsTransient(newSettings)
+    }
+}
+
+/// プラグインパラメータのスライダー行。
+/// 値の変更はupdateSettingsTransientでメモリ上だけ反映(セルへライブ反映)
+/// し、settings.jsonへの永続化+変更ログは「入力が止まる」を編集完了と
+/// みなすデバウンスでcommitSettingsにまとめる。
+/// (macOS 26で onEditingChanged 付きSliderのinitは非推奨。
+///  デバウンスならドラッグ/クリックジャンプ/キー操作を問わず
+///  編集完了を網羅できる)
+private struct PluginSliderRow: View {
+
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
+    /// これだけ値が変わらなければ編集完了とみなす無入力時間
+    private static let commitDelay: Duration = .milliseconds(400)
+
+    @ObservedObject var store: ShelfStore
+    let plugin: any ShelfPlugin
+    let spec: PluginParameterSpec.Slider
+    /// デバウンス中のコミットTask。連続変更のたびに張り替える
+    @State private var commitTask: Task<Void, Never>?
+
+    var body: some View {
+        Group {
+            if let step = spec.step {
+                Slider(value: sliderBinding, in: spec.range, step: step) {
+                    Text(spec.label)
+                }
+            } else {
+                Slider(value: sliderBinding, in: spec.range) {
+                    Text(spec.label)
+                }
+            }
+        }
+        // 行が畳まれる(トグルoff)・設定画面が閉じる時点で
+        // transientな変更が残っていたら即確定する
+        .onDisappear {
+            commitTask?.cancel()
+            store.commitSettings()
+        }
+    }
+
+    private var sliderBinding: Binding<Double> {
+        Binding(
+            get: {
+                store.settings.plugins[plugin.id]?.values[spec.id]?.number ?? spec.defaultValue
+            },
+            set: { newValue in
+                updatePluginState(store: store, plugin: plugin, persist: false) {
+                    $0.values[spec.id] = .number(newValue)
+                }
+                scheduleCommit()
+            }
+        )
+    }
+
+    /// 無入力commitDelay後にsettingsを永続化してコミットログを出す。
+    /// 連続変更のたびに延期されるので、ドラッグ中は書き込まれない
+    private func scheduleCommit() {
+        commitTask?.cancel()
+        commitTask = Task { @MainActor in
+            try? await Task.sleep(for: Self.commitDelay)
+            guard !Task.isCancelled else { return }
+            commitTask = nil
+            store.commitSettings()
+            let value = store.settings.plugins[plugin.id]?.values[spec.id]?.number ?? spec.defaultValue
+            Self.logger.notice("plugin param committed: \(plugin.id, privacy: .public)/\(spec.id, privacy: .public)=\(value, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
+        }
     }
 }

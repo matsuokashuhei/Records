@@ -1970,7 +1970,9 @@ private struct AlbumSlotView: View {
     /// キャッシュ済みジャケット(bodyのたびに同期ディスク読み込みしない)
     @State private var artwork: NSImage?
 
-    var body: some View {
+    /// ジャケット本体(画像または読み込み中プレースホルダ)を
+    /// 角丸でクリップしたもの。プラグインのフック(a)はこの出力を入力に取る
+    private var jacket: some View {
         Group {
             if let image = artwork {
                 Image(nsImage: image)
@@ -1978,13 +1980,26 @@ private struct AlbumSlotView: View {
                     .scaledToFit()
             } else {
                 ZStack {
-                    RoundedRectangle(cornerRadius: 4).fill(Color.secondary.opacity(0.15))
+                    RoundedRectangle(cornerRadius: ShelfPluginLayout.jacketCornerRadius)
+                        .fill(Color.secondary.opacity(0.15))
                     ProgressView()
                 }
                 .aspectRatio(1, contentMode: .fit)
             }
         }
-        .clipShape(RoundedRectangle(cornerRadius: 4))
+        .clipShape(RoundedRectangle(cornerRadius: ShelfPluginLayout.jacketCornerRadius))
+    }
+
+    var body: some View {
+        // 有効なエフェクトプラグインをレジストリ順で解決する。
+        // store.settingsが変わるたびに再評価され、セルへ即時反映される
+        let plugins = ShelfPluginRegistry.resolve(
+            settings: store.settings,
+            cellSize: store.settings.artworkSize.points
+        )
+        jacket
+            // (a) ジャケット本体への修飾 + (b) ジャケット上のオーバーレイ
+            .applyingJacketPlugins(plugins)
         .shadow(color: .black.opacity(0.25), radius: 3, y: 2)
         .overlay {
             if isHovered {
@@ -2002,7 +2017,11 @@ private struct AlbumSlotView: View {
                 .transition(.opacity)
             }
         }
-        .contentShape(RoundedRectangle(cornerRadius: 4))
+        // (c) セル単位の装飾(影・光等)。ホバー表示も含むセル全体を包む。
+        // ジェスチャ/ヒットテストより外側に積んでもセルの
+        // インタラクションは維持される
+        .applyingCellPlugins(plugins)
+        .contentShape(RoundedRectangle(cornerRadius: ShelfPluginLayout.jacketCornerRadius))
         .onHover { hovered in
             isHovered = hovered
         }

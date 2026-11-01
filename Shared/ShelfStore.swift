@@ -15,8 +15,13 @@ final class ShelfStore: ObservableObject {
     let shelfID: String
 
     @Published private(set) var entries: [MediaEntry]
-    /// 表示設定(列数×行数・アートワークサイズ)。settings.json に永続化される。
+    /// 表示設定(列数×行数・アートワークサイズ、エフェクトプラグイン)。
+    /// settings.json に永続化される。
     @Published private(set) var settings: ShelfSettings
+    /// 最後にsettings.jsonへ書いたsettings。
+    /// updateSettingsTransient(ドラッグ中の連続更新)はメモリ上のsettings
+    /// だけを進めるので、commitSettingsで「保存済みとの差分」判定に使う
+    private var persistedSettings: ShelfSettings
     /// アートワークがダウンロードされるたびに増加(ビュー再描画のトリガー)
     @Published private(set) var artworkRevision = 0
 
@@ -32,7 +37,9 @@ final class ShelfStore: ObservableObject {
     init(shelfID: String) {
         self.shelfID = shelfID
         Self.ensureDirectories(shelfID)
-        settings = ShelfSettings.loadFromDisk(shelfID: shelfID)
+        let loadedSettings = ShelfSettings.loadFromDisk(shelfID: shelfID)
+        settings = loadedSettings
+        persistedSettings = loadedSettings
         entries = Self.readFromDisk(shelfID: shelfID)
         ensureArtworkDownloaded()
     }
@@ -245,11 +252,36 @@ final class ShelfStore: ObservableObject {
     /// 表示設定を更新してこのシェルフのsettings.jsonに保存する。
     /// 同じ値なら何もしない。登録データ(albums.json)は触らないので、
     /// 枚数を縮小しても登録は残る。
+    /// スライダー等の連続変更には使わないこと(毎tickディスク書き込みと
+    /// ログ洪水になる)。そういう経路はupdateSettingsTransient+commitSettings。
     func updateSettings(_ newSettings: ShelfSettings) {
         guard newSettings != settings else { return }
-        Self.logger.notice("settings changed (shelf=\(self.shelfID, privacy: .public)): \(self.settings.columns, privacy: .public)x\(self.settings.rows, privacy: .public)(\(self.settings.capacity, privacy: .public)枚)→\(newSettings.columns, privacy: .public)x\(newSettings.rows, privacy: .public)(\(newSettings.capacity, privacy: .public)枚) artworkSize \(self.settings.artworkSize.rawValue, privacy: .public)→\(newSettings.artworkSize.rawValue, privacy: .public)")
+        logSettingsChange(from: settings, to: newSettings)
         settings = newSettings
+        persistedSettings = newSettings
         ShelfSettings.saveToDisk(newSettings, shelfID: shelfID)
+    }
+
+    /// settingsをメモリ上だけ更新する(永続化・変更ログなし)。
+    /// @Publishedなのでセルへのライブ反映はこれだけで効く。
+    /// 設定画面のスライダーのように高頻度に変わる経路用。
+    /// 一連の編集が終わったら必ずcommitSettings()を呼んで永続化する
+    func updateSettingsTransient(_ newSettings: ShelfSettings) {
+        guard newSettings != settings else { return }
+        settings = newSettings
+    }
+
+    /// updateSettingsTransientで進めたsettingsを確定・永続化する。
+    /// 保存済みの値と同じなら何もしない(書き込みもログも出さない)
+    func commitSettings() {
+        guard settings != persistedSettings else { return }
+        logSettingsChange(from: persistedSettings, to: settings)
+        persistedSettings = settings
+        ShelfSettings.saveToDisk(settings, shelfID: shelfID)
+    }
+
+    private func logSettingsChange(from old: ShelfSettings, to new: ShelfSettings) {
+        Self.logger.notice("settings changed (shelf=\(self.shelfID, privacy: .public)): \(old.columns, privacy: .public)x\(old.rows, privacy: .public)(\(old.capacity, privacy: .public)枚)→\(new.columns, privacy: .public)x\(new.rows, privacy: .public)(\(new.capacity, privacy: .public)枚) artworkSize \(old.artworkSize.rawValue, privacy: .public)→\(new.artworkSize.rawValue, privacy: .public) plugins \(old.pluginSummary, privacy: .public)→\(new.pluginSummary, privacy: .public)")
     }
 
     // MARK: - 表示用
