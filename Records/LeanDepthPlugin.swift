@@ -4,10 +4,17 @@
 //
 //  プラグイン「奥行き感(後傾)」(P1)。
 //  ジャケットを底辺(anchor .bottom)を軸にx軸回転させ、棚の背板に
-//  後ろへ立てかけた表現にする(feature/cubby-shelf-uiの検証済み値を
-//  ベースに角度/パースをパラメータ化したもの)。
+//  後ろへ立てかけた表現にする(feature/cubby-shelf-uiの検証済み値
+//  ベース)。
 //  あわせてセル下端に柔らかい接地影を足し、棚板に乗っている
 //  印象を強める(影の濃さは傾き角度に比例する)。
+//
+//  設定は「立てかけ具合」1本だけ。棚の奥行きに対してジャケットの
+//  上辺がどの位置まで届くか(0=直立、100=背板いっぱい)を
+//  スライダーで指定し、そこから実際の傾き角度を逆算する。
+//  投影パースは固定値(0.7)。物理モデル: 棚の奥行きD=
+//  ジャケット高さH×sin(最大角)で固定。上辺の奥へのずれd=
+//  H×sin(角度)がDのlean%分なので、角度=asin(lean%×sin(最大角))。
 //
 //  無効時はレジストリのresolveで除外されるため修飾は一切積まれず、
 //  従来の平面表示と完全に同じになる(P1-3)。
@@ -24,21 +31,19 @@ struct LeanDepthPlugin: ShelfPlugin {
     /// パラメータID。PluginState.valuesの永続化キーになるので
     /// 一度決めたら変更しない(変えると保存済みの値が効かなくなる)
     private enum Param {
-        /// 後傾角(度)。0=平面、15=かなり倒れ込む
-        static let angle = "angle"
-        /// rotation3DEffectのperspectiveにそのまま渡す遠近感。
-        /// 小さいほどパースが強い(0.05〜1.0)
-        static let perspective = "perspective"
+        /// 立てかけ具合(0-100%)。棚の奥行きの何%の位置まで
+        /// ジャケットの上辺が届くか
+        static let lean = "lean"
     }
 
-    /// cubby-shelf-uiで実機検証済みの値(ShelfLayout.leanDegrees/
-    /// leanPerspective)をデフォルトにする
-    static let defaultAngle: Double = 5
-    static let defaultPerspective: Double = 0.7
-
-    /// perspectiveの下限。0や負値をrotation3DEffectに渡すと
-    /// 投影が破綻するため、設定値を必ずこの範囲に収める
-    private static let minPerspective: Double = 0.05
+    /// 最大の傾き角(度)。立てかけ具合100%でこの角度になる
+    static let maxAngle: Double = 15
+    /// デフォルトの立てかけ具合(%)。cubby-shelf-uiで実機検証済みの
+    /// 5°相当 = sin(5°)/sin(15°)≈34%を丸めた値
+    static let defaultLean: Double = 35
+    /// rotation3DEffectに渡す投影パース。cubby-shelf-uiの実機検証
+    /// 済み値に固定する(ユーザーには見せない。小さいほど強い)
+    private static let perspective: Double = 0.7
 
     let id = "lean-depth"
     let displayName = "Lean Depth"
@@ -50,18 +55,11 @@ struct LeanDepthPlugin: ShelfPlugin {
     var parameterSpecs: [PluginParameterSpec] {
         [
             .slider(.init(
-                id: Param.angle,
-                label: "Tilt Angle",
-                range: 0...15,
-                step: 0.5,
-                defaultValue: Self.defaultAngle
-            )),
-            .slider(.init(
-                id: Param.perspective,
-                label: "Perspective",
-                range: Self.minPerspective...1.0,
-                step: 0.05,
-                defaultValue: Self.defaultPerspective
+                id: Param.lean,
+                label: "Lean",
+                range: 0...100,
+                step: 5,
+                defaultValue: Self.defaultLean
             )),
         ]
     }
@@ -69,12 +67,12 @@ struct LeanDepthPlugin: ShelfPlugin {
     // MARK: - (a) ジャケット本体への修飾
 
     func transformJacket(_ jacket: AnyView, context: ShelfPluginContext) -> AnyView {
-        let angle = resolvedAngle(context: context)
-        let perspective = resolvedPerspective(context: context)
-        // 角度0なら修飾を積まず入力をそのまま返す
-        // (有効だが角度0の時も見た目・レイアウトは平面と同一)
-        guard angle != 0 else { return jacket }
-        logAppliedOnce(angle: angle, perspective: perspective)
+        let lean = resolvedLean(context: context)
+        let angle = Self.angle(forLeanPercent: lean)
+        // 0%なら修飾を積まず入力をそのまま返す
+        // (有効だが0%の時も見た目・レイアウトは平面と同一)
+        guard angle > 0 else { return jacket }
+        logAppliedOnce(lean: lean, angle: angle)
         // x軸・底辺アンカーで上辺を奥へ倒す。rotation3DEffectは
         // 描画だけを変形しレイアウト境界(=ヒット領域)は変えないので、
         // タップ再生・D&D・右クリックの判定は従来通り(P1-4)
@@ -83,7 +81,7 @@ struct LeanDepthPlugin: ShelfPlugin {
                 .degrees(angle),
                 axis: (x: 1, y: 0, z: 0),
                 anchor: .bottom,
-                perspective: perspective
+                perspective: Self.perspective
             )
         )
     }
@@ -91,8 +89,8 @@ struct LeanDepthPlugin: ShelfPlugin {
     // MARK: - (c) セル単位の装飾(接地影)
 
     func transformCell(_ cell: AnyView, context: ShelfPluginContext) -> AnyView {
-        let angle = resolvedAngle(context: context)
-        // 角度0では影も付けない(平面表示と完全同一にするため)
+        let angle = Self.angle(forLeanPercent: resolvedLean(context: context))
+        // 0%では影も付けない(平面表示と完全同一にするため)
         guard angle > 0 else { return cell }
         let size = context.cellSize
         // 倒れ込むほど底辺の接地影を濃くする(最大=角度10°で打ち止め)
@@ -112,23 +110,28 @@ struct LeanDepthPlugin: ShelfPlugin {
 
     // MARK: - パラメータ解決
 
-    private func resolvedAngle(context: ShelfPluginContext) -> Double {
-        // 負値/15超の手編集値が入ってもUI範囲に収める
-        min(15, max(0, context.number(Param.angle, default: Self.defaultAngle)))
+    private func resolvedLean(context: ShelfPluginContext) -> Double {
+        // 負値/100超の手編集値が入ってもUI範囲に収める
+        min(100, max(0, context.number(Param.lean, default: Self.defaultLean)))
     }
 
-    private func resolvedPerspective(context: ShelfPluginContext) -> Double {
-        min(1, max(Self.minPerspective,
-                   context.number(Param.perspective, default: Self.defaultPerspective)))
+    /// 立てかけ具合(%)→実際の傾き角(度)。
+    /// 棚の奥行き=ジャケット高さ×sin(最大角)で固定し、上辺の
+    /// 奥へのずれが奥行きのlean%分になる角度をasinで逆算する
+    static func angle(forLeanPercent lean: Double) -> Double {
+        // 範囲外を渡されてもasinの定義域を外れないようクランプする
+        let clamped = min(100, max(0, lean))
+        let maxRadians = Self.maxAngle * .pi / 180
+        return asin((clamped / 100) * sin(maxRadians)) * 180 / .pi
     }
 
     /// プロセス内で最初の1回だけ解決値を記録する
     /// (セル描画のたびに呼ばれるので、毎回ログは出さない。
     ///  有効/無効とスライダー確定のログはSettingsView側が出す)
     private static var didLogApplied = false
-    private func logAppliedOnce(angle: Double, perspective: Double) {
+    private func logAppliedOnce(lean: Double, angle: Double) {
         guard !Self.didLogApplied else { return }
         Self.didLogApplied = true
-        Self.logger.notice("lean-depth applied: angle=\(angle, privacy: .public)° perspective=\(perspective, privacy: .public)")
+        Self.logger.notice("lean-depth applied: lean=\(lean, privacy: .public)% angle=\(angle, privacy: .public)°")
     }
 }

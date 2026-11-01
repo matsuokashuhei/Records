@@ -59,7 +59,7 @@ struct ShelfSettings: Codable, Equatable {
     /// 表示スロット数(列×行)
     var capacity: Int { columns * rows }
 
-    /// ログ用のプラグイン状態サマリ(例: "lean=on{angle=12.5},gloss=off")。
+    /// ログ用のプラグイン状態サマリ(例: "lean-depth=on{lean=35.0}")。
     /// パラメータ値も出すのでスライダー変更がsettings-changedログから追える。
     /// 登録ゼロ/全無効でもキーがあれば列挙する
     var pluginSummary: String {

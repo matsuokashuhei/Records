@@ -260,6 +260,10 @@ private func updatePluginState(
     var plugins = store.settings.plugins
     var state = plugins[plugin.id] ?? PluginState()
     mutate(&state)
+    // specに存在しないキー(廃止パラメータ等)を間引き、settings.jsonに
+    // 残った古い値が次の保存で消えるようにする
+    let specIDs = Set(plugin.parameterSpecs.map(\.id))
+    state.values = state.values.filter { specIDs.contains($0.key) }
     plugins[plugin.id] = state
     let newSettings = ShelfSettings(
         columns: store.settings.columns,
