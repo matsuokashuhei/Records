@@ -17,10 +17,10 @@ import os
 private let pluginModelLogger = Logger(
     subsystem: "com.cacheandbuffer.Records", category: "Plugins")
 
-/// プラグインパラメータの値。スライダーの数値以外に、将来の
-/// ピッカー/セグメント選択(String)やトグル(Bool)等の型追加を
-/// 見込んでenumにする。JSON上は生の値(number/bool/string)として
-/// 読み書きするので、settings.jsonの手編集とも相性がよい。
+/// プラグインパラメータの値。スライダーの数値(number)、選択型の
+/// 選択肢id(string)、トグル(Bool)等を型付きで持つenum。
+/// JSON上は生の値(number/bool/string)として読み書きするので、
+/// settings.jsonの手編集とも相性がよい。
 enum PluginParameterValue: Codable, Equatable {
     case number(Double)
     case boolean(Bool)
@@ -77,11 +77,14 @@ enum PluginParameterValue: Codable, Equatable {
 
 /// プラグインが公開する調整可能パラメータの定義(型付き・範囲・
 /// デフォルト値つき)。設定画面はこの定義を見てUI(スライダー等)を生成する。
-/// 将来enum選択やトグルを足す場合はcaseを追加する
+/// 新しい入力形式を足す場合はcaseを追加する
 /// (追加すると設定画面のswitchが未対応でコンパイルエラーになる=実装忘れ検知)。
 enum PluginParameterSpec: Equatable {
     /// 連続/刻み値を取るスライダー
     case slider(Slider)
+    /// 固定の選択肢から1つを選ぶ選択型(セグメント/メニュー/グリッド)。
+    /// 値は選択肢idのStringとして永続化される
+    case options(Options)
 
     struct Slider: Equatable {
         /// パラメータID。PluginState.valuesのキーになるので
@@ -97,10 +100,50 @@ enum PluginParameterSpec: Equatable {
         let defaultValue: Double
     }
 
+    /// 選択型パラメータの定義
+    struct Options: Equatable {
+        /// パラメータID。PluginState.valuesのキーになるので
+        /// プラグイン内で安定させる(変えると保存済み値が効かなくなる)
+        let id: String
+        /// 設定画面の行ラベル
+        let label: String
+        /// 選択肢。並び=設定画面での表示順(グリッドでは行優先)
+        let choices: [Choice]
+        /// 未設定時のデフォルト(choicesのいずれかのid)
+        let defaultValue: String
+        /// 設定画面での出し方のヒント
+        let presentation: Presentation
+
+        /// 選択肢1件。idはPluginState.valuesに保存される値
+        /// (一度決めたら変更しない)、labelは設定画面の表示名
+        struct Choice: Equatable {
+            let id: String
+            let label: String
+        }
+
+        /// 設定画面での出し方
+        enum Presentation: Equatable {
+            /// 選択肢数に応じてセグメント/メニューを選ぶ標準UI
+            case automatic
+            /// 固定列数のグリッドピッカー(照明位置の3x3等)
+            case grid(columns: Int)
+        }
+
+        init(id: String, label: String, choices: [Choice],
+             defaultValue: String, presentation: Presentation = .automatic) {
+            self.id = id
+            self.label = label
+            self.choices = choices
+            self.defaultValue = defaultValue
+            self.presentation = presentation
+        }
+    }
+
     /// パラメータID(永続化キー)
     var id: String {
         switch self {
         case .slider(let s): return s.id
+        case .options(let o): return o.id
         }
     }
 
@@ -108,6 +151,7 @@ enum PluginParameterSpec: Equatable {
     var label: String {
         switch self {
         case .slider(let s): return s.label
+        case .options(let o): return o.label
         }
     }
 
@@ -115,6 +159,7 @@ enum PluginParameterSpec: Equatable {
     var defaultValue: PluginParameterValue {
         switch self {
         case .slider(let s): return .number(s.defaultValue)
+        case .options(let o): return .string(o.defaultValue)
         }
     }
 }

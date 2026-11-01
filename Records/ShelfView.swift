@@ -345,7 +345,7 @@ struct ShelfView: View {
                         // (消しておかないとドロップ時に元位置へ滑り戻る
                         //  スライドバックが走り、自前ゴーストと二重表示
                         //  になる — 2026-10-24実測)
-                        AlbumSlotView(entry: entry, store: store)
+                        AlbumSlotView(entry: entry, slotIndex: slot.index, store: store)
                             .onDrag {
                                 self.startDrag(entry)
                                 let payload = ShelfDragPayload(sourceShelfID: self.shelfID, entry: entry)
@@ -1422,7 +1422,7 @@ private final class GhostPanel: NSPanel {
         container.layer?.shadowOffset = CGSize(width: 0, height: -2)
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.wantsLayer = true
-        imageView.layer?.cornerRadius = 4
+        imageView.layer?.cornerRadius = ShelfPluginLayout.jacketCornerRadius
         imageView.layer?.masksToBounds = true
         container.addSubview(imageView)
         contentView = container
@@ -2051,6 +2051,10 @@ private struct AlbumSlotView: View {
 
     let entry: MediaEntry
 
+    /// グリッド内でのこのセルの表示位置(0始まりの行優先index)。
+    /// プラグインの空間効果(照明位置からの距離減衰等)に渡す
+    let slotIndex: Int
+
     /// このセルが属するシェルフのストア(アートワークサイズと
     /// artworkRevision(ダウンロード完了)の検知用)
     @ObservedObject var store: ShelfStore
@@ -2084,7 +2088,8 @@ private struct AlbumSlotView: View {
         // store.settingsが変わるたびに再評価され、セルへ即時反映される
         let plugins = ShelfPluginRegistry.resolve(
             settings: store.settings,
-            cellSize: store.settings.artworkSize.points
+            cellSize: store.settings.artworkSize.points,
+            cellIndex: slotIndex
         )
         jacket
             // (a) ジャケット本体への修飾 + (b) ジャケット上のオーバーレイ

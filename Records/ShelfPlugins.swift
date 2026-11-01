@@ -14,8 +14,9 @@ import os
 /// ジャケット描画まわりでプラグイン基盤とセルが共有する定数
 enum ShelfPluginLayout {
     /// ジャケットの角丸半径。AlbumSlotViewのclipShape/contentShapeと、
-    /// ジャケットオーバーレイのクリップで同じ値を使う
-    static let jacketCornerRadius: CGFloat = 4
+    /// ジャケットオーバーレイのクリップで同じ値を使う。
+    /// LPジャケットは四角いので0(以前は4ptの角丸だった)
+    static let jacketCornerRadius: CGFloat = 0
 }
 
 /// プラグインのフックに渡される実行コンテキスト。
@@ -25,6 +26,16 @@ struct ShelfPluginContext {
     let cellSize: CGFloat
     /// パラメータID→値(specのデフォルト値で解決済み)
     let values: [String: PluginParameterValue]
+    /// このセル中心の、グリッド内での正規化座標(0〜1)。
+    /// (0,0)=グリッド左上端、(1,1)=右下端。照明位置からの距離減衰など
+    /// 棚全体にまたがる空間効果に使う。スロットindexと列数から
+    /// (列+0.5)/columns, (行+0.5)/rows で計算した均一マッピング
+    /// (セル間隔は含まない)
+    let cellCenter: CGPoint
+    /// グリッドの列数(1以上)。全セル中心の列挙に使う
+    let gridColumns: Int
+    /// グリッドの行数(1以上)。全セル中心の列挙に使う
+    let gridRows: Int
 
     /// 数値パラメータ。未設定/型違いはfallback
     func number(_ id: String, default fallback: Double = 0) -> Double {
@@ -108,7 +119,12 @@ enum ShelfPluginRegistry {
     /// セル合成まで全部通る
     static let all: [any ShelfPlugin] = [
         LeanDepthPlugin(),
-        // 例: SleeveGlossPlugin(), TopLightPlugin()
+        SleeveGlossPlugin(),
+        SunFadePlugin(),
+        EdgeWearPlugin(),
+        YellowingPlugin(),
+        RingWearPlugin(),
+        ScuffsPlugin(),
     ]
 
     static func plugin(id: String) -> (any ShelfPlugin)? {
@@ -117,9 +133,22 @@ enum ShelfPluginRegistry {
 
     /// settingsで有効なプラグインをレジストリ順に、解決済み
     /// コンテキストつきで返す。未登録/無効は含まない。
-    /// セル描画のたびに呼ばれる軽量な変換(辞書参照+マージのみ)
-    static func resolve(settings: ShelfSettings, cellSize: CGFloat) -> [ResolvedShelfPlugin] {
+    /// cellIndexはグリッド内の行優先スロット位置(0始まり)で、
+    /// セル中心の正規化座標はここで1回だけ計算する
+    /// セル描画のたびに呼ばれる軽量な変換(辞書参照+マージ+数式数個)
+    static func resolve(settings: ShelfSettings, cellSize: CGFloat, cellIndex: Int) -> [ResolvedShelfPlugin] {
         checkDuplicateIDs()
+        // グリッド次元はsettingsから1以上に正規化
+        // (設定UIが1以上に制約しているが、手編集値もここで保護する)
+        let columns = max(1, settings.columns)
+        let rows = max(1, settings.rows)
+        // 行優先index→(列,行)→セル中心の正規化座標(0〜1)
+        let col = cellIndex % columns
+        let row = cellIndex / columns
+        let cellCenter = CGPoint(
+            x: (Double(col) + 0.5) / Double(columns),
+            y: (Double(row) + 0.5) / Double(rows)
+        )
         return all.compactMap { plugin in
             let state = settings.plugins[plugin.id] ?? PluginState()
             guard state.enabled else { return nil }
@@ -127,7 +156,10 @@ enum ShelfPluginRegistry {
                 plugin: plugin,
                 context: ShelfPluginContext(
                     cellSize: cellSize,
-                    values: state.resolvedValues(specs: plugin.parameterSpecs)
+                    values: state.resolvedValues(specs: plugin.parameterSpecs),
+                    cellCenter: cellCenter,
+                    gridColumns: columns,
+                    gridRows: rows
                 )
             )
         }
