@@ -226,6 +226,8 @@ private struct ShelfEffectSettings: View {
         switch spec {
         case .slider(let s):
             PluginSliderRow(store: store, plugin: plugin, spec: s)
+        case .options(let o):
+            PluginOptionsRow(store: store, plugin: plugin, spec: o)
         }
     }
 
@@ -344,5 +346,121 @@ private struct PluginSliderRow: View {
             let value = store.settings.plugins[plugin.id]?.values[spec.id]?.number ?? spec.defaultValue
             Self.logger.notice("plugin param committed: \(plugin.id, privacy: .public)/\(spec.id, privacy: .public)=\(value, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
         }
+    }
+}
+
+/// プラグインパラメータの選択型行。
+/// spec.presentationで出し方を切り替える:
+///  - .automatic: 選択肢が少なければセグメント、多ければメニューの標準ピッカー
+///  - .grid(columns): 固定列数のグリッドピッカー(照明位置の3x3等)
+/// 選択は1回のタップで確定する単発変更なので、即時永続化
+/// (persist=true)し、コミットログもここで出す(デバウンス不要)。
+private struct PluginOptionsRow: View {
+
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
+    /// グリッドピッカーのセル1辺
+    private static let gridCellSize: CGFloat = 24
+
+    @ObservedObject var store: ShelfStore
+    let plugin: any ShelfPlugin
+    let spec: PluginParameterSpec.Options
+
+    var body: some View {
+        switch spec.presentation {
+        case .automatic:
+            automaticPicker
+        case .grid(let columns):
+            gridPicker(columns: columns)
+        }
+    }
+
+    /// 現在値(未設定ならspecのデフォルト)
+    private var selection: String {
+        store.settings.plugins[plugin.id]?.values[spec.id]?.string ?? spec.defaultValue
+    }
+
+    private var selectionBinding: Binding<String> {
+        Binding(
+            get: { selection },
+            set: { commit($0) }
+        )
+    }
+
+    /// 標準ピッカー。4択程度までなら一目で選べるセグメントにし、
+    /// それより多い/ラベルが長い場合はメニューに逃がす
+    /// (pickerStyleは型が違うので三項演算子ではなく分岐で返す)
+    @ViewBuilder
+    private var automaticPicker: some View {
+        if spec.choices.count <= 4 {
+            optionsPicker.pickerStyle(.segmented)
+        } else {
+            optionsPicker.pickerStyle(.menu)
+        }
+    }
+
+    private var optionsPicker: some View {
+        Picker(selection: selectionBinding) {
+            ForEach(spec.choices, id: \.id) { choice in
+                Text(LocalizedStringKey(choice.label)).tag(choice.id)
+            }
+        } label: {
+            Text(LocalizedStringKey(spec.label))
+        }
+    }
+
+    /// 固定列数のグリッドピッカー。各セルは照明(sun)アイコンで、
+    /// 選択中のセルだけ点灯した表示にする(光の位置を視覚的に選ぶUI)
+    @ViewBuilder
+    private func gridPicker(columns: Int) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(LocalizedStringKey(spec.label))
+            LazyVGrid(
+                columns: Array(
+                    repeating: GridItem(.fixed(Self.gridCellSize), spacing: 4),
+                    count: columns
+                ),
+                spacing: 4
+            ) {
+                ForEach(spec.choices, id: \.id) { choice in
+                    let selected = selection == choice.id
+                    Button {
+                        commit(choice.id)
+                    } label: {
+                        gridCell(selected: selected)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Text(LocalizedStringKey(choice.label)))
+                    .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+        }
+    }
+
+    /// グリッドの1セル。選択中はアクセントの背景+点灯した
+    /// sunアイコン、未選択は薄いドット状のsunアイコン
+    private func gridCell(selected: Bool) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 5)
+                .fill(selected
+                      ? Color.accentColor.opacity(0.3)
+                      : Color.primary.opacity(0.06))
+            Image(systemName: "sun.max.fill")
+                .font(.system(size: 11))
+                .foregroundStyle(selected ? Color.accentColor
+                                          : Color.secondary.opacity(0.35))
+        }
+        .frame(width: Self.gridCellSize, height: Self.gridCellSize)
+        .contentShape(Rectangle())
+    }
+
+    /// 選択を確定して即時永続化+コミットログ。
+    /// ログ形式はPluginSliderRowの `plugin param committed:` と同じ
+    private func commit(_ newValue: String) {
+        guard newValue != selection else { return }
+        updatePluginState(store: store, plugin: plugin, persist: true) {
+            $0.values[spec.id] = .string(newValue)
+        }
+        Self.logger.notice("plugin param committed: \(plugin.id, privacy: .public)/\(spec.id, privacy: .public)=\(newValue, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
     }
 }
