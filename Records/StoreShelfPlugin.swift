@@ -21,10 +21,15 @@
 //   - 前柵: 棚板の手前に立つ透明アクリルのストリップ。
 //     高さ=セル高さ×fence比率(既定0.22≒1/5)。上端=セル下端-高さ、
 //     下端=セル下端+板厚*0.6(板の手前面に少し重なる)。
-//     本体はごく淡い白の縦グラデ、上下端の白線(切断面の発光)と
-//     左右端の縦ハイライト(端面の反射)で素材感を出す。
-//     エッジの強さは設定の「前柵のエッジ」(上端のopacity。
-//     下端・左右端は固定比率で連動)で調整できる
+//     実物のアクリル(PMMA)は透過率~92%で面自体はほぼ見えず、
+//     照明の映り込みとエッジの発光(内部を導光した光が切断面から
+//     漏れ、コーナーに集まる)で存在がわかる。
+//     再現は 本体の淡い帯 + 上端から下へ消える映り込み帯 +
+//     上端の1pt明線と滲み + 両コーナーの集光 + 下端/左右端の明線。
+//     見え方の強さは設定の「前柵のエッジ」(上端のopacity。
+//     本体・映り込み・下端・左右端・コーナーは固定比率で連動。
+//     0なら柵は完全に不可視)で、輝度のムラは「前柵のばらつき」
+//     (長手方向の波ノイズ+段ごとの個体差)で調整できる
 //
 //  オーバーレイは合成側(ShelfView.shelfGrid)が
 //  .allowsHitTesting(false) で重ねるので、再生タップ・D&D・
@@ -54,9 +59,14 @@ struct StoreShelfPlugin: ShelfPlugin {
         static let boardThickness = "board-thickness"
         /// 前柵の高さ(セル高さに対する比率0〜0.40)
         static let fenceHeight = "fence-height"
-        /// 前柵のエッジ(切断面の発光)の強さ=上端エッジのopacity。
-        /// 下端・左右端は上端に対する固定比率で連動する
+        /// 前柵(アクリル板)の見え方の強さ=上端エッジのopacity。
+        /// 板の映り込み(透明度)・下端/左右端エッジ・コーナーの
+        /// 集光はすべて上端に対する固定比率で連動する
         static let fenceEdge = "fence-edge"
+        /// 前柵のばらつき(0-1)。アクリル板の明るさを長手方向に
+        /// ゆらがせ、段ごとの個体差も付ける(実物の切断面の
+        /// 発光は磨きムラで均一でない)
+        static let fenceVariation = "fence-variation"
     }
 
     /// 壁の色。rawValueはsettings.jsonへの永続化値なので
@@ -138,6 +148,8 @@ struct StoreShelfPlugin: ShelfPlugin {
     static let defaultFenceHeight: Double = 0.22
     /// 前柵エッジの既定の強さ(上端エッジのopacity)
     static let defaultFenceEdge: Double = 0.40
+    /// 前柵のばらつきの既定値(0-1)
+    static let defaultFenceVariation: Double = 0.5
 
     /// 板の落ち影の長さ(pt)と濃さ。行間/下端余白に収まる分だけ描く
     private static let shadowLength: CGFloat = 5
@@ -150,11 +162,25 @@ struct StoreShelfPlugin: ShelfPlugin {
     private static let boardBottomLineOpacity: Double = 0.25
     /// 板の天面エッジの明るい線(天面が光を拾う表現)
     private static let boardEdgeOpacity: Double = 0.12
-    /// 前柵の本体の白さ(上端→中央→下端のopacity)。
-    /// アクリルは面ではなくエッジで見せるので本体はごく淡く
-    private static let fenceTopOpacity: Double = 0.06
-    private static let fenceMidOpacity: Double = 0.02
-    private static let fenceBottomOpacity: Double = 0.05
+    /// 前柵の本体の白さ(上端エッジ強さに対する比率)。
+    /// 実物のアクリルは透過率~92%で面自体はほぼ見えず、
+    /// 照明の映り込みとエッジの発光で存在がわかる。
+    /// 本体はエッジ強さ×この比率の淡さに留める
+    private static let fenceBodyTopRatio: Double = 0.15
+    private static let fenceBodyMidRatio: Double = 0.05
+    private static let fenceBodyBottomRatio: Double = 0.125
+    /// 映り込み帯: 照明がアクリル面に斜めに映る、上端から
+    /// 下へ消える柔らかいハイライト。強さは上端エッジ×0.3、
+    /// 深さは柵の高さの45%
+    private static let fenceSheenRatio: Double = 0.3
+    private static let fenceSheenDepth: Double = 0.45
+    /// 上端エッジの滲み(発光が周囲に漏れる2ptのフェード)
+    private static let fenceEdgeGlowRatio: Double = 0.35
+    private static let fenceEdgeGlowWidth: CGFloat = 2
+    /// 上端の両コーナーの集光(導光が角に集まり点状に明るくなる)。
+    /// 上端エッジ×1.25、幅2.5pt
+    private static let fenceCornerRatio: Double = 1.25
+    private static let fenceCornerWidth: CGFloat = 2.5
     /// 前柵の下端エッジの強さ(上端エッジに対する比率)
     private static let fenceBottomEdgeRatio: Double = 0.30
     /// 前柵の左右端の縦ハイライトの強さ(上端エッジに対する比率)と幅
@@ -209,6 +235,13 @@ struct StoreShelfPlugin: ShelfPlugin {
                 step: 0.01,
                 defaultValue: Self.defaultFenceEdge
             )),
+            .slider(.init(
+                id: Param.fenceVariation,
+                label: "Fence Variation",
+                range: 0...1,
+                step: 0.01,
+                defaultValue: Self.defaultFenceVariation
+            )),
         ]
     }
 
@@ -235,6 +268,7 @@ struct StoreShelfPlugin: ShelfPlugin {
         let t = resolvedThickness(context: context)
         let fenceRatio = resolvedFenceHeight(context: context)
         let fenceEdge = resolvedFenceEdge(context: context)
+        let fenceVar = resolvedFenceVariation(context: context)
         let cell = context.cellSize
         // 板も柵も描くものが無ければオーバーレイ自体を返さない
         // (無効時と同じく描画の影響ゼロにする)
@@ -250,7 +284,7 @@ struct StoreShelfPlugin: ShelfPlugin {
         logAppliedOnce(
             wall: resolvedWall(context: context), board: board,
             thickness: t, fence: fenceRatio, edge: fenceEdge,
-            rows: context.gridRows)
+            variation: fenceVar, rows: context.gridRows)
 
         return AnyView(
             Canvas { gc, size in
@@ -305,47 +339,144 @@ struct StoreShelfPlugin: ShelfPlugin {
                                     Self.boardBottomLineOpacity)))
                         }
                     }
-                    if fenceRatio > 0 {
+                    if fenceRatio > 0 && fenceEdge > 0 {
                         // 前柵: 棚板の手前に立つ透明アクリルのストリップ。
                         // 下端は板の手前面へ少し重なる(t*0.6)
                         let f = fenceRatio * cell
                         let fenceRect = CGRect(
                             x: 0, y: bottom - f,
                             width: size.width, height: f + t * 0.6)
-                        // 本体: ごく淡い白の縦グラデ
+                        // ばらつき: 各段のアクリル板は別個体なので
+                        // 明るさが段ごとにわずかに違い(±variation*25%)、
+                        // 長手方向は波ノイズで輝度がゆらぐ(切断面の
+                        // 発光は磨きムラで均一でない)。
+                        // variation=0 なら係数1=従来の均一な面
+                        let rowVar = 1 + (Self.rowHash(r, salt: 6) - 0.5)
+                            * fenceVar * 0.5
+                        let e = min(1, fenceEdge * rowVar)
+                        let rowSalt = Double(r) * 3.7
+
+                        // 本体(透明度)+映り込み帯: 縦ストリップに
+                        // 分け、帯ごとの係数を長手方向の波で揺らす
+                        let segments = 20
+                        let segW = size.width / CGFloat(segments)
+                        for i in 0..<segments {
+                            let x0 = CGFloat(i) * segW
+                            let m = fenceVar > 0
+                                ? 1 + (Self.wave01(
+                                        x: x0 + segW * 0.5,
+                                        salt: 9 + rowSalt) - 0.5)
+                                    * fenceVar * 1.2
+                                : 1
+                            let strip = CGRect(
+                                x: x0, y: fenceRect.minY,
+                                width: segW, height: fenceRect.height)
+                            // 本体: 透過率の高い板なので面はごく淡く
+                            gc.fill(
+                                Path(strip),
+                                with: .linearGradient(
+                                    Gradient(stops: [
+                                        .init(
+                                            color: .white.opacity(
+                                                e * Self.fenceBodyTopRatio * m),
+                                            location: 0),
+                                        .init(
+                                            color: .white.opacity(
+                                                e * Self.fenceBodyMidRatio * m),
+                                            location: 0.5),
+                                        .init(
+                                            color: .white.opacity(
+                                                e * Self.fenceBodyBottomRatio * m),
+                                            location: 1),
+                                    ]),
+                                    startPoint: CGPoint(
+                                        x: 0, y: strip.minY),
+                                    endPoint: CGPoint(
+                                        x: 0, y: strip.maxY)))
+                            // 映り込み帯: 照明がアクリル面に斜めに映る
+                            // 柔らかいハイライト。上端から柵高の45%で消える
+                            let sheen = CGRect(
+                                x: x0, y: fenceRect.minY, width: segW,
+                                height: fenceRect.height * Self.fenceSheenDepth)
+                            gc.fill(
+                                Path(sheen),
+                                with: .linearGradient(
+                                    Gradient(colors: [
+                                        .white.opacity(
+                                            e * Self.fenceSheenRatio * m),
+                                        .clear,
+                                    ]),
+                                    startPoint: CGPoint(
+                                        x: 0, y: sheen.minY),
+                                    endPoint: CGPoint(
+                                        x: 0, y: sheen.maxY)))
+                        }
+
+                        // 上端エッジ: 1ptの白線(アクリル切断面の発光)。
+                        // 輝度は長手方向にゆらがせる(波ノイズを
+                        // 水平グラデーションのstopで表現)
+                        let edgeSegs = 12
+                        var edgeStops: [Gradient.Stop] = []
+                        edgeStops.reserveCapacity(edgeSegs + 1)
+                        for i in 0...edgeSegs {
+                            let fx = CGFloat(i) / CGFloat(edgeSegs)
+                            let m = fenceVar > 0
+                                ? 0.65 + 0.7 * Self.wave01(
+                                    x: fx * size.width, salt: 11 + rowSalt)
+                                : 1
+                            edgeStops.append(.init(
+                                color: .white.opacity(min(1, e * m)),
+                                location: fx))
+                        }
+                        let edgeLine = CGRect(
+                            x: 0, y: fenceRect.minY,
+                            width: size.width, height: 1)
                         gc.fill(
-                            Path(fenceRect),
+                            Path(edgeLine),
                             with: .linearGradient(
-                                Gradient(stops: [
-                                    .init(
-                                        color: .white.opacity(Self.fenceTopOpacity),
-                                        location: 0),
-                                    .init(
-                                        color: .white.opacity(Self.fenceMidOpacity),
-                                        location: 0.5),
-                                    .init(
-                                        color: .white.opacity(Self.fenceBottomOpacity),
-                                        location: 1),
-                                ]),
-                                startPoint: CGPoint(
-                                    x: 0, y: fenceRect.minY),
+                                Gradient(stops: edgeStops),
+                                startPoint: CGPoint(x: 0, y: 0),
                                 endPoint: CGPoint(
-                                    x: 0, y: fenceRect.maxY)))
-                        // 上端エッジ: 1ptの白線(アクリル切断面の発光)
+                                    x: size.width, y: 0)))
+                        // 滲み: エッジの光が周囲に漏れる2ptのフェード。
+                        // エッジと同じゆらぎを弱く写す
+                        let glowRect = CGRect(
+                            x: 0, y: fenceRect.minY + 1,
+                            width: size.width,
+                            height: Self.fenceEdgeGlowWidth)
                         gc.fill(
-                            Path(CGRect(
-                                x: 0, y: fenceRect.minY,
-                                width: size.width, height: 1)),
-                            with: .color(.white.opacity(fenceEdge)))
+                            Path(glowRect),
+                            with: .linearGradient(
+                                Gradient(stops: edgeStops.map {
+                                    .init(
+                                        color: $0.color.opacity(
+                                            Self.fenceEdgeGlowRatio),
+                                        location: $0.location)
+                                }),
+                                startPoint: CGPoint(
+                                    x: 0, y: glowRect.minY),
+                                endPoint: CGPoint(
+                                    x: 0, y: glowRect.maxY)))
+                        // 上端の両コーナー: 導光が角に集まり点状に
+                        // 明るくなる集光(上端エッジより強い)
+                        let cw = Self.fenceCornerWidth
+                        let cornerOpacity = min(1, e * Self.fenceCornerRatio)
+                        for x in [0.0, size.width - cw] {
+                            gc.fill(
+                                Path(CGRect(
+                                    x: x, y: fenceRect.minY,
+                                    width: cw, height: cw)),
+                                with: .color(.white.opacity(cornerOpacity)))
+                        }
                         // 下端エッジ: 上端より弱い1ptの白線
                         gc.fill(
                             Path(CGRect(
                                 x: 0, y: fenceRect.maxY - 1,
                                 width: size.width, height: 1)),
                             with: .color(.white.opacity(
-                                fenceEdge * Self.fenceBottomEdgeRatio)))
+                                e * Self.fenceBottomEdgeRatio)))
                         // 左右端: 端面の反射の縦ハイライト
-                        let side = fenceEdge * Self.fenceSideEdgeRatio
+                        let side = e * Self.fenceSideEdgeRatio
                         let w = Self.fenceSideEdgeWidth
                         gc.fill(
                             Path(CGRect(
@@ -382,8 +513,34 @@ struct StoreShelfPlugin: ShelfPlugin {
             context.number(Param.fenceHeight, default: Self.defaultFenceHeight)))
     }
 
-    /// 前柵エッジの強さ(0〜1)。上端エッジのopacityそのもの。
-    /// 下端・左右端は固定比率で連動する
+    /// 前柵のばらつき(0-1)。長手方向の輝度のゆらぎと
+    /// 段ごとの個体差の強さ。0なら従来の均一な面
+    private func resolvedFenceVariation(context: ShelfStructureContext) -> Double {
+        min(1, max(0,
+            context.number(
+                Param.fenceVariation, default: Self.defaultFenceVariation)))
+    }
+
+    /// 長手方向の滑らかな疑似ノイズ(0〜1)。長波長のsin波の
+    /// 積で作る連続値 — アクリル板の明るさのゆらぎに使う。
+    /// saltで系列を変える(行ごとに別パターンにするため行番号を混ぜる)
+    private static func wave01(x: CGFloat, salt: Double) -> Double {
+        let p = Double(x)
+        let v = sin(p * 0.011 + salt * 13.1) * sin(p * 0.029 + salt * 7.7)
+        return (v + 1) / 2
+    }
+
+    /// 行番号から決める固定のばらつき係数(0〜1)。
+    /// 「各段のアクリル板は別個体」という明るさ差に使う
+    /// (sinハッシュ。乱数生成器や状態は持たない)
+    private static func rowHash(_ row: Int, salt: Double) -> Double {
+        let v = sin(Double(row) * 127.1 + salt * 311.7) * 43758.5453
+        return v - v.rounded(.down)
+    }
+
+    /// 前柵(アクリル板)の見え方の強さ(0〜1)。上端エッジの
+    /// opacityそのもの。本体(透明度)・映り込み・下端/左右端・
+    /// コーナー集光は固定比率で連動する
     private func resolvedFenceEdge(context: ShelfStructureContext) -> Double {
         min(1, max(0,
             context.number(Param.fenceEdge, default: Self.defaultFenceEdge)))
@@ -404,9 +561,10 @@ struct StoreShelfPlugin: ShelfPlugin {
     ///  有効/無効とパラメータ確定のログはSettingsView側が出す)
     private static var didLogApplied = false
     private func logAppliedOnce(wall: Wall, board: Board, thickness: CGFloat,
-                                fence: Double, edge: Double, rows: Int) {
+                                fence: Double, edge: Double, variation: Double,
+                                rows: Int) {
         guard !Self.didLogApplied else { return }
         Self.didLogApplied = true
-        Self.logger.notice("store-shelf applied: wall=\(wall.rawValue, privacy: .public) board=\(board.rawValue, privacy: .public) thickness=\(thickness, privacy: .public) fence=\(fence, privacy: .public) edge=\(edge, privacy: .public) rows=\(rows, privacy: .public)")
+        Self.logger.notice("store-shelf applied: wall=\(wall.rawValue, privacy: .public) board=\(board.rawValue, privacy: .public) thickness=\(thickness, privacy: .public) fence=\(fence, privacy: .public) edge=\(edge, privacy: .public) variation=\(variation, privacy: .public) rows=\(rows, privacy: .public)")
     }
 }
