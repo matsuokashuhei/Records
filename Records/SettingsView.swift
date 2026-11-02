@@ -234,7 +234,10 @@ private struct ShelfEffectSettings: View {
     // MARK: - 状態アクセス
 
     private func isEnabled(_ plugin: any ShelfPlugin) -> Bool {
-        store.settings.plugins[plugin.id]?.enabled ?? false
+        // 未保存のプラグインはdefaultEnabled(StoreShelfPluginは既定ON、
+        // 効果系は既定OFF)。レジストリのresolveと同じ規則にして
+        // 表示と実態を一致させる
+        store.settings.plugins[plugin.id]?.enabled ?? plugin.defaultEnabled
     }
 
     private func enabledBinding(_ plugin: any ShelfPlugin) -> Binding<Bool> {
@@ -260,7 +263,9 @@ private func updatePluginState(
     mutate: (inout PluginState) -> Void
 ) {
     var plugins = store.settings.plugins
-    var state = plugins[plugin.id] ?? PluginState()
+    // 未保存のプラグインはdefaultEnabledで状態をシードする
+    // (トグルの表示=実態の規則と同じ)
+    var state = plugins[plugin.id] ?? PluginState(enabled: plugin.defaultEnabled)
     mutate(&state)
     // specに存在しないキー(廃止パラメータ等)を間引き、settings.jsonに
     // 残った古い値が次の保存で消えるようにする

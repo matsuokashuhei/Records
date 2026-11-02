@@ -16,6 +16,7 @@
 		27A82E51697CE7DF2125EC23 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA871A2E0C8D11E6A15AB79F /* SettingsView.swift */; };
 		432D51B3CA508F4DBEBE756F /* ShelfPluginModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31E9BF2A068A6B6BDBC24C3D /* ShelfPluginModel.swift */; };
 		5826490E79BED53E269CD2F4 /* SunFadePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6777CCACB9733022ED3CFD0B /* SunFadePlugin.swift */; };
+		589FBE32A564A991600C495B /* StoreShelfPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C5D9C0D6A962061FE10FB77 /* StoreShelfPlugin.swift */; };
 		695479100C2EE21BB2BC229C /* ShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54EF98EA96353F7782B148F9 /* ShelfStore.swift */; };
 		7891721378C76F32BE0EA5FA /* RingWearPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFEC9E6BA369A1D3443F786A /* RingWearPlugin.swift */; };
 		7C42B8D43EDC2D7DEB273951 /* WindowGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26E722075A65DABCA285C2CC /* WindowGlass.swift */; };
@@ -51,6 +52,7 @@
 		54EF98EA96353F7782B148F9 /* ShelfStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfStore.swift; sourceTree = "<group>"; };
 		6777CCACB9733022ED3CFD0B /* SunFadePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SunFadePlugin.swift; sourceTree = "<group>"; };
 		79AF5BE0A651670867B2A9B0 /* Records.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Records.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7C5D9C0D6A962061FE10FB77 /* StoreShelfPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreShelfPlugin.swift; sourceTree = "<group>"; };
 		A007BA610267BABC3AD4B49A /* LeanDepthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeanDepthPlugin.swift; sourceTree = "<group>"; };
 		B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackEngine.swift; sourceTree = "<group>"; };
 		BDB56EC137EBA234D33377C5 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -116,6 +118,7 @@
 				50F72400C0C7CB6F5FFD48FB /* ShelfPlugins.swift */,
 				29D593FE3DA37740B77984F0 /* ShelfView.swift */,
 				E924D7F0C1EB471CA2F07FAC /* SleeveGlossPlugin.swift */,
+				7C5D9C0D6A962061FE10FB77 /* StoreShelfPlugin.swift */,
 				6777CCACB9733022ED3CFD0B /* SunFadePlugin.swift */,
 				26E722075A65DABCA285C2CC /* WindowGlass.swift */,
 				469A280179827F5C07201388 /* YellowingPlugin.swift */,
@@ -250,6 +253,7 @@
 				695479100C2EE21BB2BC229C /* ShelfStore.swift in Sources */,
 				F161C579BE4930784F54DF03 /* ShelfView.swift in Sources */,
 				CDE0690EEC940ADE32A65A7A /* SleeveGlossPlugin.swift in Sources */,
+				589FBE32A564A991600C495B /* StoreShelfPlugin.swift in Sources */,
 				5826490E79BED53E269CD2F4 /* SunFadePlugin.swift in Sources */,
 				7C42B8D43EDC2D7DEB273951 /* WindowGlass.swift in Sources */,
 				EEFA85B584A48F2EF352A933 /* YellowingPlugin.swift in Sources */,
