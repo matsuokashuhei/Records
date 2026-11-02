@@ -3,8 +3,13 @@
 //  Records
 //
 //  プラグイン「レコード店の棚」(構造系)。
-//  レコード店の壁面陳列棚の写真を再現する: クリーム色の壁 +
-//  各行の黒い水平棚板 + 棚板手前端に立つ透明アクリルの前柵。
+//  レコード店の壁面陳列棚の写真を再現する: 壁(単色グラデまたは
+//  紙テクスチャ) + 各行の黒い水平棚板 + 棚板手前端に立つ透明
+//  アクリルの前柵。
+//  紙テクスチャの画像は texture-generator
+//  (https://github.com/nmpowell/texture-generator) の paper
+//  バリアントで生成したシームレスタイル(creases=0)。
+//  敷き詰めた紙の上に既存と同じ天井光の縦グラデーションを重ねる。
 //  ジャケットの後傾(立てかけ)は既存の Lean Depth プラグインが
 //  担当するので、ここでは棚レベルフックで壁(shelfBackdrop)と
 //  棚板+前柵(shelfOverlay)を描く。
@@ -69,7 +74,7 @@ struct StoreShelfPlugin: ShelfPlugin {
         static let fenceVariation = "fence-variation"
     }
 
-    /// 壁の色。rawValueはsettings.jsonへの永続化値なので
+    /// 壁。rawValueはsettings.jsonへの永続化値なので
     /// 一度決めたら変更しない
     private enum Wall: String, CaseIterable {
         /// 暖色クリーム(レコード店の壁)
@@ -78,6 +83,18 @@ struct StoreShelfPlugin: ShelfPlugin {
         case warmGray = "warm-gray"
         /// 暗色
         case charcoal
+        /// 白い上質紙
+        case paperWhite = "paper-white"
+        /// 未晒クラフト紙
+        case paperKraft = "paper-kraft"
+        /// 再生紙
+        case paperRecycled = "paper-recycled"
+        /// 新聞用紙
+        case paperNewsprint = "paper-newsprint"
+        /// レース紙(手漉き風)
+        case paperLaid = "paper-laid"
+        /// マットコート紙
+        case paperCoated = "paper-coated"
 
         /// 表示ラベル(Localizable.xcstringsのキー)
         var label: String {
@@ -85,6 +102,25 @@ struct StoreShelfPlugin: ShelfPlugin {
             case .cream: return "Cream"
             case .warmGray: return "Warm Gray"
             case .charcoal: return "Charcoal"
+            case .paperWhite: return "White Paper"
+            case .paperKraft: return "Kraft Paper"
+            case .paperRecycled: return "Recycled Paper"
+            case .paperNewsprint: return "Newsprint"
+            case .paperLaid: return "Laid Paper"
+            case .paperCoated: return "Coated Paper"
+            }
+        }
+
+        /// 紙壁の場合のアセット名(非紙はnil)
+        var paperAsset: String? {
+            switch self {
+            case .cream, .warmGray, .charcoal: return nil
+            case .paperWhite: return "paper-white"
+            case .paperKraft: return "paper-kraft"
+            case .paperRecycled: return "paper-recycled"
+            case .paperNewsprint: return "paper-newsprint"
+            case .paperLaid: return "paper-laid"
+            case .paperCoated: return "paper-coated"
             }
         }
 
@@ -106,6 +142,9 @@ struct StoreShelfPlugin: ShelfPlugin {
                     Color(red: 0x3E/255, green: 0x3E/255, blue: 0x44/255),
                     Color(red: 0x28/255, green: 0x28/255, blue: 0x2E/255),
                 ])
+            default:
+                // 紙テクスチャ用: 呼ばれないはずだが安全側のフォールバック
+                return Gradient(colors: [.white, .gray])
             }
         }
     }
@@ -251,6 +290,25 @@ struct StoreShelfPlugin: ShelfPlugin {
         let wall = resolvedWall(context: context)
         // 背面なのでセルのヒット判定には影響しないが、空き領域への
         // タップを壁が食わないよう保険を掛けておく
+        if let asset = wall.paperAsset {
+            // 紙壁: 生成済みシームレスタイルを敷き詰め、その上に
+            // 天井光(上が明るい)の薄い縦グラデーションを重ねる
+            return AnyView(
+                Image(asset)
+                    .resizable(resizingMode: .tile)
+                    .overlay {
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                .white.opacity(0.10),
+                                .black.opacity(0.06),
+                            ]),
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    }
+                    .allowsHitTesting(false)
+            )
+        }
         return AnyView(
             LinearGradient(
                 gradient: wall.gradient,
