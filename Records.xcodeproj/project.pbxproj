@@ -20,9 +20,11 @@
 		695479100C2EE21BB2BC229C /* ShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54EF98EA96353F7782B148F9 /* ShelfStore.swift */; };
 		7891721378C76F32BE0EA5FA /* RingWearPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFEC9E6BA369A1D3443F786A /* RingWearPlugin.swift */; };
 		7C42B8D43EDC2D7DEB273951 /* WindowGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26E722075A65DABCA285C2CC /* WindowGlass.swift */; };
+		89DFAB267F5A6592626A9381 /* WoodenShelfPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = E65AED5074AE05C9F1FDA143 /* WoodenShelfPlugin.swift */; };
 		96D11C978F9779DE1C59DBC3 /* PlaylistPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5326779F8829EBA05B501896 /* PlaylistPlayer.swift */; };
 		9D54F51755BC2B1C0CC040BE /* MediaCatalogClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */; };
 		A1DE54C7E330CE74F6E7E188 /* PlaybackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */; };
+		AEA4F7CA6FA5D4D598CE3660 /* WoodTexture.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53185DDEC559F025109BCFE /* WoodTexture.swift */; };
 		BB4FFD2FA58D9A500C8DE516 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FF979F49C4844488727111E7 /* InfoPlist.xcstrings */; };
 		BD77655F3C211E60D1C764F0 /* ShelfSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */; };
 		CDE0690EEC940ADE32A65A7A /* SleeveGlossPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = E924D7F0C1EB471CA2F07FAC /* SleeveGlossPlugin.swift */; };
@@ -56,10 +58,12 @@
 		A007BA610267BABC3AD4B49A /* LeanDepthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeanDepthPlugin.swift; sourceTree = "<group>"; };
 		B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackEngine.swift; sourceTree = "<group>"; };
 		BDB56EC137EBA234D33377C5 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		C53185DDEC559F025109BCFE /* WoodTexture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WoodTexture.swift; sourceTree = "<group>"; };
 		CC2B786075EC790DC5136691 /* ScuffsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScuffsPlugin.swift; sourceTree = "<group>"; };
 		CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackMonitor.swift; sourceTree = "<group>"; };
 		CFEC9E6BA369A1D3443F786A /* RingWearPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingWearPlugin.swift; sourceTree = "<group>"; };
 		D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaCatalogClient.swift; sourceTree = "<group>"; };
+		E65AED5074AE05C9F1FDA143 /* WoodenShelfPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WoodenShelfPlugin.swift; sourceTree = "<group>"; };
 		E924D7F0C1EB471CA2F07FAC /* SleeveGlossPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleeveGlossPlugin.swift; sourceTree = "<group>"; };
 		FA871A2E0C8D11E6A15AB79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		FAB464F15B4376012996DEAC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -121,6 +125,8 @@
 				7C5D9C0D6A962061FE10FB77 /* StoreShelfPlugin.swift */,
 				6777CCACB9733022ED3CFD0B /* SunFadePlugin.swift */,
 				26E722075A65DABCA285C2CC /* WindowGlass.swift */,
+				E65AED5074AE05C9F1FDA143 /* WoodenShelfPlugin.swift */,
+				C53185DDEC559F025109BCFE /* WoodTexture.swift */,
 				469A280179827F5C07201388 /* YellowingPlugin.swift */,
 			);
 			path = Records;
@@ -256,6 +262,8 @@
 				589FBE32A564A991600C495B /* StoreShelfPlugin.swift in Sources */,
 				5826490E79BED53E269CD2F4 /* SunFadePlugin.swift in Sources */,
 				7C42B8D43EDC2D7DEB273951 /* WindowGlass.swift in Sources */,
+				AEA4F7CA6FA5D4D598CE3660 /* WoodTexture.swift in Sources */,
+				89DFAB267F5A6592626A9381 /* WoodenShelfPlugin.swift in Sources */,
 				EEFA85B584A48F2EF352A933 /* YellowingPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

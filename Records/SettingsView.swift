@@ -185,6 +185,9 @@ private struct ShelfPickers: View {
 
 /// エフェクトプラグインの設定セクション(レジストリ列挙)。
 /// 各プラグイン = 有効トグル + 有効時はパラメータ調整UI(スライダー等)。
+/// 排他グループ(exclusiveGroup)を持つプラグインは個別トグルではなく、
+/// グループの先頭メンバーの位置に「なし」+メンバー名のピッカー1本と
+/// してまとめて出す(同時に有効なのは1つだけというUIと一致させる)。
 /// ShelfPickersと同じく、store.settingsの更新で再描画されるよう
 /// @ObservedObjectでstoreを購読するサブビューに切り出してある。
 /// 変更はstore.updateSettingsでフォーカス中シェルフへ即時反映・永続化。
@@ -192,12 +195,23 @@ private struct ShelfEffectSettings: View {
 
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
 
+    /// 「なし」選択時のピッカーのタグ値(プラグインidと衝突しない文字列)
+    private static let noneTag = "none"
+
     @ObservedObject var store: ShelfStore
 
     var body: some View {
-        // レジストリ順=適用順=表示順(決定論的)
+        // レジストリ順=適用順=表示順(決定論的)。
+        // 排他グループの2番目以降のメンバーは先頭のピッカーに
+        // 含まれるので行を出さない
         ForEach(ShelfPluginRegistry.all, id: \.id) { plugin in
-            pluginRow(plugin)
+            if let group = plugin.exclusiveGroup {
+                if groupMembers(group).first?.id == plugin.id {
+                    groupRow(group)
+                }
+            } else {
+                pluginRow(plugin)
+            }
         }
         // スライダーのtransient更新が確定前に残らないよう、
         // セクションが閉じる/畳まれる時点で必ず永続化する
@@ -229,6 +243,76 @@ private struct ShelfEffectSettings: View {
         case .options(let o):
             PluginOptionsRow(store: store, plugin: plugin, spec: o)
         }
+    }
+
+    // MARK: - 排他グループ
+
+    /// 排他グループのメンバー(レジストリ順)
+    private func groupMembers(_ group: String) -> [any ShelfPlugin] {
+        ShelfPluginRegistry.all.filter { $0.exclusiveGroup == group }
+    }
+
+    /// 排他グループの行。「なし」+メンバー名のピッカー1本と、
+    /// 選択中メンバーのパラメータ調整UIを出す
+    @ViewBuilder
+    private func groupRow(_ group: String) -> some View {
+        let members = groupMembers(group)
+        Picker(selection: groupSelection(group, members: members)) {
+            Text("None").tag(Self.noneTag)
+            ForEach(members, id: \.id) { member in
+                // displayNameはStringなのでLocalizedStringKey経由に
+                // してカタログを引かせる(トグル行と同じ)
+                Text(LocalizedStringKey(member.displayName)).tag(member.id)
+            }
+        } label: {
+            Text("Shelf Style")
+        }
+        // 選択中メンバーのパラメータだけ出す(「なし」なら畳む)
+        if let selected = members.first(where: { isEnabled($0) }) {
+            ForEach(selected.parameterSpecs, id: \.id) { spec in
+                parameterControl(selected, spec: spec)
+            }
+        }
+    }
+
+    private func groupSelection(
+        _ group: String, members: [any ShelfPlugin]
+    ) -> Binding<String> {
+        Binding(
+            // トグルと同じ規則(未保存はdefaultEnabled)で有効中の
+            // メンバーを選ぶ。全員無効なら「なし」
+            get: {
+                members.first(where: { isEnabled($0) })?.id ?? Self.noneTag
+            },
+            set: { selectGroupMember(group, members: members, id: $0) }
+        )
+    }
+
+    /// グループの選択を確定する。選んだメンバーだけ有効にして
+    /// 他はすべて無効にし、1回のupdateSettingsで即時永続化する
+    /// (トグルや選択行と同じ単発変更なのでデバウンス不要)
+    private func selectGroupMember(
+        _ group: String, members: [any ShelfPlugin], id: String
+    ) {
+        Self.logger.notice("shelf style changed: \(group, privacy: .public)=\(id, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
+        var plugins = store.settings.plugins
+        for member in members {
+            var state = plugins[member.id]
+                ?? PluginState(enabled: member.defaultEnabled)
+            state.enabled = (member.id == id)
+            // specに存在しないキー(廃止パラメータ等)を間引き、
+            // settings.jsonに残った古い値が消えるようにする
+            // (updatePluginStateと同じ掃除)
+            let specIDs = Set(member.parameterSpecs.map(\.id))
+            state.values = state.values.filter { specIDs.contains($0.key) }
+            plugins[member.id] = state
+        }
+        store.updateSettings(ShelfSettings(
+            columns: store.settings.columns,
+            rows: store.settings.rows,
+            artworkSize: store.settings.artworkSize,
+            plugins: plugins
+        ))
     }
 
     // MARK: - 状態アクセス

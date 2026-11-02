@@ -338,6 +338,26 @@ jacketShape(cellIndex:)。実物のLPジャケットは角ごとにわずかに�
 セル座標ハッシュ(sinハッシュ)でパターンを決定論的にばらつかせるのが
 各プラグイン共通の作法。
 
+棚の見た目を丸ごと変える構造系プラグイン(StoreShelfPlugin=壁+棚板+
+アクリル前柵 / WoodenShelfPlugin=木製キュービー棚)は
+`exclusiveGroup = ShelfPluginGroups.shelfStyle` で相互排他にしてある
+(2026-11-02)。設定画面は同じグループのプラグインを1つのピッカー
+「Shelf Style」(None+各displayName)にまとめ、選択変更で選んだ1個だけ
+enabled=true・他はfalseにする(=着せ替え)。resolve/resolveShelf側でも
+同グループはレジストリ順の先勝ちで1個しか適用しない安全弁あり。
+3個目以降の棚プラグインは同じグループを指定するだけでピッカーの
+選択肢に自動で並ぶ。
+
+グリッドの幾何(セル間の帯・四辺の余白)は固定値ではなく
+`ShelfPluginRegistry.resolveSpacing` が有効プラグインの
+`structureSpacing` 要求を各項目のmaxで合成する
+(既定=ShelfStructureSpacing.default=12/14/8/8)。
+**部材をセルに重ねてはいけない**(「棚よりレコードが大きい」状態は
+現実感を壊す — ユーザー指示)。太くなる部材は固定の帯に無理やり
+収めるのではなく、structureSpacingで帯の拡大を要求し、棚全体を
+大きくすること。ShelfViewはこの合成値でレイアウト・ドロップ位置・
+ゴースト座標をすべて計算する。
+
 ## データ
 
 - シェルフ一覧: `~/Library/Application Support/Records/shelves.json`
