@@ -78,16 +78,51 @@ struct ShelfPluginContext {
     }
 }
 
+/// 棚レベルフック(shelfBackdrop/shelfOverlay)に渡される実行コンテキスト。
+/// グリッドの幾何定数(セルサイズ・行列数・間隔・余白)と解決済み
+/// パラメータ値を持つ。座標はすべて「padding適用済みグリッドの
+/// 左上原点」(=ShelfViewのgridフレーム)で解釈する
+struct ShelfStructureContext {
+    /// セル(ジャケット)1辺のポイント数
+    let cellSize: CGFloat
+    /// グリッドの列数(1以上)
+    let gridColumns: Int
+    /// グリッドの行数(1以上)
+    let gridRows: Int
+    /// セル間の水平間隔
+    let columnSpacing: CGFloat
+    /// セル間の垂直間隔(棚板が入る行間帯の高さ)
+    let rowSpacing: CGFloat
+    /// 左右・下端の余白
+    let edgePadding: CGFloat
+    /// 上端の余白
+    let topPadding: CGFloat
+    /// パラメータID→値(specのデフォルト値で解決済み)
+    let values: [String: PluginParameterValue]
+
+    /// 数値パラメータ。未設定/型違いはfallback
+    func number(_ id: String, default fallback: Double = 0) -> Double {
+        values[id]?.number ?? fallback
+    }
+    /// Boolパラメータ(将来のトグル型spec用)
+    func flag(_ id: String, default fallback: Bool = false) -> Bool {
+        values[id]?.boolean ?? fallback
+    }
+    /// 文字列パラメータ(将来のenum選択型spec用)
+    func text(_ id: String, default fallback: String = "") -> String {
+        values[id]?.string ?? fallback
+    }
+}
+
 /// シェルフエフェクトプラグイン。
 ///
 /// 実装は具象型を作って ShelfPluginRegistry.all に登録するだけで
 /// 設定画面への列挙・永続化・セルへの合成まで全部通る。
 /// フックは必要なものだけオーバーライドする(デフォルト=何もしない)。
 ///
-/// 拡張性(P0-8): 棚レベルの効果(木枠・区画・ヴィネット等)は、
-/// このプロトコルにデフォルト実装付きの新フック(例: shelfOverlay(
-/// context:) や transformShelf(_:context:))を追加し、ShelfView側の
-/// グリッドを包む合成点を増やす。既存プラグインは無変更で動く。
+/// 棚レベルの効果(壁・棚板・前柵等)は shelfBackdrop/shelfOverlay
+/// フックで実装する。ShelfView側のグリッドを包む合成点
+/// (.background/.overlay)はShelfGridに実装済み。
 /// パラメータ型も PluginParameterSpec にcaseを足せばよい
 /// (永続化のPluginParameterValueは number/bool/string を受理済み)。
 protocol ShelfPlugin {
@@ -98,6 +133,11 @@ protocol ShelfPlugin {
     var displayName: String { get }
     /// 調整可能パラメータの定義(並び=設定画面の表示順)
     var parameterSpecs: [PluginParameterSpec] { get }
+    /// settings.pluginsにこのプラグインのキーが無い(未保存)時の
+    /// 有効状態。構造系など既定でONにしたいプラグインだけtrueにする
+    /// (レジストリのresolve/resolveShelfと設定画面のトグル表示が
+    ///  同じ規則で未保存時を解釈する)
+    var defaultEnabled: Bool { get }
 
     /// (a) ジャケット画像本体への修飾(色調・フィルタ等)。
     /// 入力はクリップ済みジャケット。修飾を積んだビューを返す。
@@ -129,20 +169,41 @@ protocol ShelfPlugin {
     /// (d) セル単位の装飾(影・光等)。セル全体(ジャケット面+
     /// 既定の影+ホバー表示)を包む修飾を返す
     func transformCell(_ cell: AnyView, context: ShelfPluginContext) -> AnyView
+
+    /// (e) グリッド背面への描画(壁など)。nil=描画なし。
+    /// padding適用済みグリッドの .background にレジストリ順で重畳される
+    /// (座標はグリッドのpadding込みフレームの左上原点)
+    func shelfBackdrop(context: ShelfStructureContext) -> AnyView?
+
+    /// (f) グリッド前面への描画(棚板・前柵など)。nil=描画なし。
+    /// padding適用済みグリッドの .overlay にレジストリ順で重畳され、
+    /// 合成側が .allowsHitTesting(false) を掛けるので、ここで返す
+    /// ビューは再生タップ・D&D・右クリック・ドロップゾーンを潰さない
+    func shelfOverlay(context: ShelfStructureContext) -> AnyView?
 }
 
 extension ShelfPlugin {
     var parameterSpecs: [PluginParameterSpec] { [] }
+    var defaultEnabled: Bool { false }
     func transformJacket(_ jacket: AnyView, context: ShelfPluginContext) -> AnyView { jacket }
     func jacketOverlay(context: ShelfPluginContext) -> AnyView? { nil }
     func transformJacketSurface(_ surface: AnyView, context: ShelfPluginContext) -> AnyView { surface }
     func transformCell(_ cell: AnyView, context: ShelfPluginContext) -> AnyView { cell }
+    func shelfBackdrop(context: ShelfStructureContext) -> AnyView? { nil }
+    func shelfOverlay(context: ShelfStructureContext) -> AnyView? { nil }
 }
 
 /// 有効化済みプラグインと解決済みコンテキストのペア
 struct ResolvedShelfPlugin {
     let plugin: any ShelfPlugin
     let context: ShelfPluginContext
+}
+
+/// 棚レベルフック((e)(f))用の、有効化済みプラグインと
+/// 解決済みコンテキストのペア
+struct ResolvedShelfStructure {
+    let plugin: any ShelfPlugin
+    let context: ShelfStructureContext
 }
 
 /// 利用可能なプラグインの登録簿。
@@ -157,6 +218,8 @@ enum ShelfPluginRegistry {
     /// 登録済みプラグイン一覧。ここに足すだけで設定画面・永続化・
     /// セル合成まで全部通る
     static let all: [any ShelfPlugin] = [
+        // 構造系(壁・棚板・前柵)は効果系より上に表示するため先頭に置く
+        StoreShelfPlugin(),
         LeanDepthPlugin(),
         SleeveGlossPlugin(),
         SunFadePlugin(),
@@ -189,7 +252,10 @@ enum ShelfPluginRegistry {
             y: (Double(row) + 0.5) / Double(rows)
         )
         return all.compactMap { plugin in
-            let state = settings.plugins[plugin.id] ?? PluginState()
+            // 未保存のプラグインはdefaultEnabledで有効状態を決める
+            // (StoreShelfPluginは既定ON、効果系は既定OFF)
+            let state = settings.plugins[plugin.id]
+                ?? PluginState(enabled: plugin.defaultEnabled)
             guard state.enabled else { return nil }
             return ResolvedShelfPlugin(
                 plugin: plugin,
@@ -200,6 +266,41 @@ enum ShelfPluginRegistry {
                     cellCenter: cellCenter,
                     gridColumns: columns,
                     gridRows: rows
+                )
+            )
+        }
+    }
+
+    /// settingsで有効なプラグインをレジストリ順に、棚レベルフック用の
+    /// 解決済みコンテキストつきで返す。未登録/無効は含まない。
+    /// グリッド次元はsettingsから1以上に正規化し、間隔・余白は
+    /// 呼び出し側(ShelfViewのグリッド定数)からそのまま渡す。
+    /// フックがnilを返すプラグインもここでは除外しない
+    /// (合成側がcompactMapでnilを落とす)
+    static func resolveShelf(
+        settings: ShelfSettings,
+        cellSize: CGFloat,
+        columnSpacing: CGFloat,
+        rowSpacing: CGFloat,
+        edgePadding: CGFloat,
+        topPadding: CGFloat
+    ) -> [ResolvedShelfStructure] {
+        checkDuplicateIDs()
+        return all.compactMap { plugin in
+            let state = settings.plugins[plugin.id]
+                ?? PluginState(enabled: plugin.defaultEnabled)
+            guard state.enabled else { return nil }
+            return ResolvedShelfStructure(
+                plugin: plugin,
+                context: ShelfStructureContext(
+                    cellSize: cellSize,
+                    gridColumns: max(1, settings.columns),
+                    gridRows: max(1, settings.rows),
+                    columnSpacing: columnSpacing,
+                    rowSpacing: rowSpacing,
+                    edgePadding: edgePadding,
+                    topPadding: topPadding,
+                    values: state.resolvedValues(specs: plugin.parameterSpecs)
                 )
             )
         }

@@ -330,6 +330,17 @@ struct ShelfView: View {
         let frameH = min(height, maxSize.height)
         let clamped = frameW < width || frameH < height
 
+        // 棚レベルプラグイン(壁・棚板・前柵)を有効なものだけ解決する。
+        // 合成は下のpadding適用済みgridの .background/.overlay で行う
+        let resolvedShelf = ShelfPluginRegistry.resolveShelf(
+            settings: settings,
+            cellSize: cell,
+            columnSpacing: Self.columnSpacing,
+            rowSpacing: Self.rowSpacing,
+            edgePadding: Self.edgePadding,
+            topPadding: Self.topPadding
+        )
+
         // ウィンドウはwindowResizability(.contentSize)なので、
         // この固定フレームがそのままmin=maxのウィンドウサイズになる
         // (コンテンツは上端まで広がるので、四辺の余白は8ptずつ)。
@@ -387,6 +398,28 @@ struct ShelfView: View {
             bottom: Self.edgePadding,
             trailing: Self.edgePadding
         ))
+        // 棚レベルプラグイン: 背面に壁、前面に棚板+前柵をレジストリ順に
+        // 重畳する。padding適用済みのgrid側(ScrollViewで包む前)に付ける
+        // ので、クランプ時はコンテンツと一緒にスクロールする。
+        // 前面オーバーレイはallowsHitTesting(false)が必須 — 再生タップ・
+        // D&D・右クリックメニュー・ドロップゾーンを潰さないため
+        .background {
+            let backdrops = resolvedShelf.compactMap {
+                $0.plugin.shelfBackdrop(context: $0.context)
+            }
+            ZStack {
+                ForEach(backdrops.indices, id: \.self) { backdrops[$0] }
+            }
+        }
+        .overlay {
+            let overlays = resolvedShelf.compactMap {
+                $0.plugin.shelfOverlay(context: $0.context)
+            }
+            ZStack {
+                ForEach(overlays.indices, id: \.self) { overlays[$0] }
+            }
+            .allowsHitTesting(false)
+        }
         // クランプ時だけScrollViewで包み、フレームを画面内に収める。
         // グリッド座標系(スロット矩形・ゴースト位置)はコンテンツ基準のまま
         // 変わらない。マウス位置→グリッド座標の変換だけ
