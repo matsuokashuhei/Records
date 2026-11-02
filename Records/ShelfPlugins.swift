@@ -43,6 +43,14 @@ enum ShelfPluginLayout {
     }
 }
 
+/// プラグインの排他グループID。同じ非nilのIDを持つプラグインは
+/// 同時に1つだけ有効になる(レジストリ順の先着)。設定画面では
+/// グループごとに1本のピッカーとして表示される
+enum ShelfPluginGroups {
+    /// 棚の構造スタイル(アクリル前柵のレコード店棚 ↔ 木製ラティス棚)
+    static let shelfStyle = "shelf-style"
+}
+
 /// プラグインのフックに渡される実行コンテキスト。
 /// パラメータ値はspecのデフォルトで解決済み(キー欠損を気にしない)。
 struct ShelfPluginContext {
@@ -114,6 +122,27 @@ struct ShelfStructureContext {
     }
 }
 
+/// グリッドの幾何(セル間の帯・四辺の余白)。
+/// 構造系プラグインが部材をセルに重ねず描くために必要な帯幅を
+/// structureSpacingで要求し、ShelfPluginRegistry.resolveSpacingが
+/// 有効プラグインの要求を各項目のmaxで合成する。
+/// 既定値は従来の固定値(StoreShelfPluginも収まる大きさ)
+struct ShelfStructureSpacing: Equatable {
+    /// セル間の水平間隔
+    var columnSpacing: CGFloat
+    /// セル間の垂直間隔(行間帯の高さ)
+    var rowSpacing: CGFloat
+    /// 左右・下端の余白
+    var edgePadding: CGFloat
+    /// 上端の余白
+    var topPadding: CGFloat
+
+    /// 従来の固定値。要求が無ければこのままの見た目になる
+    static let `default` = ShelfStructureSpacing(
+        columnSpacing: 12, rowSpacing: 14,
+        edgePadding: 8, topPadding: 8)
+}
+
 /// シェルフエフェクトプラグイン。
 ///
 /// 実装は具象型を作って ShelfPluginRegistry.all に登録するだけで
@@ -138,6 +167,10 @@ protocol ShelfPlugin {
     /// (レジストリのresolve/resolveShelfと設定画面のトグル表示が
     ///  同じ規則で未保存時を解釈する)
     var defaultEnabled: Bool { get }
+    /// 排他グループID(ShelfPluginGroups参照)。非nil同士の
+    /// プラグインは相互排他で、有効なのはレジストリ順の先着1つ。
+    /// nil=排他なし(従来どおり個別トグル)
+    var exclusiveGroup: String? { get }
 
     /// (a) ジャケット画像本体への修飾(色調・フィルタ等)。
     /// 入力はクリップ済みジャケット。修飾を積んだビューを返す。
@@ -180,17 +213,30 @@ protocol ShelfPlugin {
     /// 合成側が .allowsHitTesting(false) を掛けるので、ここで返す
     /// ビューは再生タップ・D&D・右クリック・ドロップゾーンを潰さない
     func shelfOverlay(context: ShelfStructureContext) -> AnyView?
+
+    /// (g) グリッド幾何への要求(構造系のみ)。部材をセルに
+    /// 重ねず描くために必要な帯の幅・余白を返す。
+    /// nil=既定のまま変更しない。複数の有効プラグインが値を
+    /// 返した場合は各項目のmaxで合成される。
+    /// 引数はspecのデフォルトで解決済みのパラメータ値
+    func structureSpacing(
+        values: [String: PluginParameterValue]
+    ) -> ShelfStructureSpacing?
 }
 
 extension ShelfPlugin {
     var parameterSpecs: [PluginParameterSpec] { [] }
     var defaultEnabled: Bool { false }
+    var exclusiveGroup: String? { nil }
     func transformJacket(_ jacket: AnyView, context: ShelfPluginContext) -> AnyView { jacket }
     func jacketOverlay(context: ShelfPluginContext) -> AnyView? { nil }
     func transformJacketSurface(_ surface: AnyView, context: ShelfPluginContext) -> AnyView { surface }
     func transformCell(_ cell: AnyView, context: ShelfPluginContext) -> AnyView { cell }
     func shelfBackdrop(context: ShelfStructureContext) -> AnyView? { nil }
     func shelfOverlay(context: ShelfStructureContext) -> AnyView? { nil }
+    func structureSpacing(
+        values: [String: PluginParameterValue]
+    ) -> ShelfStructureSpacing? { nil }
 }
 
 /// 有効化済みプラグインと解決済みコンテキストのペア
@@ -220,6 +266,7 @@ enum ShelfPluginRegistry {
     static let all: [any ShelfPlugin] = [
         // 構造系(壁・棚板・前柵)は効果系より上に表示するため先頭に置く
         StoreShelfPlugin(),
+        WoodenShelfPlugin(),
         LeanDepthPlugin(),
         SleeveGlossPlugin(),
         SunFadePlugin(),
@@ -251,12 +298,19 @@ enum ShelfPluginRegistry {
             x: (Double(col) + 0.5) / Double(columns),
             y: (Double(row) + 0.5) / Double(rows)
         )
+        // 排他グループの占有状況(レジストリ順の先着1つだけ適用する)
+        var claimedGroups = Set<String>()
         return all.compactMap { plugin in
             // 未保存のプラグインはdefaultEnabledで有効状態を決める
             // (StoreShelfPluginは既定ON、効果系は既定OFF)
             let state = settings.plugins[plugin.id]
                 ?? PluginState(enabled: plugin.defaultEnabled)
             guard state.enabled else { return nil }
+            if let group = plugin.exclusiveGroup,
+               !claimedGroups.insert(group).inserted {
+                logGroupSkippedOnce(plugin: plugin, group: group)
+                return nil
+            }
             return ResolvedShelfPlugin(
                 plugin: plugin,
                 context: ShelfPluginContext(
@@ -274,7 +328,7 @@ enum ShelfPluginRegistry {
     /// settingsで有効なプラグインをレジストリ順に、棚レベルフック用の
     /// 解決済みコンテキストつきで返す。未登録/無効は含まない。
     /// グリッド次元はsettingsから1以上に正規化し、間隔・余白は
-    /// 呼び出し側(ShelfViewのグリッド定数)からそのまま渡す。
+    /// 呼び出し側(ShelfView)がresolveSpacingで合成した値をそのまま渡す。
     /// フックがnilを返すプラグインもここでは除外しない
     /// (合成側がcompactMapでnilを落とす)
     static func resolveShelf(
@@ -286,10 +340,18 @@ enum ShelfPluginRegistry {
         topPadding: CGFloat
     ) -> [ResolvedShelfStructure] {
         checkDuplicateIDs()
+        var claimedGroups = Set<String>()
         return all.compactMap { plugin in
             let state = settings.plugins[plugin.id]
                 ?? PluginState(enabled: plugin.defaultEnabled)
             guard state.enabled else { return nil }
+            // 排他グループはresolveと同じ先着規則(設定画面の
+            // ピッカーで両方ONが保存されても実態は1つだけ適用)
+            if let group = plugin.exclusiveGroup,
+               !claimedGroups.insert(group).inserted {
+                logGroupSkippedOnce(plugin: plugin, group: group)
+                return nil
+            }
             return ResolvedShelfStructure(
                 plugin: plugin,
                 context: ShelfStructureContext(
@@ -304,6 +366,54 @@ enum ShelfPluginRegistry {
                 )
             )
         }
+    }
+
+    /// 有効プラグインのstructureSpacing要求を各項目のmaxで合成した
+    /// グリッド幾何を返す。要求が1つも無ければ既定値(従来の固定値)。
+    /// 排他グループはresolveと同じ先着規則で1つだけ評価する。
+    /// ShelfViewはこの結果でセル間の帯・四辺の余白・ウィンドウ
+    /// サイズを決めるので、部材は設定値で帯が広がった分だけ
+    /// 太くなってもセル(レコード)に重ならない
+    static func resolveSpacing(settings: ShelfSettings) -> ShelfStructureSpacing {
+        checkDuplicateIDs()
+        var spacing = ShelfStructureSpacing.default
+        var claimedGroups = Set<String>()
+        for plugin in all {
+            let state = settings.plugins[plugin.id]
+                ?? PluginState(enabled: plugin.defaultEnabled)
+            guard state.enabled else { continue }
+            if let group = plugin.exclusiveGroup,
+               !claimedGroups.insert(group).inserted {
+                logGroupSkippedOnce(plugin: plugin, group: group)
+                continue
+            }
+            guard let req = plugin.structureSpacing(
+                values: state.resolvedValues(specs: plugin.parameterSpecs)
+            ) else { continue }
+            spacing.columnSpacing = max(
+                spacing.columnSpacing, req.columnSpacing)
+            spacing.rowSpacing = max(spacing.rowSpacing, req.rowSpacing)
+            spacing.edgePadding = max(spacing.edgePadding, req.edgePadding)
+            spacing.topPadding = max(spacing.topPadding, req.topPadding)
+        }
+        if spacing != didLogSpacing {
+            didLogSpacing = spacing
+            logger.notice("structure spacing resolved: col=\(spacing.columnSpacing, privacy: .public) row=\(spacing.rowSpacing, privacy: .public) edge=\(spacing.edgePadding, privacy: .public) top=\(spacing.topPadding, privacy: .public)")
+        }
+        return spacing
+    }
+
+    /// resolveSpacingはレイアウト計算のたびに呼ばれるので、
+    /// 解決値が変わった時だけnoticeを出す
+    private static var didLogSpacing: ShelfStructureSpacing?
+
+    /// 排他グループで適用をスキップしたプラグインを記録する。
+    /// resolve/resolveShelfはセル描画のたびに呼ばれるので、
+    /// プラグインidごとにプロセス内1回だけ出す
+    private static var didLogGroupSkipped = Set<String>()
+    private static func logGroupSkippedOnce(plugin: any ShelfPlugin, group: String) {
+        guard didLogGroupSkipped.insert(plugin.id).inserted else { return }
+        logger.notice("plugin skipped by exclusive group: \(plugin.id, privacy: .public) (group=\(group, privacy: .public))")
     }
 
     /// id衝突の検出(resolveの初回呼び出し時に1回だけ走る)。

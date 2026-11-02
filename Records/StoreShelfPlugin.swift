@@ -189,6 +189,9 @@ struct StoreShelfPlugin: ShelfPlugin {
 
     let id = "store-shelf"
     let displayName = "Store Shelf"
+    /// 「棚のスタイル」排他グループ。WoodenShelfPluginと同時には
+    /// 有効にならず、設定画面はグループのピッカーで選択する
+    let exclusiveGroup: String? = ShelfPluginGroups.shelfStyle
     /// 構造系プラグインは既定で有効(最初から棚らしい見た目にする)
     let defaultEnabled = true
 
