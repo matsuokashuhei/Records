@@ -281,7 +281,7 @@ final class ShelfStore: ObservableObject {
     }
 
     private func logSettingsChange(from old: ShelfSettings, to new: ShelfSettings) {
-        Self.logger.notice("settings changed (shelf=\(self.shelfID, privacy: .public)): \(old.columns, privacy: .public)x\(old.rows, privacy: .public)(\(old.capacity, privacy: .public)枚)→\(new.columns, privacy: .public)x\(new.rows, privacy: .public)(\(new.capacity, privacy: .public)枚) artworkSize \(old.artworkSize.rawValue, privacy: .public)→\(new.artworkSize.rawValue, privacy: .public) plugins \(old.pluginSummary, privacy: .public)→\(new.pluginSummary, privacy: .public)")
+        Self.logger.notice("settings changed (shelf=\(self.shelfID, privacy: .public)): \(old.columns, privacy: .public)x\(old.rows, privacy: .public)(\(old.capacity, privacy: .public)枚)→\(new.columns, privacy: .public)x\(new.rows, privacy: .public)(\(new.capacity, privacy: .public)枚) artworkSize \(old.artworkSize.rawValue, privacy: .public)→\(new.artworkSize.rawValue, privacy: .public) colGap \(old.columnSpacing, privacy: .public)→\(new.columnSpacing, privacy: .public) rowGap \(old.rowSpacing, privacy: .public)→\(new.rowSpacing, privacy: .public) plugins \(old.pluginSummary, privacy: .public)→\(new.pluginSummary, privacy: .public)")
     }
 
     // MARK: - 表示用

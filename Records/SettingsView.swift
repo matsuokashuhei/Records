@@ -43,6 +43,7 @@ struct SettingsView: View {
                 // @ObservedObjectで購読する
                 if let store {
                     ShelfPickers(store: store)
+                    ShelfSpacingSliders(store: store)
                 }
             }
             // エフェクトプラグインのセクション。登録が1つも無いときは
@@ -138,7 +139,7 @@ private struct ShelfPickers: View {
             get: { store.settings.columns },
             set: { newValue in
                 Self.logger.notice("settings: columns picker changed to \(newValue, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
-                updateDisplaySettings(columns: newValue, rows: store.settings.rows)
+                updateDisplaySettings { $0.columns = newValue }
             }
         )
     }
@@ -148,7 +149,7 @@ private struct ShelfPickers: View {
             get: { store.settings.rows },
             set: { newValue in
                 Self.logger.notice("settings: rows picker changed to \(newValue, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
-                updateDisplaySettings(columns: store.settings.columns, rows: newValue)
+                updateDisplaySettings { $0.rows = newValue }
             }
         )
     }
@@ -158,28 +159,92 @@ private struct ShelfPickers: View {
             get: { store.settings.artworkSize },
             set: { newValue in
                 Self.logger.notice("settings: artwork size picker changed to \(newValue.rawValue, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
-                // pluginsを引き継がないとエフェクト設定が消える
-                store.updateSettings(ShelfSettings(
-                    columns: store.settings.columns,
-                    rows: store.settings.rows,
-                    artworkSize: newValue,
-                    plugins: store.settings.plugins
-                ))
+                updateDisplaySettings { $0.artworkSize = newValue }
             }
         )
     }
 
-    /// 列数/行数の変更をフォーカス中のシェルフの設定に反映する。
+    /// 列数/行数/サイズの変更をフォーカス中のシェルフの設定に反映する。
+    /// 新規インスタンスを組み立てず現行settingsをコピーして変えるので、
+    /// 後から増えたフィールド(間隔等)が黙って既定値に戻ることはない。
     /// 縮小で非表示になった再生中プレイリストは停止UIが消えるためここで止める。
-    private func updateDisplaySettings(columns: Int, rows: Int) {
-        // pluginsを引き継がないとエフェクト設定が消える
-        store.updateSettings(ShelfSettings(
-            columns: columns,
-            rows: rows,
-            artworkSize: store.settings.artworkSize,
-            plugins: store.settings.plugins
-        ))
+    private func updateDisplaySettings(mutate: (inout ShelfSettings) -> Void) {
+        var s = store.settings
+        mutate(&s)
+        store.updateSettings(s)
         PlaybackMonitor.shared.stopIfActiveEntryHidden()
+    }
+}
+
+/// レコード間隔(横)とシェルフ段間隔(縦)のスライダー。
+/// 値の変更はupdateSettingsTransientでメモリ上だけ反映(グリッドと
+/// windowResizability(.contentSize)経由でウィンドウへライブ反映)し、
+/// settings.jsonへの永続化+変更ログはPluginSliderRowと同じデバウンスで
+/// commitSettingsにまとめる
+private struct ShelfSpacingSliders: View {
+
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
+    /// これだけ値が変わらなければ編集完了とみなす無入力時間
+    /// (PluginSliderRowと同じ)
+    private static let commitDelay: Duration = .milliseconds(400)
+
+    @ObservedObject var store: ShelfStore
+    /// デバウンス中のコミットTask。連続変更のたびに張り替える
+    @State private var commitTask: Task<Void, Never>?
+
+    var body: some View {
+        Group {
+            Slider(value: rowSpacingBinding,
+                   in: ShelfSettings.rowSpacingRange, step: 1) {
+                Text("Shelf Spacing")
+            }
+            Slider(value: columnSpacingBinding,
+                   in: ShelfSettings.columnSpacingRange, step: 1) {
+                Text("Record Spacing")
+            }
+        }
+        // 設定画面が閉じる時点でtransientな変更が残っていたら即確定する
+        .onDisappear {
+            commitTask?.cancel()
+            store.commitSettings()
+        }
+    }
+
+    private var rowSpacingBinding: Binding<Double> {
+        Binding(
+            get: { store.settings.rowSpacing },
+            set: { newValue in setSpacing { $0.rowSpacing = newValue } }
+        )
+    }
+
+    private var columnSpacingBinding: Binding<Double> {
+        Binding(
+            get: { store.settings.columnSpacing },
+            set: { newValue in setSpacing { $0.columnSpacing = newValue } }
+        )
+    }
+
+    /// 現行settingsをコピーして1フィールドだけ変え、メモリ上に反映する
+    /// (新規インスタンスだと将来増えるフィールドが既定値に戻るため)
+    private func setSpacing(mutate: (inout ShelfSettings) -> Void) {
+        var s = store.settings
+        mutate(&s)
+        store.updateSettingsTransient(s)
+        scheduleCommit()
+    }
+
+    /// 無入力commitDelay後にsettingsを永続化してコミットログを出す。
+    /// 連続変更のたびに延期されるので、ドラッグ中は書き込まれない
+    private func scheduleCommit() {
+        commitTask?.cancel()
+        commitTask = Task { @MainActor in
+            try? await Task.sleep(for: Self.commitDelay)
+            guard !Task.isCancelled else { return }
+            commitTask = nil
+            store.commitSettings()
+            Self.logger.notice("settings: spacing committed rowSpacing=\(self.store.settings.rowSpacing, privacy: .public) columnSpacing=\(self.store.settings.columnSpacing, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
+        }
     }
 }
 
@@ -272,12 +337,10 @@ private func updatePluginState(
     let specIDs = Set(plugin.parameterSpecs.map(\.id))
     state.values = state.values.filter { specIDs.contains($0.key) }
     plugins[plugin.id] = state
-    let newSettings = ShelfSettings(
-        columns: store.settings.columns,
-        rows: store.settings.rows,
-        artworkSize: store.settings.artworkSize,
-        plugins: plugins
-    )
+    // 現行settingsをコピーしてpluginsだけ差し替える。新規インスタンスを
+    // 組み立てると後から増えたフィールド(間隔等)が既定値に戻る
+    var newSettings = store.settings
+    newSettings.plugins = plugins
     if persist {
         store.updateSettings(newSettings)
     } else {
