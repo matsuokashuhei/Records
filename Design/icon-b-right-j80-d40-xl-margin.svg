@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <g>
+    <rect width="1024" height="1024" fill="#EAD8BD"></rect>
+    <path d="M0 879H1024V1024H0Z" fill="#C7A781"></path>
+  </g>
+  <g>
+    <circle cx="741" cy="465" r="257" fill="#292724"></circle>
+    <circle cx="741" cy="465" r="199" fill="none" stroke="#51483D" stroke-width="6"></circle>
+    <circle cx="741" cy="465" r="166" fill="none" stroke="#51483D" stroke-width="6"></circle>
+    <circle cx="741" cy="465" r="137" fill="none" stroke="#51483D" stroke-width="6"></circle>
+    <circle cx="741" cy="465" r="61" fill="#B85B40"></circle>
+    <circle cx="741" cy="465" r="13" fill="#EAD8BD"></circle>
+  </g>
+  <g>
+    <path d="M40 762H984V870H40Z" fill="#82583B"></path>
+    <path d="M40 762H984V782H40Z" fill="#AC7C53"></path>
+    <path d="M75 870H125V920H75ZM899 870H949V920H899Z" fill="#70492F"></path>
+  </g>
+  <g>
+    <path d="M181 179H749V751H181Z" fill="#C35D3F"></path>
+    <circle cx="465" cy="423" r="153" fill="#E5CDA8"></circle>
+    <path d="M312 588C399 496 537 496 617 588V751H312Z" fill="#72533D"></path>
+  </g>
+</svg>
