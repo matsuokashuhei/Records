@@ -151,13 +151,16 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
 
 ## ウィンドウの余白と信号ボタン(2026-10-25 実装・実機検証済み)
 
-- グリッドの余白は**シェルフごとの設定値**(2026-11-03から調整可能。
-  settings.jsonの `edgePadding`=左右・下端(既定8、0〜64)、
-  `topPadding`=上端(既定8、4〜96 — 下限制限は下の
-  WindowDragGesture 確保のため)。列間隔 `columnSpacing`(既定12、
-  0〜64)と行間隔 `rowSpacing`(既定14、0〜96)も同じくシェルフごとの
-  設定値で、Settings画面のスライダーでtransient更新+400msデバウンスで
-  永続化する)。コンテンツは `.ignoresSafeArea()` で
+- グリッドの余白は**間隔設定からの導出値**。settings.jsonに
+  永続化されるのは列間隔 `columnSpacing`(既定12、0〜64)と
+  行間隔 `rowSpacing`(既定14、0〜96)の2つだけで、Settings画面の
+  スライダーでtransient更新+400msデバウンスで永続化する。
+  余白は `ShelfSettings` の計算プロパティ: `edgePadding`(左右・下端)
+  =`columnSpacing`、`topPadding`(上端)=`max(4, rowSpacing)`
+  (4pt下限は下のWindowDragGesture帯確保のため)。旧settings.jsonに
+  `edgePadding`/`topPadding`キーが残っていてもデコード時は
+  未知キーとして無視され、次回保存で消える。
+  コンテンツは `.ignoresSafeArea()` で
   タイトルバー帯(32pt)の下=ウィンドウ上端まで広げ、信号ボタン
   (閉じる/最小化)はMusicアプリのミニプレーヤーと同じく
   1枚目のジャケットの上に重なる
@@ -174,8 +177,9 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   `_NSThemeCloseWidget` 等が返るのでボタンも押せる
 - コンテンツが上端まで来るとAppKitのタイトルバードラッグ領域が無くなるため、
   上辺の余白(`settings.topPadding`)に `WindowDragGesture` を置いて
-  ウィンドウ移動を確保している(topPaddingの下限4ptはこのストリップを
-  残すため)
+  ウィンドウ移動を確保している。topPaddingは `max(4, rowSpacing)` の
+  導出値で、4pt下限はこのストリップを残すため(rowSpacing=0でも
+  ウィンドウを動かせる)
 - `slotScreenCenter` のグリッド→画面座標変換からタイトルバー帯の控除は不要
   (グリッド上端=ウィンドウ上端)
 

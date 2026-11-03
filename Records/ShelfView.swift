@@ -267,8 +267,10 @@ struct ShelfView: View {
     }
 
     // グリッドの間隔と余白はstore.settingsのcolumnSpacing/rowSpacing/
-    // edgePadding/topPadding(ユーザーが設定画面のスライダーで変更可能)
-    // から毎回読む。ウィンドウサイズはこれらと設定値から厳密に計算する。
+    // edgePadding/topPaddingから毎回読む。余白は独立した設定ではなく
+    // 間隔からの導出値(edgePadding=columnSpacing、
+    // topPadding=max(4,rowSpacing))で、間隔は設定画面のスライダーで
+    // 変更可能。ウィンドウサイズはこれらと設定値から厳密に計算する。
     // コンテンツはignoresSafeAreaでウィンドウ上端まで広がっている
     // (信号ボタンはMusicアプリ同様にコンテンツの上へ重なる)
     /// 右上ツールバーの余白とサイズ。信号ボタン(左上13pt, 14pt)の中心
@@ -437,7 +439,7 @@ struct ShelfView: View {
         .frame(width: frameW, height: frameH)
         // タイトルバーを隠してコンテンツを上端まで広げたため、AppKitの
         // タイトルバー(=ウィンドウ移動)のドラッグ領域が無くなる。
-        // 上辺の余白(topPadding。設定の下限4ptが最低帯幅を保証する)を
+        // 上辺の余白(topPadding。導出値の下限4ptが最低帯幅を保証する)を
         // つかんでウィンドウを動かせるようにする
         // (Musicアプリのミニプレーヤーと同じ「余白をつかんで移動」)
         .overlay(alignment: .top) {

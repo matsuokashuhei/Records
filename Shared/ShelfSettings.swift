@@ -13,21 +13,13 @@ struct ShelfSettings: Codable, Equatable {
     static let maxDimension = 10
 
     /// グリッドの間隔の既定値とスライダーの許容範囲。
-    /// columnSpacing=レコード同士の横の隙間、rowSpacing=シェルフ段の縦の隙間
+    /// columnSpacing=レコード同士の横の隙間、rowSpacing=シェルフ段の縦の隙間。
+    /// 外周の余白は独立した設定ではなく間隔から導出する
+    /// (下の edgePadding/topPadding 計算プロパティ参照)
     static let defaultColumnSpacing: Double = 12
     static let defaultRowSpacing: Double = 14
     static let columnSpacingRange: ClosedRange<Double> = 0...64
     static let rowSpacingRange: ClosedRange<Double> = 0...96
-
-    /// グリッド外周の余白の既定値とスライダーの許容範囲。
-    /// edgePadding=左右・下端、topPadding=上端。
-    /// topPaddingの下限は4: ShelfViewは上端に高さtopPaddingの透明な
-    /// WindowDragGesture帯を敷いており、0だとウィンドウを動かせなくなる
-    /// (タイトルバー非表示のため)
-    static let defaultEdgePadding: Double = 8
-    static let defaultTopPadding: Double = 8
-    static let edgePaddingRange: ClosedRange<Double> = 0...64
-    static let topPaddingRange: ClosedRange<Double> = 4...96
 
     /// 旧settings.jsonの登録枚数(capacity)を列×行へ変換するための退避表。
     /// 新フォーマットはcolumns/rowsを直接持つ。
@@ -76,10 +68,16 @@ struct ShelfSettings: Codable, Equatable {
     var columnSpacing: Double
     /// シェルフ段同士の縦の隙間(pt)。スライダーで調整可能
     var rowSpacing: Double
-    /// グリッド外周の余白のうち左右・下端(pt)。スライダーで調整可能
-    var edgePadding: Double
-    /// グリッド外周の余白のうち上端(pt)。スライダーで調整可能
-    var topPadding: Double
+    /// グリッド外周の余白のうち左右・下端(pt)。
+    /// 独立した設定ではなく、常にレコード間隔(columnSpacing)と同じ値になる
+    /// 導出値(settings.jsonには保存しない)
+    var edgePadding: Double { columnSpacing }
+    /// グリッド外周の余白のうち上端(pt)。
+    /// 独立した設定ではなくシェルフ段間隔(rowSpacing)から導出する
+    /// (settings.jsonには保存しない)。下限4ptを設けるのは、
+    /// ShelfViewが上端に高さtopPaddingの透明なWindowDragGesture帯を
+    /// 敷いており、0だとウィンドウを動かせなくなるため(タイトルバー非表示)
+    var topPadding: Double { max(4, rowSpacing) }
 
     /// 表示スロット数(列×行)
     var capacity: Int { columns * rows }
@@ -107,16 +105,13 @@ struct ShelfSettings: Codable, Equatable {
     private enum CodingKeys: String, CodingKey {
         case columns, rows, artworkSize, plugins
         case columnSpacing, rowSpacing
-        case edgePadding, topPadding
         case legacyCapacity = "capacity"
     }
 
     init(columns: Int, rows: Int, artworkSize: ArtworkSize,
          plugins: [String: PluginState] = [:],
          columnSpacing: Double = Self.defaultColumnSpacing,
-         rowSpacing: Double = Self.defaultRowSpacing,
-         edgePadding: Double = Self.defaultEdgePadding,
-         topPadding: Double = Self.defaultTopPadding) {
+         rowSpacing: Double = Self.defaultRowSpacing) {
         self.columns = min(max(columns, 1), Self.maxDimension)
         self.rows = min(max(rows, 1), Self.maxDimension)
         self.artworkSize = artworkSize
@@ -125,10 +120,6 @@ struct ShelfSettings: Codable, Equatable {
                                  Self.columnSpacingRange.upperBound)
         self.rowSpacing = min(max(rowSpacing, Self.rowSpacingRange.lowerBound),
                               Self.rowSpacingRange.upperBound)
-        self.edgePadding = min(max(edgePadding, Self.edgePaddingRange.lowerBound),
-                               Self.edgePaddingRange.upperBound)
-        self.topPadding = min(max(topPadding, Self.topPaddingRange.lowerBound),
-                              Self.topPaddingRange.upperBound)
     }
 
     init(from decoder: Decoder) throws {
@@ -144,10 +135,8 @@ struct ShelfSettings: Codable, Equatable {
             ?? Self.defaultColumnSpacing
         let rowSpacing = (try? c.decode(Double.self, forKey: .rowSpacing))
             ?? Self.defaultRowSpacing
-        let edgePadding = (try? c.decode(Double.self, forKey: .edgePadding))
-            ?? Self.defaultEdgePadding
-        let topPadding = (try? c.decode(Double.self, forKey: .topPadding))
-            ?? Self.defaultTopPadding
+        // edgePadding/topPaddingは導出値になったためsettings.jsonには
+        // 書かない。古いファイルに残っていても未知キーとして無視される
         let columns = try? c.decode(Int.self, forKey: .columns)
         let rows = try? c.decode(Int.self, forKey: .rows)
         if columns != nil || rows != nil {
@@ -162,9 +151,7 @@ struct ShelfSettings: Codable, Equatable {
                 artworkSize: size,
                 plugins: plugins,
                 columnSpacing: columnSpacing,
-                rowSpacing: rowSpacing,
-                edgePadding: edgePadding,
-                topPadding: topPadding
+                rowSpacing: rowSpacing
             )
         } else {
             // 旧フォーマット(capacity: 6/12/20)からの移行
@@ -172,8 +159,7 @@ struct ShelfSettings: Codable, Equatable {
             let layout = Self.legacyLayouts[legacy] ?? (5, 4)
             self.init(columns: layout.columns, rows: layout.rows, artworkSize: size,
                       plugins: plugins, columnSpacing: columnSpacing,
-                      rowSpacing: rowSpacing, edgePadding: edgePadding,
-                      topPadding: topPadding)
+                      rowSpacing: rowSpacing)
         }
     }
 
@@ -188,8 +174,7 @@ struct ShelfSettings: Codable, Equatable {
         try c.encode(plugins, forKey: .plugins)
         try c.encode(columnSpacing, forKey: .columnSpacing)
         try c.encode(rowSpacing, forKey: .rowSpacing)
-        try c.encode(edgePadding, forKey: .edgePadding)
-        try c.encode(topPadding, forKey: .topPadding)
+        // edgePadding/topPaddingは導出値なので書き出さない
     }
 
     /// 設定はシェルフごとに Shelves/<shelfID>/settings.json に保存する
