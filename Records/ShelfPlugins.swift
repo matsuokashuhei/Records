@@ -141,6 +141,14 @@ protocol ShelfPlugin {
     ///  同じ規則で未保存時を解釈する)
     var defaultEnabled: Bool { get }
 
+    /// このプラグインが担当するシェルフ構造スタイル。
+    /// nil=スタイル非依存(壁・効果系など常に動くプラグイン)。
+    /// 非nil=構造プラグイン(棚板・レッジ等の支え)で、
+    /// settings.shelfStyleと一致するときだけresolveされる
+    /// (選択されていない構造プラグインは有効フラグに関わらず
+    ///  一切動かず、設定画面の一覧にも出さない)
+    var shelfStyle: ShelfSettings.ShelfStyle? { get }
+
     /// (a) ジャケット画像本体への修飾(色調・フィルタ等)。
     /// 入力はクリップ済みジャケット。修飾を積んだビューを返す。
     /// レジストリ順に前のプラグインの出力が次の入力になる。
@@ -187,6 +195,7 @@ protocol ShelfPlugin {
 extension ShelfPlugin {
     var parameterSpecs: [PluginParameterSpec] { [] }
     var defaultEnabled: Bool { false }
+    var shelfStyle: ShelfSettings.ShelfStyle? { nil }
     func transformJacket(_ jacket: AnyView, context: ShelfPluginContext) -> AnyView { jacket }
     func jacketOverlay(context: ShelfPluginContext) -> AnyView? { nil }
     func transformJacketSurface(_ surface: AnyView, context: ShelfPluginContext) -> AnyView { surface }
@@ -220,8 +229,11 @@ enum ShelfPluginRegistry {
     /// 登録済みプラグイン一覧。ここに足すだけで設定画面・永続化・
     /// セル合成まで全部通る
     static let all: [any ShelfPlugin] = [
-        // 構造系(壁・棚板・前柵)は効果系より上に表示するため先頭に置く
+        // 構造系(壁・棚板・レッジ)は効果系より上に表示するため先頭に置く。
+        // 壁はスタイル非依存、棚板+前柵とレッジはshelfStyleで排他
+        WallPlugin(),
         StoreShelfPlugin(),
+        LedgeShelfPlugin(),
         LeanDepthPlugin(),
         SleeveGlossPlugin(),
         SunFadePlugin(),
@@ -254,8 +266,13 @@ enum ShelfPluginRegistry {
             y: (Double(row) + 0.5) / Double(rows)
         )
         return all.compactMap { plugin in
+            // 構造プラグインは選択中のスタイルのものだけ動かす
+            // (非選択側は有効フラグに関わらず除外)
+            if let style = plugin.shelfStyle, style != settings.shelfStyle {
+                return nil
+            }
             // 未保存のプラグインはdefaultEnabledで有効状態を決める
-            // (StoreShelfPluginは既定ON、効果系は既定OFF)
+            // (構造系は既定ON、効果系は既定OFF)
             let state = settings.plugins[plugin.id]
                 ?? PluginState(enabled: plugin.defaultEnabled)
             guard state.enabled else { return nil }
@@ -290,6 +307,10 @@ enum ShelfPluginRegistry {
     ) -> [ResolvedShelfStructure] {
         checkDuplicateIDs()
         return all.compactMap { plugin in
+            // 構造プラグインは選択中のスタイルのものだけ動かす
+            if let style = plugin.shelfStyle, style != settings.shelfStyle {
+                return nil
+            }
             let state = settings.plugins[plugin.id]
                 ?? PluginState(enabled: plugin.defaultEnabled)
             guard state.enabled else { return nil }

@@ -29,6 +29,29 @@ struct ShelfSettings: Codable, Equatable {
         20: (5, 4),
     ]
 
+    /// シェルフの構造スタイル(排他選択)。rawValueはsettings.jsonの
+    /// "shelfStyle" キーに保存される値なので一度決めたら変更しない。
+    /// スタイルを足すときはcaseを追加し、対応する構造プラグインの
+    /// shelfStyleに同じ値を返させる(レジストリが選択中スタイルの
+    /// 構造プラグインだけをresolveする)
+    enum ShelfStyle: String, Codable, CaseIterable, Identifiable {
+        /// レコード店の棚(通し棚板+アクリル前柵。StoreShelfPlugin)
+        case store
+        /// 壁掛けウッドレッジ(スロットごとの小さな木製土台。
+        /// LedgeShelfPlugin)
+        case ledge
+
+        var id: String { rawValue }
+
+        /// 表示ラベル(Localizable.xcstringsのキー)
+        var label: String {
+            switch self {
+            case .store: return "Store Shelf"
+            case .ledge: return "Wood Ledges"
+            }
+        }
+    }
+
     /// アートワーク(セル)1辺のサイズ。
     enum ArtworkSize: String, Codable, CaseIterable, Identifiable {
         case s
@@ -59,6 +82,10 @@ struct ShelfSettings: Codable, Equatable {
     /// グリッドの行数(1...maxDimension)
     var rows: Int
     var artworkSize: ArtworkSize
+    /// シェルフの構造スタイル(排他)。settings.jsonの "shelfStyle" キー。
+    /// 既存ファイルにはキーが無いのでデコード時は .store に倒す
+    /// (後方互換。従来の棚板+前柵の見た目が維持される)
+    var shelfStyle: ShelfStyle
     /// エフェクトプラグインの状態(プラグインID→有効/パラメータ値)。
     /// settings.jsonの "plugins" キー。既存ファイルにはキーが無いので
     /// デコード時は空辞書(=全プラグイン無効・デフォルト値)に倒す
@@ -110,18 +137,29 @@ struct ShelfSettings: Codable, Equatable {
     static let `default` = ShelfSettings(columns: 5, rows: 4, artworkSize: .s)
 
     private enum CodingKeys: String, CodingKey {
-        case columns, rows, artworkSize, plugins
+        case columns, rows, artworkSize, shelfStyle, plugins
         case columnSpacing, rowSpacing
         case legacyCapacity = "capacity"
     }
 
+    /// 旧settings.jsonで store-shelf プラグインが持っていた壁関連
+    /// パラメータのキー。wall プラグインへ分離した際に値を引き継ぐ
+    /// (WallPlugin.parameterSpecsのIDと一致させること)
+    private static let wallParamKeys: Set<String> = [
+        "wall",
+        "aging-warmth", "aging-sepia", "aging-stains",
+        "aging-fade-marks", "aging-vignette",
+    ]
+
     init(columns: Int, rows: Int, artworkSize: ArtworkSize,
+         shelfStyle: ShelfStyle = .store,
          plugins: [String: PluginState] = [:],
          columnSpacing: Double = Self.defaultColumnSpacing,
          rowSpacing: Double = Self.defaultRowSpacing) {
         self.columns = min(max(columns, 1), Self.maxDimension)
         self.rows = min(max(rows, 1), Self.maxDimension)
         self.artworkSize = artworkSize
+        self.shelfStyle = shelfStyle
         self.plugins = plugins
         self.columnSpacing = min(max(columnSpacing, Self.columnSpacingRange.lowerBound),
                                  Self.columnSpacingRange.upperBound)
@@ -132,10 +170,30 @@ struct ShelfSettings: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let size = (try? c.decode(ArtworkSize.self, forKey: .artworkSize)) ?? .s
+        // 新キー "shelfStyle": 既存settings.jsonには無いので省略時は
+        // .store(従来の見た目)。未知の値も .store に倒す
+        let shelfStyle = (try? c.decode(ShelfStyle.self, forKey: .shelfStyle)) ?? .store
         // 新キー "plugins": 既存settings.jsonには無いので省略時は空
         // (=全プラグイン無効・デフォルト値)。壊れた辞書でも落ちないよう
         // try? で空へ倒す
-        let plugins = (try? c.decode([String: PluginState].self, forKey: .plugins)) ?? [:]
+        var plugins = (try? c.decode([String: PluginState].self, forKey: .plugins)) ?? [:]
+        // 壁はstore-shelfプラグインからwallプラグインへ分離した。
+        // 旧ファイルでstore-shelfが保持していた壁関連の値をwallへ引き継ぐ
+        // (wallが既に保存されていればそちらを優先。store-shelf側の残存
+        //  キーはspec外として次回保存時に間引かれる)
+        if plugins["wall"] == nil, let storeShelf = plugins["store-shelf"] {
+            var migrated = storeShelf
+            let wallValues = migrated.values.filter {
+                Self.wallParamKeys.contains($0.key)
+            }
+            migrated.values = migrated.values.filter {
+                !Self.wallParamKeys.contains($0.key)
+            }
+            plugins["wall"] = PluginState(
+                enabled: storeShelf.enabled, values: wallValues)
+            plugins["store-shelf"] = migrated
+            Self.logger.notice("migrated wall params from store-shelf to wall (keys=\(wallValues.keys.sorted().joined(separator: ","), privacy: .public), enabled=\(storeShelf.enabled, privacy: .public))")
+        }
         // 新キー "columnSpacing"/"rowSpacing": 既存settings.jsonには無いので
         // 省略時は既定値。initで範囲にクランプされる
         let columnSpacing = (try? c.decode(Double.self, forKey: .columnSpacing))
@@ -157,6 +215,7 @@ struct ShelfSettings: Codable, Equatable {
                 columns: columns ?? Self.default.columns,
                 rows: rows ?? Self.default.rows,
                 artworkSize: size,
+                shelfStyle: shelfStyle,
                 plugins: plugins,
                 columnSpacing: columnSpacing,
                 rowSpacing: rowSpacing
@@ -166,6 +225,7 @@ struct ShelfSettings: Codable, Equatable {
             let legacy = (try? c.decode(Int.self, forKey: .legacyCapacity)) ?? 20
             let layout = Self.legacyLayouts[legacy] ?? (5, 4)
             self.init(columns: layout.columns, rows: layout.rows, artworkSize: size,
+                      shelfStyle: shelfStyle,
                       plugins: plugins, columnSpacing: columnSpacing,
                       rowSpacing: rowSpacing)
         }
@@ -178,6 +238,7 @@ struct ShelfSettings: Codable, Equatable {
         try c.encode(columns, forKey: .columns)
         try c.encode(rows, forKey: .rows)
         try c.encode(artworkSize, forKey: .artworkSize)
+        try c.encode(shelfStyle, forKey: .shelfStyle)
         // 常に書き出す。空なら "plugins":{} となり、読み戻しも空で一致する
         try c.encode(plugins, forKey: .plugins)
         try c.encode(columnSpacing, forKey: .columnSpacing)
@@ -194,7 +255,7 @@ struct ShelfSettings: Codable, Equatable {
         do {
             let data = try Data(contentsOf: fileURL(shelfID: shelfID))
             let settings = try JSONDecoder().decode(ShelfSettings.self, from: data)
-            logger.notice("settings.json loaded (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) bottomPad=\(settings.bottomPadding, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
+            logger.notice("settings.json loaded (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) shelfStyle=\(settings.shelfStyle.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) bottomPad=\(settings.bottomPadding, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
             return settings
         } catch {
             // 初回起動やファイル破損時は既定値。読めなくても既定値で動作継続する。
@@ -207,7 +268,7 @@ struct ShelfSettings: Codable, Equatable {
         do {
             let data = try JSONEncoder().encode(settings)
             try data.write(to: fileURL(shelfID: shelfID), options: .atomic)
-            logger.notice("settings.json saved (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) bottomPad=\(settings.bottomPadding, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
+            logger.notice("settings.json saved (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) shelfStyle=\(settings.shelfStyle.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) bottomPad=\(settings.bottomPadding, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
         } catch {
             logger.error("settings.json save failed: \(error.localizedDescription, privacy: .public)")
         }

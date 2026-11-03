@@ -411,6 +411,33 @@ jacketShape(cellIndex:)。実物のLPジャケットは角ごとにわずかに�
 セル座標ハッシュ(sinハッシュ)でパターンを決定論的にばらつかせるのが
 各プラグイン共通の作法。
 
+## シェルフのスタイル(2026-11-03 実装・実機検証済み)
+
+シェルフの「支え構造」は排他選択。`ShelfSettings.ShelfStyle`
+(settings.jsonの `"shelfStyle"`。"store"=通し棚板+アクリル前柵、
+"ledge"=スロットごとの木製レッジ。キー無し/未知値は .store)で保持し、
+設定画面DisplayセクションのStyleピッカーで切り替える。
+
+- 構造プラグインは `var shelfStyle` で自身のスタイルを宣言する
+  (WallPluginのようなスタイル非依存プラグインはnil)。レジストリの
+  resolve/resolveShelfは `plugin.shelfStyle != settings.shelfStyle` の
+  構造プラグインを有効フラグに関わらず除外し、設定画面のEffects一覧も
+  同じ条件でフィルタする(非選択側のトグルは見た目に効かないので出さない)
+- **壁はスタイルと直交するため WallPlugin(id="wall")に分離済み**。
+  StoreShelfPluginの描画コードを移したもの。旧settings.jsonで
+  store-shelfが持っていた壁関連キー("wall"/"aging-*")は
+  ShelfSettings.wallParamKeysでデコード時にwallプラグインへ引き継ぐ
+  (store-shelf側の残存キーはspec外として次回保存時に間引かれる)
+- LedgeShelfPlugin(id="ledge-shelf"): 各スロット直下に木製レッジ。
+  占有・空きを問わず全スロットに描く(空き=土台だけ残る仕様)。
+  幅はセル幅比1/3〜11/10のスライダー、厚さは棚板と同じ
+  min(設定値,rowSpacing-2,bottomPadding)クランプ、
+  lipでジャケット下端へ前唇を重ねる(=レコードがレッジに載る見え方)、
+  variationでスロットごとの中心ずれ/傾きをsinハッシュで付与
+- **新しいスタイルの追加手順**: ShelfStyleにcaseを足し、
+  `shelfStyle`を返す構造プラグインを作ってレジストリへ登録するだけで
+  ピッカー・フィルタ・resolveまで全部通る
+
 ## データ
 
 - シェルフ一覧: `~/Library/Application Support/Records/shelves.json`
