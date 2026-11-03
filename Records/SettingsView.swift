@@ -116,6 +116,12 @@ private struct ShelfPickers: View {
     @ObservedObject var store: ShelfStore
 
     var body: some View {
+        Picker("Style", selection: styleSelection) {
+            ForEach(ShelfSettings.ShelfStyle.allCases) { style in
+                Text(LocalizedStringKey(style.label)).tag(style)
+            }
+        }
+        .pickerStyle(.segmented)
         Picker("Columns", selection: columnsSelection) {
             ForEach(1...ShelfSettings.maxDimension, id: \.self) { n in
                 Text("\(n) columns").tag(n)
@@ -132,6 +138,16 @@ private struct ShelfPickers: View {
             }
         }
         .pickerStyle(.segmented)
+    }
+
+    private var styleSelection: Binding<ShelfSettings.ShelfStyle> {
+        Binding(
+            get: { store.settings.shelfStyle },
+            set: { newValue in
+                Self.logger.notice("settings: shelf style picker changed to \(newValue.rawValue, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
+                updateDisplaySettings { $0.shelfStyle = newValue }
+            }
+        )
     }
 
     private var columnsSelection: Binding<Int> {
@@ -264,8 +280,13 @@ private struct ShelfEffectSettings: View {
     @ObservedObject var store: ShelfStore
 
     var body: some View {
-        // レジストリ順=適用順=表示順(決定論的)
-        ForEach(ShelfPluginRegistry.all, id: \.id) { plugin in
+        // レジストリ順=適用順=表示順(決定論的)。
+        // 構造プラグインは選択中のスタイルのものだけ列挙する
+        // (非選択側はレジストリでもresolveされないので、
+        //  トグルを出しても見た目に効かず混乱するだけ)
+        ForEach(ShelfPluginRegistry.all.filter {
+            $0.shelfStyle == nil || $0.shelfStyle == store.settings.shelfStyle
+        }, id: \.id) { plugin in
             pluginRow(plugin)
         }
         // スライダーのtransient更新が確定前に残らないよう、
