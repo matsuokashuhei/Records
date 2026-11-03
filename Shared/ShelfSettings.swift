@@ -15,7 +15,7 @@ struct ShelfSettings: Codable, Equatable {
     /// グリッドの間隔の既定値とスライダーの許容範囲。
     /// columnSpacing=レコード同士の横の隙間、rowSpacing=シェルフ段の縦の隙間。
     /// 外周の余白は独立した設定ではなく間隔から導出する
-    /// (下の edgePadding/topPadding 計算プロパティ参照)
+    /// (下の edgePadding/topPadding/bottomPadding 計算プロパティ参照)
     static let defaultColumnSpacing: Double = 12
     static let defaultRowSpacing: Double = 14
     static let columnSpacingRange: ClosedRange<Double> = 0...64
@@ -68,7 +68,7 @@ struct ShelfSettings: Codable, Equatable {
     var columnSpacing: Double
     /// シェルフ段同士の縦の隙間(pt)。スライダーで調整可能
     var rowSpacing: Double
-    /// グリッド外周の余白のうち左右・下端(pt)。
+    /// グリッド外周の余白のうち左右(pt)。
     /// 独立した設定ではなく、常にレコード間隔(columnSpacing)と同じ値になる
     /// 導出値(settings.jsonには保存しない)
     var edgePadding: Double { columnSpacing }
@@ -78,6 +78,13 @@ struct ShelfSettings: Codable, Equatable {
     /// ShelfViewが上端に高さtopPaddingの透明なWindowDragGesture帯を
     /// 敷いており、0だとウィンドウを動かせなくなるため(タイトルバー非表示)
     var topPadding: Double { max(4, rowSpacing) }
+    /// グリッド外周の余白のうち下端(pt)。
+    /// 上端と同じくシェルフ段間隔(rowSpacing)と同じ幅の導出値
+    /// (settings.jsonには保存しない)。上端と違い下限は設けない —
+    /// topPaddingの4pt下限はWindowDragGesture帯の確保が目的で、
+    /// 下端にはその制約が無い(rowSpacing=0では最終行の棚板厚が
+    /// 0へクランプされるだけで、既存の厚さクランプの意味論と一致)
+    var bottomPadding: Double { rowSpacing }
 
     /// 表示スロット数(列×行)
     var capacity: Int { columns * rows }
@@ -135,8 +142,9 @@ struct ShelfSettings: Codable, Equatable {
             ?? Self.defaultColumnSpacing
         let rowSpacing = (try? c.decode(Double.self, forKey: .rowSpacing))
             ?? Self.defaultRowSpacing
-        // edgePadding/topPaddingは導出値になったためsettings.jsonには
-        // 書かない。古いファイルに残っていても未知キーとして無視される
+        // edgePadding/topPadding/bottomPaddingは導出値になったため
+        // settings.jsonには書かない。古いファイルに残っていても
+        // 未知キーとして無視される
         let columns = try? c.decode(Int.self, forKey: .columns)
         let rows = try? c.decode(Int.self, forKey: .rows)
         if columns != nil || rows != nil {
@@ -174,7 +182,7 @@ struct ShelfSettings: Codable, Equatable {
         try c.encode(plugins, forKey: .plugins)
         try c.encode(columnSpacing, forKey: .columnSpacing)
         try c.encode(rowSpacing, forKey: .rowSpacing)
-        // edgePadding/topPaddingは導出値なので書き出さない
+        // edgePadding/topPadding/bottomPaddingは導出値なので書き出さない
     }
 
     /// 設定はシェルフごとに Shelves/<shelfID>/settings.json に保存する
@@ -186,7 +194,7 @@ struct ShelfSettings: Codable, Equatable {
         do {
             let data = try Data(contentsOf: fileURL(shelfID: shelfID))
             let settings = try JSONDecoder().decode(ShelfSettings.self, from: data)
-            logger.notice("settings.json loaded (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
+            logger.notice("settings.json loaded (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) bottomPad=\(settings.bottomPadding, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
             return settings
         } catch {
             // 初回起動やファイル破損時は既定値。読めなくても既定値で動作継続する。
@@ -199,7 +207,7 @@ struct ShelfSettings: Codable, Equatable {
         do {
             let data = try JSONEncoder().encode(settings)
             try data.write(to: fileURL(shelfID: shelfID), options: .atomic)
-            logger.notice("settings.json saved (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
+            logger.notice("settings.json saved (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) bottomPad=\(settings.bottomPadding, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
         } catch {
             logger.error("settings.json save failed: \(error.localizedDescription, privacy: .public)")
         }

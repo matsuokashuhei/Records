@@ -20,8 +20,10 @@
 //     グラデーション(天井からの光)
 //   - 棚板: 行rのセル下端 y = topPadding + (r+1)*cell + r*rowSpacing
 //     を天面とする全幅の水平な板。厚さは設定値を
-//     min(設定値, rowSpacing-2, edgePadding) にクランプして
-//     行間と下端余白に収める。天面に1ptの明るい稜線、
+//     min(設定値, rowSpacing-2, bottomPadding) にクランプして
+//     行間と下端余白に収める(bottomPaddingはrowSpacingの導出値
+//     なので、実質 min(設定値, rowSpacing-2))。
+//     天面に1ptの明るい稜線、
 //     下端から下へ壁への落ち影(黒0.22→0)を付ける
 //   - 前柵: 棚板の手前に立つ透明アクリルのストリップ。
 //     高さ=セル高さ×fence比率(既定0.22≒1/5)。上端=セル下端-高さ、
@@ -646,7 +648,7 @@ struct StoreShelfPlugin: ShelfPlugin {
                 + CGFloat(r + 1) * cell
                 + CGFloat(r) * context.rowSpacing
         }
-        let lastGap = max(0, context.edgePadding - t)
+        let lastGap = max(0, context.bottomPadding - t)
 
         return AnyView(
             Canvas { gc, size in
@@ -861,12 +863,13 @@ struct StoreShelfPlugin: ShelfPlugin {
 
     // MARK: - パラメータ解決
 
-    /// 実厚。設定値を行間(rowSpacing-2)と下端余白(edgePadding)に
-    /// 収まるようクランプする
+    /// 実厚。設定値を行間(rowSpacing-2)と下端余白(bottomPadding)に
+    /// 収まるようクランプする。bottomPaddingはrowSpacingの導出値なので
+    /// 実質 rowSpacing-2 が上限(rowSpacing=0では0になる)
     private func resolvedThickness(context: ShelfStructureContext) -> CGFloat {
         let raw = context.number(
             Param.boardThickness, default: Self.defaultBoardThickness)
-        return max(0, min(raw, context.rowSpacing - 2, context.edgePadding))
+        return max(0, min(raw, context.rowSpacing - 2, context.bottomPadding))
     }
 
     /// 前柵の高さ比(0〜0.40)。0なら柵を描かない

@@ -151,13 +151,16 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
 
 ## ウィンドウの余白と信号ボタン(2026-10-25 実装・実機検証済み)
 
-- グリッドの余白は**間隔設定からの導出値**。settings.jsonに
-  永続化されるのは列間隔 `columnSpacing`(既定12、0〜64)と
+- グリッドの余白は**間隔設定からの導出値**。
+  settings.jsonに永続化されるのは列間隔 `columnSpacing`(既定12、0〜64)と
   行間隔 `rowSpacing`(既定14、0〜96)の2つだけで、Settings画面の
   スライダーでtransient更新+400msデバウンスで永続化する。
-  余白は `ShelfSettings` の計算プロパティ: `edgePadding`(左右・下端)
+  余白は `ShelfSettings` の計算プロパティ: `edgePadding`(左右)
   =`columnSpacing`、`topPadding`(上端)=`max(4, rowSpacing)`
-  (4pt下限は下のWindowDragGesture帯確保のため)。旧settings.jsonに
+  (4pt下限は下のWindowDragGesture帯確保のため)、
+  `bottomPadding`(下端)=`rowSpacing`(上端と違い下限なし。
+  rowSpacing=0では最終行の棚板が0へクランプされるだけ)。
+  旧settings.jsonに
   `edgePadding`/`topPadding`キーが残っていてもデコード時は
   未知キーとして無視され、次回保存で消える。
   コンテンツは `.ignoresSafeArea()` で

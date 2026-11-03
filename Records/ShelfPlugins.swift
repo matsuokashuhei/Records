@@ -93,10 +93,12 @@ struct ShelfStructureContext {
     let columnSpacing: CGFloat
     /// セル間の垂直間隔(棚板が入る行間帯の高さ)
     let rowSpacing: CGFloat
-    /// 左右・下端の余白
+    /// 左右の余白
     let edgePadding: CGFloat
     /// 上端の余白
     let topPadding: CGFloat
+    /// 下端の余白
+    let bottomPadding: CGFloat
     /// パラメータID→値(specのデフォルト値で解決済み)
     let values: [String: PluginParameterValue]
 
@@ -283,7 +285,8 @@ enum ShelfPluginRegistry {
         columnSpacing: CGFloat,
         rowSpacing: CGFloat,
         edgePadding: CGFloat,
-        topPadding: CGFloat
+        topPadding: CGFloat,
+        bottomPadding: CGFloat
     ) -> [ResolvedShelfStructure] {
         checkDuplicateIDs()
         return all.compactMap { plugin in
@@ -300,6 +303,7 @@ enum ShelfPluginRegistry {
                     rowSpacing: rowSpacing,
                     edgePadding: edgePadding,
                     topPadding: topPadding,
+                    bottomPadding: bottomPadding,
                     values: state.resolvedValues(specs: plugin.parameterSpecs)
                 )
             )
