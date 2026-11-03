@@ -56,10 +56,11 @@ struct ShelfView: View {
     /// URLゾーンとStringゾーンが両方performされた場合の二重追加
     /// (.addedと.duplicateアラートの同時発生)を防ぐために使う
     @State private var inFlightAddIDs: Set<String> = []
-    /// ドロップ追加がfetch待ちの間、挿入先として半透明にしておくスロット。
-    /// 着地アニメーションを止めたので、これがないとドロップからカタログ
-    /// 取得完了までの約0.5秒、何も表示されない空白時間になる
-    @State private var pendingAddSlotID: String?
+    /// ドロップ追加がfetch待ちの間、着地予定のスロット位置(index)を
+    /// 半透明にしておく。着地アニメーションを止めたので、これがないと
+    /// ドロップからカタログ取得完了までの約0.5秒、何も表示されない
+    /// 空白時間になる
+    @State private var pendingAddSlot: Int?
     /// 外部ドラッグがシェルフに入った時点で先回り開始したfetch+
     /// アートワーク取得のTask(entry.id→Task)。ドロップ時はこれを
     /// 消費してinsertだけ済ませるので待ち時間がほぼ消える。
@@ -77,6 +78,17 @@ struct ShelfView: View {
     /// ドロップで実際に順番が変わる位置にカーソルが乗っているスロット
     /// (半透明表示用。ドロップゾーンのisTargetedがセット/クリアする)
     @State private var dropTargetSlotID: String?
+    /// dropTargetSlotIDをセットしたドロップゾーンの半分(false=左/true=右、
+    /// nil=セル単位のハイライト経路=外部ドラッグホバー)。
+    /// 同一スロットの左右半分を行き来したとき、退出側のisTargeted(false)が
+    /// 進入側のハイライトを消さないようにするための区別
+    @State private var dropTargetAfter: Bool?
+
+    /// ドロップターゲットのハイライトを両方クリアする
+    private func clearDropTarget() {
+        dropTargetSlotID = nil
+        dropTargetAfter = nil
+    }
     /// 現在ドラッグ中のエントリ。onDragの開始コールバックでセットし、
     /// 「ドロップで順番が変わるか」の判定とアプリ内ドラッグの判別に使う
     /// (キャンセル時は次のドラッグ開始まで残るが、参照されるのはドラッグ中のみ)
@@ -295,7 +307,8 @@ struct ShelfView: View {
     ///  引き継がれ、一瞬旧ジャケットが残る)
     private struct Slot: Identifiable {
         let id: String
-        /// 表示順での位置(並び替えの挿入位置計算に使う)
+        /// グリッド上のスロット位置(0始まりの行優先index)。
+        /// 占有セルではエントリのslotIndexと一致する
         let index: Int
         let entry: MediaEntry?
     }
@@ -386,7 +399,7 @@ struct ShelfView: View {
                 .opacity(
                     (draggedID == slot.id || ghostEntryID == slot.id)
                     ? 0
-                    : (dropTargetSlotID == slot.id || pendingAddSlotID == slot.id
+                    : (dropTargetSlotID == slot.id || pendingAddSlot == slot.index
                        ? Self.dropTargetOpacity : 1)
                 )
                 .animation(.easeInOut(duration: 0.12), value: dropTargetSlotID)
@@ -477,27 +490,31 @@ struct ShelfView: View {
         }
         // セルの外(グリッド余白)へのドロップの受け口。スロット上の
         // ドロップゾーンが先に拾うので、ここに来るのは余白ドロップのみ。
-        // 余白=末尾挿入(atIndex: Int.max)。内部ドラッグが余白に落ちた
-        // 場合はfalseを返してキャンセル扱いにする。
+        // 余白=ドロップ位置に最も近い空きスロットへの配置。自シェルフの
+        // 内部ドラッグが余白に落ちた場合はfalseを返してキャンセル扱いにする。
         // URL用は付けない: 同一ビューへの.dropDestination積みは先の
         // 1つしか有効にならず、外部URLドラッグは余白もカバーする
         // ExternalDropOverlayViewが受け取るためここでは不要
         .dropDestination(for: String.self) { items, location in
             guard let text = items.first else { return false }
+            // 余白ドロップの着地先 = ドロップ位置に最も近い空きスロット
+            // (空きが無ければnilで、追加経路が満杯として拒否する)
+            let g = self.overlayGridPoint(location)
+            let s = self.nearestEmptySlot(atGridPoint: g)
             // アプリ内ドラッグのペイロードを先に判定。自分のシェルフの
             // レコードが余白に落ちたら拒否(=キャンセル)。別シェルフから
-            // 来たペイロードは末尾への移動として受け取る。
+            // 来たペイロードは最近傍空きスロットへの移動として受け取る。
             // ペイロードでないテキストは外部ドロップとして追加経路へ流す
             if let payload = ShelfDragPayload.decode(text) {
                 guard payload.sourceShelfID != self.shelfID else {
                     Self.logger.notice("margin drop rejected: internal drag to non-cell area")
                     return false
                 }
-                Self.logger.notice("grid margin cross-shelf drop: '\(payload.entry.title, privacy: .public)' from=\(payload.sourceShelfID, privacy: .public)")
-                return self.transferDrop(payload, atIndex: .max)
+                Self.logger.notice("grid margin cross-shelf drop: '\(payload.entry.title, privacy: .public)' from=\(payload.sourceShelfID, privacy: .public) grid=(\(g.x, privacy: .public), \(g.y, privacy: .public)) slot=\(s ?? -1, privacy: .public)")
+                return self.transferDrop(payload, atSlot: s)
             }
-            Self.logger.notice("grid margin text dropped: '\(text, privacy: .public)' location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
-            return self.addDroppedText(text, atIndex: .max)
+            Self.logger.notice("grid margin text dropped: '\(text, privacy: .public)' grid=(\(g.x, privacy: .public), \(g.y, privacy: .public)) slot=\(s ?? -1, privacy: .public)")
+            return self.addDroppedText(text, atSlot: s, pendingSlot: s)
         }
         // クランプ状態の遷移時だけログ(body評価のたびに出るのを防ぐ)。
         // onAppearではレイアウト検証用に計算結果(グリッドの実寸と窓の関係)を1回出す
@@ -811,12 +828,14 @@ struct ShelfView: View {
         logger.notice("window frame clamped to screen: natural=\(Int(natural.width), privacy: .public)x\(Int(natural.height), privacy: .public) clamped=\(Int(clamped.width), privacy: .public)x\(Int(clamped.height), privacy: .public) visibleFrame=\(NSStringFromRect(NSScreen.main?.visibleFrame ?? .zero), privacy: .public)")
     }
 
-    /// セル半分のドロップゾーン。after=falseなら直前、trueなら直後に挿入。
-    /// 半透明にするのは「ドロップで実際に順番が変わる半分」にカーソルが
+    /// セル半分のドロップゾーン。
+    /// - 占有セル: after=falseなら対象の直前、trueなら直後の順序位置への
+    ///   挿入(内部ドラッグ=スライド並び替え、新規レコード=挿入シフト)
+    /// - 空きスロット: 左右どちらの半分でも「そのスロットに配置」
+    /// 半透明にするのは「ドロップで実際に配置が変わる半分」にカーソルが
     /// 乗っている間だけ。isTargetedはドラッグ終了時にフレームワークが
     /// 必ずfalseで呼ぶので、ハイライトが残ることはない。
     private func dropZone(slot: Slot, after: Bool) -> some View {
-        let insertIndex = slot.index + (after ? 1 : 0)
         return Color.clear
             .contentShape(Rectangle())
             // ドロップ先はString用1つのみ。同一ビューに複数の
@@ -828,40 +847,95 @@ struct ShelfView: View {
             .dropDestination(for: String.self) { items, location in
                 guard let dropped = items.first else { return false }
                 // アプリ内ドラッグのペイロードを先に判定。
-                // 自シェルフ=並び替え、別シェルフ=移動。ペイロード以外は
+                // 自シェルフ=配置/並び替え、別シェルフ=移動。ペイロード以外は
                 // 外部テキストとして追加経路へ流す(キャンセル直後に
                 // draggedIDが残ったまま外部テキストが落ちたケースもここ)
                 if let payload = ShelfDragPayload.decode(dropped) {
                     guard payload.sourceShelfID == self.shelfID else {
-                        Self.logger.notice("cross-shelf record dropped: '\(payload.entry.title, privacy: .public)' from=\(payload.sourceShelfID, privacy: .public) slot=\(slot.index, privacy: .public) after=\(after, privacy: .public) location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
-                        return self.transferDrop(payload, atIndex: insertIndex)
+                        Self.logger.notice("cross-shelf record dropped: '\(payload.entry.title, privacy: .public)' from=\(payload.sourceShelfID, privacy: .public) slot=\(slot.index, privacy: .public) occupied=\(slot.entry != nil, privacy: .public) after=\(after, privacy: .public) location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
+                        let g = self.dropZoneGridPoint(location, slot: slot, after: after)
+                        let s = self.resolvedInsertionSlot(
+                            index: slot.index, occupied: slot.entry != nil, after: after, gridPoint: g
+                        )
+                        return self.transferDrop(payload, atSlot: s)
                     }
                     let droppedID = payload.entry.id
-                    Self.logger.notice("record dropped: dragged=\(droppedID, privacy: .public) slot=\(slot.index, privacy: .public) target='\(slot.entry?.title ?? "", privacy: .public)' after=\(after, privacy: .public) location=(\(location.x, privacy: .public), \(location.y, privacy: .public)) zoneRect=\(NSStringFromRect(self.slotRect(index: slot.index)), privacy: .public)")
+                    Self.logger.notice("record dropped: dragged=\(droppedID, privacy: .public) slot=\(slot.index, privacy: .public) occupied=\(slot.entry != nil, privacy: .public) target='\(slot.entry?.title ?? "", privacy: .public)' after=\(after, privacy: .public) location=(\(location.x, privacy: .public), \(location.y, privacy: .public)) zoneRect=\(NSStringFromRect(self.slotRect(index: slot.index)), privacy: .public)")
                     // ドロップ成立=セッション終了。モニタより先にここで戻す
                     self.draggedID = nil
-                    self.dropTargetSlotID = nil
-                    store.move(droppedID, toIndex: insertIndex)
+                    self.clearDropTarget()
+                    // 並び替え/配置の確定は着地時に遅らせる: perform時点で
+                    // entriesを変えると、ずれ込むレコードが着地フライ中に
+                    // 見えてゴーストと2個表示される(2026-11-03報告)。
+                    // シミュレート関数をクロージャで保持し、着地時に
+                    // その時点のentriesへ再シミュレートする
+                    // (フライ中のentries変化で結果を消し飛ばさないため。
+                    //  ドラッグ対象が消えていれば再計算もnilになり適用しない)
+                    let simulate: ([MediaEntry]) -> [MediaEntry]?
+                    if slot.entry != nil {
+                        // 占有セル上: 対象の直前/直後の順序位置へのスライド
+                        simulate = { entries in
+                            ShelfPlacement.reorder(
+                                entries: entries, draggedID: droppedID,
+                                targetSlotIndex: slot.index, after: after)
+                        }
+                    } else {
+                        // 空きスロット: そのスロットに配置(他のレコードは動かない)
+                        simulate = { entries in
+                            ShelfPlacement.place(
+                                entries: entries, draggedID: droppedID,
+                                atSlot: slot.index, capacity: self.store.capacity)
+                        }
+                    }
+                    let landing = simulate(store.entries)?.first(where: { $0.id == droppedID })?.slotIndex
+                        ?? store.entries.first(where: { $0.id == droppedID })?.slotIndex
+                    Self.logger.debug("placement simulated: landing=\(landing ?? -1, privacy: .public)")
                     // ゴーストはすでにポインタ位置にいるので着地スロットへ飛ばす。
                     // システム画像は不可視なので待ち不要。飛行中は着地セルが
                     // ghostEntryIDで隠れたままなので二重表示にならない
-                    if let newIndex = store.entries.firstIndex(where: { $0.id == droppedID }),
-                       self.ghostEntryID == droppedID {
-                        self.flyGhost(toIndex: newIndex)
+                    if let landing, self.ghostEntryID == droppedID {
+                        self.flyGhost(toSlot: landing) {
+                            // 着地で確定。その時点のentriesへ再シミュレート
+                            if let result = simulate(self.store.entries) {
+                                self.store.applyPlacement(result)
+                            } else {
+                                Self.logger.notice("re-simulation returned nil at landing: id=\(droppedID, privacy: .public)")
+                            }
+                        }
+                    } else if let result = simulate(store.entries) {
+                        // ゴーストが出ていない(アートワーク読み込み中に
+                        // ドロップ)ならフライも無いので即時確定
+                        Self.logger.notice("placement applied immediately (no ghost)")
+                        self.store.applyPlacement(result)
                     }
                     return true
                 }
-                Self.logger.notice("external text dropped: '\(dropped, privacy: .public)' slot=\(slot.index, privacy: .public) after=\(after, privacy: .public) location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
-                return self.addDroppedText(dropped, atIndex: insertIndex, slotID: slot.id)
+                Self.logger.notice("external text dropped: '\(dropped, privacy: .public)' slot=\(slot.index, privacy: .public) occupied=\(slot.entry != nil, privacy: .public) after=\(after, privacy: .public) location=(\(location.x, privacy: .public), \(location.y, privacy: .public))")
+                let g = self.dropZoneGridPoint(location, slot: slot, after: after)
+                let s = self.resolvedInsertionSlot(
+                    index: slot.index, occupied: slot.entry != nil, after: after, gridPoint: g
+                )
+                return self.addDroppedText(dropped, atSlot: s, pendingSlot: s)
             } isTargeted: { targeted in
+                // 退出/終了(targeted=false)ではwillMoveのシミュレーションを
+                // 走らせず、この半分がセットしたハイライトだけを消す。
+                // 同一スロットのもう半分がセットした分は残すので、
+                // 左右半分間の移動でハイライトが瞬断しない
+                guard targeted else {
+                    if dropTargetSlotID == slot.id, dropTargetAfter == after {
+                        clearDropTarget()
+                    }
+                    return
+                }
                 let movable = self.willMove(slot: slot, after: after)
-                Self.logger.debug("isTargeted slot=\(slot.index, privacy: .public) after=\(after, privacy: .public) targeted=\(targeted, privacy: .public) willMove=\(movable, privacy: .public)")
-                // 内部ドラッグ中は実際に順番が変わる半分だけ、
+                Self.logger.debug("isTargeted slot=\(slot.index, privacy: .public) after=\(after, privacy: .public) targeted=true willMove=\(movable, privacy: .public)")
+                // 内部ドラッグ中は実際に配置が変わる半分だけ、
                 // 外部テキストのドラッグ中はどちらの半分でも半透明にする
-                if targeted, (self.draggedID != nil ? movable : true) {
+                if self.draggedID != nil ? movable : true {
                     dropTargetSlotID = slot.id
-                } else if dropTargetSlotID == slot.id {
-                    dropTargetSlotID = nil
+                    dropTargetAfter = after
+                } else if dropTargetSlotID == slot.id, dropTargetAfter == after {
+                    clearDropTarget()
                 }
             }
     }
@@ -870,14 +944,15 @@ struct ShelfView: View {
     /// MediaURLParserで解釈できるものだけ受け付け(true=ドロップ成立)。
     /// 追加自体は非同期なのでここではTaskを起こすだけにし、
     /// 重複/満杯/エラーはアラート(addError)で後から通知する。
-    /// slotIDを渡すとfetch待ちの間そのスロットを半透明に保つ
-    /// (ドロップ→レコード出現の繋ぎ。余白ドロップはnilで呼ぶ)
-    private func addDroppedText(_ text: String?, atIndex: Int, slotID: String? = nil) -> Bool {
+    /// atSlotは挿入先スロット(占有なら挿入シフト。nil=先頭の空きスロット)。
+    /// pendingSlotを渡すとfetch待ちの間そのスロット位置を半透明に保つ
+    /// (ドロップ→レコード出現の繋ぎ)
+    private func addDroppedText(_ text: String?, atSlot s: Int?, pendingSlot: Int? = nil) -> Bool {
         guard let text, let parsed = MediaURLParser.parse(text) else {
             Self.logger.notice("drop add: parse failed for '\(text ?? "nil", privacy: .public)'")
             return false
         }
-        Self.logger.notice("drop add: parsed kind=\(parsed.kind.rawValue, privacy: .public) id=\(parsed.id, privacy: .public) insertIndex=\(atIndex, privacy: .public)")
+        Self.logger.notice("drop add: parsed kind=\(parsed.kind.rawValue, privacy: .public) id=\(parsed.id, privacy: .public) slot=\(s ?? -1, privacy: .public)")
         // URL+テキストの両方を供するドラッグでURLゾーンとStringゾーンが
         // 両方performされた場合、同じidの追加Taskが2つ走る。後発は
         // スキップする(.addedと.duplicateアラートが同時に出るのを防ぐ)。
@@ -887,14 +962,14 @@ struct ShelfView: View {
             return true
         }
         inFlightAddIDs.insert(parsed.id)
-        dropTargetSlotID = nil
-        // fetch完了までドロップ位置のスロットを半透明のまま待たせる
+        clearDropTarget()
+        // fetch完了まで着地予定のスロットを半透明のまま待たせる
         // (ハイライトを消すと0.5秒ほど何も無い空白に見える)
-        pendingAddSlotID = slotID
+        pendingAddSlot = pendingSlot
         Task { @MainActor in
             defer {
                 inFlightAddIDs.remove(parsed.id)
-                pendingAddSlotID = nil
+                pendingAddSlot = nil
             }
             do {
                 let outcome: ShelfStore.AddOutcome
@@ -902,13 +977,13 @@ struct ShelfView: View {
                     // ドラッグイン時に先回りしておいたfetchを消費する
                     // (完了済みなら即返るので待ち時間はほぼゼロ)
                     Self.logger.notice("drop add: using prefetched entry id=\(parsed.id, privacy: .public)")
-                    outcome = store.registerFetched(try await prefetch.value, insertAt: atIndex)
+                    outcome = store.registerFetched(try await prefetch.value, atSlot: s)
                 } else {
-                    outcome = try await store.addFromCatalog(parsed, insertAt: atIndex)
+                    outcome = try await store.addFromCatalog(parsed, atSlot: s)
                 }
                 switch outcome {
                 case .added(let entry):
-                    Self.logger.notice("drop add: added '\(entry.title, privacy: .public)' at index=\(atIndex, privacy: .public)")
+                    Self.logger.notice("drop add: added '\(entry.title, privacy: .public)' at slot=\(entry.slotIndex, privacy: .public)")
                 case .duplicate:
                     Self.logger.notice("drop add: duplicate id=\(parsed.id, privacy: .public)")
                     let kindName = String(localized: parsed.kind == .album ? "album" : "playlist")
@@ -930,37 +1005,62 @@ struct ShelfView: View {
     /// (アートワークも全シェルフ共有)。重複・満杯ならfalseを返して
     /// ドロップを拒否する(=元シェルフにレコードが残る)。
     /// 元シェルフからの削除はターゲットへの追加が確定してから行う
-    /// (先に消すと失敗時にどちらのシェルフにも無い状態になりうる)
-    private func transferDrop(_ payload: ShelfDragPayload, atIndex: Int) -> Bool {
+    /// (先に消すと失敗時にどちらのシェルフにも無い状態になりうる)。
+    /// atSlotは挿入先スロット(占有なら挿入シフト。nil=先頭の空きスロット)
+    private func transferDrop(_ payload: ShelfDragPayload, atSlot s: Int?) -> Bool {
         let entry = payload.entry
-        Self.logger.notice("cross-shelf transfer: '\(entry.title, privacy: .public)' \(payload.sourceShelfID, privacy: .public)→\(self.shelfID, privacy: .public) index=\(atIndex, privacy: .public)")
+        Self.logger.notice("cross-shelf transfer: '\(entry.title, privacy: .public)' \(payload.sourceShelfID, privacy: .public)→\(self.shelfID, privacy: .public) slot=\(s ?? -1, privacy: .public)")
         if store.contains(entry.id) {
             Self.logger.notice("cross-shelf transfer rejected: duplicate id=\(entry.id, privacy: .public)")
             let kindName = String(localized: entry.kind == .album ? "album" : "playlist")
             addError = String(localized: "This \(kindName) is already on the shelf.")
             return false
         }
-        guard store.entries.count < store.capacity else {
-            Self.logger.notice("cross-shelf transfer rejected: shelf full capacity=\(self.store.capacity, privacy: .public)")
+        // 満杯=「[0, capacity)に空きスロットが無い」(entries.countではない。
+        // 非表示エントリが居ても表示上の空きがあれば移動を受理する)
+        guard store.firstEmptySlot != nil else {
+            Self.logger.notice("cross-shelf transfer rejected: shelf full (no empty slot) capacity=\(self.store.capacity, privacy: .public)")
             addError = String(localized: "The shelf is full. You can add up to \(store.capacity) records.")
             return false
         }
-        let outcome = store.registerFetched(entry, insertAt: atIndex)
-        guard case .added = outcome else {
-            Self.logger.error("cross-shelf transfer: registerFetched failed outcome=\(String(describing: outcome), privacy: .public)")
+        // 挿入の確定も着地時に遅らせる(シェルフ内ドロップと同じ理由:
+        // 先にずらすと着地フライ中にずれたレコードがゴーストと2個見える)。
+        // 範囲外指定はregisterFetchedと同じく先頭の空きスロットへ倒す。
+        // 着地時はその時点のentriesへ再シミュレートする
+        // (フライ中のentries変化で結果を消し飛ばさないため。
+        //  その間に満杯になったら適用も元removeもしない=元に残る)
+        let simulate: ([MediaEntry]) -> [MediaEntry]? = { entries in
+            guard let target = (s != nil && s! >= 0 && s! < self.store.capacity)
+                    ? s
+                    : self.store.firstEmptySlot else { return nil }
+            return ShelfPlacement.insertionShift(
+                entries: entries, inserting: entry, at: target, capacity: self.store.capacity
+            )
+        }
+        guard let result = simulate(store.entries) else {
+            Self.logger.error("cross-shelf transfer: no insertable slot id=\(entry.id, privacy: .public) requested=\(s ?? -1, privacy: .public)")
             return false
         }
-        ShelfManager.shared.store(for: payload.sourceShelfID).remove(entry.id)
-        dropTargetSlotID = nil
+        clearDropTarget()
         // 着地もシェルフ内ドロップと同じ動作にする: 共有ゴーストの
         // 所有権をこのシェルフへ引き継ぎ、挿入スロットまで飛ばしてから
-        // 実セル(ghostEntryIDで隠してある)と交代する。
+        // 実セル(着地でapplyPlacementされるエントリ)と交代する。
+        // 元シェルフからの削除はターゲットへの追加が確定してから行う
+        // (先に消すと失敗時にどちらのシェルフにも無い状態になりうる)。
         // 元ウィンドウ側のドラッグ状態(draggedID)は、そちらの
         // 終了検知モニタがentriesから消えたことを見て片付ける
-        if let index = store.entries.firstIndex(where: { $0.id == entry.id }) {
-            ghost.takeOver(owner: shelfID)
-            ghostEntryID = entry.id
-            flyGhost(toIndex: index)
+        ghost.takeOver(owner: shelfID)
+        ghostEntryID = entry.id
+        // insertionShiftの結果は必ず新規エントリを含むのでslotIndexは取れる
+        flyGhost(toSlot: result.first(where: { $0.id == entry.id })?.slotIndex ?? 0) {
+            // 着地で確定。その時点のentriesへ再シミュレートし、
+            // 適用できたときだけ元シェルフから消す
+            if let fresh = simulate(self.store.entries) {
+                self.store.applyPlacement(fresh)
+                ShelfManager.shared.store(for: payload.sourceShelfID).remove(entry.id)
+            } else {
+                Self.logger.error("cross-shelf transfer: re-simulation failed at landing id=\(entry.id, privacy: .public); source entry kept")
+            }
         }
         return true
     }
@@ -999,6 +1099,53 @@ struct ShelfView: View {
         // セル間スペーシング上は挿入位置を一意に決められないので対象外
         guard intraX < cell, intraY < cell else { return nil }
         return (row * settings.columns + column, intraX >= cell / 2)
+    }
+
+    /// ドロップゾーン(セル半分)のローカル座標→グリッド座標。
+    /// ゾーンはセルの半分なので、右半分のゾーンはセル幅の半分だけxを進める
+    private func dropZoneGridPoint(_ location: CGPoint, slot: Slot, after: Bool) -> CGPoint {
+        let rect = slotRect(index: slot.index)
+        let cell = store.settings.artworkSize.points
+        return CGPoint(
+            x: rect.minX + (after ? cell / 2 : 0) + location.x,
+            y: rect.minY + location.y
+        )
+    }
+
+    /// 新規レコード(外部テキスト/URL、シェルフ間転送)の挿入先スロットを解決する。
+    /// - index=nil(余白): グリッド座標への最近傍空きスロット
+    /// - 空きセル上: そのスロット(左右の半分は区別しない)
+    /// - 占有セル上: 左半分=そのスロット、右半分=+1(挿入シフトのs)。
+    ///   解決結果がcapacity外(最終スロットの右半分)なら最近傍空きスロットへ
+    /// 解決不能(空き無し=満杯)はnilで、追加経路がfullとして扱う
+    private func resolvedInsertionSlot(index: Int?, occupied: Bool, after: Bool, gridPoint g: CGPoint) -> Int? {
+        if let index {
+            let s = occupied ? index + (after ? 1 : 0) : index
+            if s < store.capacity { return s }
+        }
+        return nearestEmptySlot(atGridPoint: g)
+    }
+
+    /// グリッド座標に最も近い空きスロット
+    /// (ShelfPlacement.nearestEmptySlotへの橋渡し。空き無しならnil)
+    private func nearestEmptySlot(atGridPoint g: CGPoint) -> Int? {
+        let settings = store.settings
+        return ShelfPlacement.nearestEmptySlot(
+            entries: store.entries,
+            capacity: store.capacity,
+            columns: settings.columns,
+            cell: settings.artworkSize.points,
+            columnSpacing: CGFloat(settings.columnSpacing),
+            rowSpacing: CGFloat(settings.rowSpacing),
+            at: g
+        )
+    }
+
+    /// スロット位置からそのスロットの安定ID(占有=エントリid、空き="empty-N")。
+    /// 範囲外・nilならnil
+    private func slotID(atSlotIndex i: Int?) -> String? {
+        guard let i, i >= 0, i < store.capacity else { return nil }
+        return store.paddedSlots()[i]?.id ?? "empty-\(i)"
     }
 
     /// オーバーレイへのドラッグ進入通知。ペーストボードのURLを
@@ -1092,6 +1239,8 @@ struct ShelfView: View {
 
     /// オーバーレイ上のホバー通知。ポインタ下のスロットを挿入位置として
     /// 半透明にする(dropTargetSlotIDは既存機構をそのまま利用)。
+    /// スロット外(余白)にいる間は、ドロップ先になる最近傍空きスロットを
+    /// 半透明にして着地位置を予告する(空きが無ければハイライトなし)。
     /// 高頻度で呼ばれるのでログはスロットが変わったときだけ出す
     private func externalDragMoved(to p: CGPoint) {
         let g = overlayGridPoint(p)
@@ -1099,41 +1248,48 @@ struct ShelfView: View {
         if let (index, _) = slotInsertion(atGridPoint: g) {
             // indexは列・行の範囲チェック済みなので必ずcapacity未満
             slotID = store.paddedSlots()[index]?.id ?? "empty-\(index)"
+        } else if let nearest = nearestEmptySlot(atGridPoint: g) {
+            slotID = "empty-\(nearest)"
         }
         if slotID != dropTargetSlotID {
             Self.logger.debug("external drag hover: grid=(\(g.x, privacy: .public), \(g.y, privacy: .public)) slot=\(slotID ?? "none", privacy: .public)")
+            // セル単位のハイライト(どちらの半分でもない)として記録する
             dropTargetSlotID = slotID
+            dropTargetAfter = nil
         }
     }
 
     /// オーバーレイのドラッグ終了/離脱通知。挿入位置ハイライトと
     /// ホバー中のIDを戻す(自前パネルはオーバーレイ側で片付ける)
     private func externalDragEnded() {
-        dropTargetSlotID = nil
+        clearDropTarget()
         externalHoverID = nil
     }
 
-    /// オーバーレイへのドロップ。セル上ならその前後、グリッド外
-    /// (余白)なら末尾に挿入する
+    /// オーバーレイへのドロップ。占有セル上ならその前後への挿入シフト、
+    /// 空きセル上ならそのスロットへ、グリッド外(余白)なら最も近い
+    /// 空きスロットへ配置する
     private func externalDrop(_ url: URL, at p: CGPoint) -> Bool {
         let g = overlayGridPoint(p)
-        var insertIndex = Int.max
-        var slotID: String?
+        var s: Int?
         if let (index, after) = slotInsertion(atGridPoint: g) {
-            insertIndex = index + (after ? 1 : 0)
-            // fetch待ちの間このスロットを半透明にしておくためのID
-            slotID = store.paddedSlots()[index]?.id ?? "empty-\(index)"
+            s = resolvedInsertionSlot(
+                index: index, occupied: store.paddedSlots()[index] != nil,
+                after: after, gridPoint: g
+            )
+        } else {
+            s = nearestEmptySlot(atGridPoint: g)
         }
-        Self.logger.notice("external overlay drop handled: url=\(url.absoluteString, privacy: .public) grid=(\(g.x, privacy: .public), \(g.y, privacy: .public)) insertIndex=\(insertIndex, privacy: .public) slot=\(slotID ?? "margin", privacy: .public)")
-        dropTargetSlotID = nil
-        return addDroppedText(url.absoluteString, atIndex: insertIndex, slotID: slotID)
+        Self.logger.notice("external overlay drop handled: url=\(url.absoluteString, privacy: .public) grid=(\(g.x, privacy: .public), \(g.y, privacy: .public)) slot=\(s ?? -1, privacy: .public) slotID=\(self.slotID(atSlotIndex: s) ?? "none", privacy: .public)")
+        clearDropTarget()
+        return addDroppedText(url.absoluteString, atSlot: s, pendingSlot: s)
     }
 
     /// ドラッグ開始。ドラッグ元を記録し、ポインタ追従ゴーストと
     /// 終了検知モニタを起動する
     private func startDrag(_ entry: MediaEntry) {
         self.draggedID = entry.id
-        self.dropTargetSlotID = nil
+        self.clearDropTarget()
         self.installDragMonitor()
         // ポインタ追従ポーリング開始(commonモードでドラッグ中の
         // イベントトラッキング中も発火する)
@@ -1166,9 +1322,9 @@ struct ShelfView: View {
             self.ghostEntryID = entry.id
             let cell = self.store.settings.artworkSize.points
             // ドラッグ元スロットの角丸でゴーストを切る
-            // (セルのジャケットと同じ形にする)
-            let slotIndex = self.store.paddedSlots()
-                .firstIndex(where: { $0?.id == entry.id }) ?? 0
+            // (セルのジャケットと同じ形にする)。表示中エントリの
+            // slotIndexがそのままグリッド位置になる
+            let slotIndex = max(0, entry.slotIndex)
             self.ghost.show(
                 image, at: NSEvent.mouseLocation, cell: cell,
                 parent: self.windowBox.window, owner: self.shelfID,
@@ -1213,9 +1369,16 @@ struct ShelfView: View {
                     // entriesに無い=別シェルフへの移動が成立済みなので、
                     // 滑り戻す先はなくゴーストを消すだけにする
                     if self.ghostEntryID == cancelledID {
-                        if let index = store.entries.firstIndex(where: { $0.id == cancelledID }) {
+                        // 別シェルフへの着地フライ中(所有権移譲済み)は、
+                        // 着地時のremoveまで元entriesにレコードが残っていても
+                        // キャンセルではない。ここで滑り戻すと共有ゴーストの
+                        // 飛行先を上書きしてドロップ先への着地を潰す
+                        let ownershipMoved = self.ghost.owner != nil
+                            && self.ghost.owner != self.shelfID
+                        if !ownershipMoved,
+                           let slot = store.entries.first(where: { $0.id == cancelledID })?.slotIndex {
                             Self.logger.notice("drag cancelled: id=\(cancelledID, privacy: .public)")
-                            self.flyGhost(toIndex: index)
+                            self.flyGhost(toSlot: slot)
                         } else {
                             Self.logger.notice("drag ended: '\(cancelledID, privacy: .public)' moved to another shelf")
                             // ゴーストの所有権がドロップ先へ移っていれば、
@@ -1228,7 +1391,7 @@ struct ShelfView: View {
                         }
                     }
                 }
-                self.dropTargetSlotID = nil
+                self.clearDropTarget()
                 // モニタは1回だけ外す(複数の遅延判定が重なっても二重除去しない)
                 if let monitor = self.dragEndMonitor {
                     NSEvent.removeMonitor(monitor)
@@ -1246,15 +1409,15 @@ struct ShelfView: View {
         self.trackTimer = nil
     }
 
-    /// ゴーストを現在位置からindex番スロットの中心まで飛ばす。
+    /// ゴーストを現在位置からslotIndex番スロットの中心まで飛ばす。
     /// 着地したらゴーストを消し、そのエントリの実セルが姿を現す
     /// (それまでghostEntryIDで隠れている)
-    private func flyGhost(toIndex: Int) {
+    private func flyGhost(toSlot slotIndex: Int, onLanded: (() -> Void)? = nil) {
         self.stopTracking()
         let flyingID = self.ghostEntryID
         // スロット中心の画面座標へ飛ばす。変換できなければ今の位置に留める
-        let target = self.slotScreenCenter(index: toIndex) ?? NSEvent.mouseLocation
-        Self.logger.notice("ghost fly to index=\(toIndex, privacy: .public)")
+        let target = self.slotScreenCenter(index: slotIndex) ?? NSEvent.mouseLocation
+        Self.logger.notice("ghost fly to slot=\(slotIndex, privacy: .public)")
         self.ghost.fly(to: target) {
             if self.ghostEntryID == flyingID {
                 // 飛行中に所有権が別シェルフへ移っていたら、このhideは
@@ -1266,6 +1429,10 @@ struct ShelfView: View {
                 }
                 self.ghostEntryID = nil
             }
+            // 着地後の確定処理(並び替えのapplyPlacement等)。
+            // entriesの変更は必ずここで行う — 飛行中に変えると
+            // ずれ込むレコードがゴーストと2個見える(2026-11-03報告)
+            onLanded?()
         }
     }
 
@@ -1317,20 +1484,26 @@ struct ShelfView: View {
         )
     }
 
-    /// draggedIDをslotの直前(after=false)/直後(true)へ挿入したとき
-    /// 実際に順番が変わるか。変わらないのは: 自分自身のセル、
-    /// 右隣セルの左半分、左隣セルの右半分、末尾から空きスロットへのドロップ。
+    /// draggedIDをこのスロットへドロップしたとき実際に配置が変わるか。
+    /// - 空きスロット: ドラッグ中エントリのslotIndexと異なる場合のみ
+    ///   (そのスロットへの自由配置。左右の半分は区別しない)
+    /// - 占有スロット: 対象の直前(after=false)/直後(true)の順序位置への
+    ///   挿入としてスライド再割当てをシミュレートし、どれか1つでも
+    ///   slotIndexが変わる場合のみ(「順番が変わる半分だけ光る」の一般化)
     private func willMove(slot: Slot, after: Bool) -> Bool {
         guard let draggedID,
-              let from = store.entries.firstIndex(where: { $0.id == draggedID }) else {
+              let dragged = store.entries.first(where: { $0.id == draggedID }) else {
             return false
         }
-        let to = ShelfStore.resolvedInsertionIndex(
-            from: from,
-            rawIndex: slot.index + (after ? 1 : 0),
-            count: store.entries.count
-        )
-        return to != from
+        if slot.entry != nil {
+            return ShelfPlacement.reorder(
+                entries: store.entries,
+                draggedID: draggedID,
+                targetSlotIndex: slot.index,
+                after: after
+            ) != nil
+        }
+        return dragged.slotIndex != slot.index
     }
 }
 
