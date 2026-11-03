@@ -267,9 +267,10 @@ struct ShelfView: View {
     }
 
     // グリッドの間隔と余白はstore.settingsのcolumnSpacing/rowSpacing/
-    // edgePadding/topPaddingから毎回読む。余白は独立した設定ではなく
-    // 間隔からの導出値(edgePadding=columnSpacing、
-    // topPadding=max(4,rowSpacing))で、間隔は設定画面のスライダーで
+    // edgePadding/topPadding/bottomPaddingから毎回読む。余白は
+    // 独立した設定ではなく間隔からの導出値
+    // (edgePadding=columnSpacing、topPadding=max(4,rowSpacing)、
+    //  bottomPadding=rowSpacing)。間隔は設定画面のスライダーで
     // 変更可能。ウィンドウサイズはこれらと設定値から厳密に計算する。
     // コンテンツはignoresSafeAreaでウィンドウ上端まで広がっている
     // (信号ボタンはMusicアプリ同様にコンテンツの上へ重なる)
@@ -308,6 +309,7 @@ struct ShelfView: View {
         let rowSpacing = CGFloat(settings.rowSpacing)
         let edgePadding = CGFloat(settings.edgePadding)
         let topPadding = CGFloat(settings.topPadding)
+        let bottomPadding = CGFloat(settings.bottomPadding)
         // entry.idは数値列または"pl.xxx"なので"empty-N"と衝突しない
         let slots = store.paddedSlots().enumerated().map { offset, entry in
             Slot(id: entry?.id ?? "empty-\(offset)", index: offset, entry: entry)
@@ -321,7 +323,7 @@ struct ShelfView: View {
             + edgePadding * 2
         let height = CGFloat(rowCount) * cell
             + CGFloat(rowCount - 1) * rowSpacing
-            + topPadding + edgePadding
+            + topPadding + bottomPadding
 
         // 最大構成(10列×10行・L=216pt)ではコンテンツが約2332×2278ptに
         // なり、多くのディスプレイのvisibleFrameを超える。
@@ -342,13 +344,15 @@ struct ShelfView: View {
             columnSpacing: columnSpacing,
             rowSpacing: rowSpacing,
             edgePadding: edgePadding,
-            topPadding: topPadding
+            topPadding: topPadding,
+            bottomPadding: bottomPadding
         )
 
         // ウィンドウはwindowResizability(.contentSize)なので、
         // この固定フレームがそのままmin=maxのウィンドウサイズになる
         // (コンテンツは上端まで広がるので、四辺の余白はsettingsの
-        //  edgePadding/topPaddingの値)。
+        //  edgePadding/topPadding/bottomPaddingの値。下端はrowSpacing
+        //  からの導出値)。
         // 設定変更でstore.settingsが変わると自動的に追従する。
         let grid = LazyVGrid(columns: columns, spacing: rowSpacing) {
             ForEach(slots) { slot in
@@ -400,7 +404,7 @@ struct ShelfView: View {
         .padding(EdgeInsets(
             top: topPadding,
             leading: edgePadding,
-            bottom: edgePadding,
+            bottom: bottomPadding,
             trailing: edgePadding
         ))
         // 棚レベルプラグイン: 背面に壁、前面に棚板+前柵をレジストリ順に

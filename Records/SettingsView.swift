@@ -178,8 +178,9 @@ private struct ShelfPickers: View {
 
 /// グリッドの間隔スライダー群。レコード間隔(横)・シェルフ段間隔(縦)を
 /// 調整する。外周の余白は独立した設定ではなく間隔から導出される
-/// (edgePadding=columnSpacing、topPadding=max(4,rowSpacing)。
-///  ShelfSettings参照)のでスライダーはこの2つだけ。
+/// (edgePadding=columnSpacing、topPadding=max(4,rowSpacing)、
+///  bottomPadding=rowSpacing。ShelfSettings参照)のでスライダーは
+/// この2つだけ。
 /// 値の変更はupdateSettingsTransientでメモリ上だけ反映(グリッドと
 /// windowResizability(.contentSize)経由でウィンドウへライブ反映)し、
 /// settings.jsonへの永続化+変更ログはPluginSliderRowと同じデバウンスで
