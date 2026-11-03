@@ -19,7 +19,8 @@
 //   - 壁: フレーム全面を覆う、上がわずかに明るい暖色の縦
 //     グラデーション(天井からの光)
 //   - 棚板: 行rのセル下端 y = topPadding + (r+1)*cell + r*rowSpacing
-//     を天面とする全幅の水平な板。厚さは設定値を
+//     を天面とし、両端に columnSpacing/2 の余白を持つ水平な板。
+//     厚さは設定値を
 //     min(設定値, rowSpacing-2, bottomPadding) にクランプして
 //     行間と下端余白に収める(bottomPaddingはrowSpacingの導出値
 //     なので、実質 min(設定値, rowSpacing-2))。
@@ -642,6 +643,11 @@ struct StoreShelfPlugin: ShelfPlugin {
         // (無効時と同じく描画の影響ゼロにする)
         guard t > 0 || fenceRatio > 0 else { return nil }
 
+        // 棚板両端の余白: レコード間隔(columnSpacing)の半分。
+        // 板・天面エッジ・落ち影・下端線・前柵はすべてこの横幅に
+        // 揃える(前柵は板の上に立つ部材なので板より外へ出さない)
+        let endMargin = context.columnSpacing / 2
+
         // 行rのセル下端y(padding込みフレーム座標)
         let bottoms = (0..<context.gridRows).map { r in
             context.topPadding
@@ -653,12 +659,16 @@ struct StoreShelfPlugin: ShelfPlugin {
         return AnyView(
             Canvas { gc, size in
                 guard size.width > 0, size.height > 0 else { return }
+                let boardMinX = endMargin
+                let boardMaxX = size.width - endMargin
+                let boardWidth = max(0, boardMaxX - boardMinX)
                 for (r, bottom) in bottoms.enumerated() {
                     if t > 0 {
-                        // 棚板: セル下端を天面として下方向へt延びる全幅の板
+                        // 棚板: セル下端を天面として下方向へt延びる板。
+                        // 両端はendMarginだけ壁際から離す
                         let boardRect = CGRect(
-                            x: 0, y: bottom,
-                            width: size.width, height: t)
+                            x: boardMinX, y: bottom,
+                            width: boardWidth, height: t)
                         gc.fill(
                             Path(boardRect),
                             with: .linearGradient(
@@ -668,7 +678,8 @@ struct StoreShelfPlugin: ShelfPlugin {
                         // 天面エッジ: 板上端の1ptの明るい線
                         gc.fill(
                             Path(CGRect(
-                                x: 0, y: bottom, width: size.width, height: 1)),
+                                x: boardMinX, y: bottom,
+                                width: boardWidth, height: 1)),
                             with: .color(.white.opacity(Self.boardEdgeOpacity)))
                         // 落ち影: 板の下端から下へ 黒0.22→0。
                         // 板の下の余白(行間または下端余白から板厚を
@@ -681,8 +692,8 @@ struct StoreShelfPlugin: ShelfPlugin {
                         if gap >= Self.shadowMinGap {
                             let shadowLen = min(Self.shadowLength, gap)
                             let shadowRect = CGRect(
-                                x: 0, y: bottom + t,
-                                width: size.width, height: shadowLen)
+                                x: boardMinX, y: bottom + t,
+                                width: boardWidth, height: shadowLen)
                             gc.fill(
                                 Path(shadowRect),
                                 with: .linearGradient(
@@ -697,8 +708,8 @@ struct StoreShelfPlugin: ShelfPlugin {
                         } else {
                             gc.fill(
                                 Path(CGRect(
-                                    x: 0, y: bottom + t - 1,
-                                    width: size.width, height: 1)),
+                                    x: boardMinX, y: bottom + t - 1,
+                                    width: boardWidth, height: 1)),
                                 with: .color(.black.opacity(
                                     Self.boardBottomLineOpacity)))
                         }
@@ -708,8 +719,8 @@ struct StoreShelfPlugin: ShelfPlugin {
                         // 下端は板の手前面へ少し重なる(t*0.6)
                         let f = fenceRatio * cell
                         let fenceRect = CGRect(
-                            x: 0, y: bottom - f,
-                            width: size.width, height: f + t * 0.6)
+                            x: boardMinX, y: bottom - f,
+                            width: boardWidth, height: f + t * 0.6)
                         // ばらつき: 各段のアクリル板は別個体なので
                         // 明るさが段ごとにわずかに違い(±variation*25%)、
                         // 長手方向は波ノイズで輝度がゆらぐ(切断面の
@@ -723,9 +734,9 @@ struct StoreShelfPlugin: ShelfPlugin {
                         // 本体(透明度)+映り込み帯: 縦ストリップに
                         // 分け、帯ごとの係数を長手方向の波で揺らす
                         let segments = 20
-                        let segW = size.width / CGFloat(segments)
+                        let segW = boardWidth / CGFloat(segments)
                         for i in 0..<segments {
-                            let x0 = CGFloat(i) * segW
+                            let x0 = boardMinX + CGFloat(i) * segW
                             let m = fenceVar > 0
                                 ? 1 + (Self.wave01(
                                         x: x0 + segW * 0.5,
@@ -786,27 +797,27 @@ struct StoreShelfPlugin: ShelfPlugin {
                             let fx = CGFloat(i) / CGFloat(edgeSegs)
                             let m = fenceVar > 0
                                 ? 0.65 + 0.7 * Self.wave01(
-                                    x: fx * size.width, salt: 11 + rowSalt)
+                                    x: fx * boardWidth, salt: 11 + rowSalt)
                                 : 1
                             edgeStops.append(.init(
                                 color: .white.opacity(min(1, e * m)),
                                 location: fx))
                         }
                         let edgeLine = CGRect(
-                            x: 0, y: fenceRect.minY,
-                            width: size.width, height: 1)
+                            x: boardMinX, y: fenceRect.minY,
+                            width: boardWidth, height: 1)
                         gc.fill(
                             Path(edgeLine),
                             with: .linearGradient(
                                 Gradient(stops: edgeStops),
-                                startPoint: CGPoint(x: 0, y: 0),
+                                startPoint: CGPoint(x: boardMinX, y: 0),
                                 endPoint: CGPoint(
-                                    x: size.width, y: 0)))
+                                    x: boardMaxX, y: 0)))
                         // 滲み: エッジの光が周囲に漏れる2ptのフェード。
                         // エッジと同じゆらぎを弱く写す
                         let glowRect = CGRect(
-                            x: 0, y: fenceRect.minY + 1,
-                            width: size.width,
+                            x: boardMinX, y: fenceRect.minY + 1,
+                            width: boardWidth,
                             height: Self.fenceEdgeGlowWidth)
                         gc.fill(
                             Path(glowRect),
@@ -825,7 +836,7 @@ struct StoreShelfPlugin: ShelfPlugin {
                         // 明るくなる集光(上端エッジより強い)
                         let cw = Self.fenceCornerWidth
                         let cornerOpacity = min(1, e * Self.fenceCornerRatio)
-                        for x in [0.0, size.width - cw] {
+                        for x in [boardMinX, boardMaxX - cw] {
                             gc.fill(
                                 Path(CGRect(
                                     x: x, y: fenceRect.minY,
@@ -835,8 +846,8 @@ struct StoreShelfPlugin: ShelfPlugin {
                         // 下端エッジ: 上端より弱い1ptの白線
                         gc.fill(
                             Path(CGRect(
-                                x: 0, y: fenceRect.maxY - 1,
-                                width: size.width, height: 1)),
+                                x: boardMinX, y: fenceRect.maxY - 1,
+                                width: boardWidth, height: 1)),
                             with: .color(.white.opacity(
                                 e * Self.fenceBottomEdgeRatio)))
                         // 左右端: 端面の反射の縦ハイライト
@@ -844,12 +855,12 @@ struct StoreShelfPlugin: ShelfPlugin {
                         let w = Self.fenceSideEdgeWidth
                         gc.fill(
                             Path(CGRect(
-                                x: 0, y: fenceRect.minY,
+                                x: boardMinX, y: fenceRect.minY,
                                 width: w, height: fenceRect.height)),
                             with: .color(.white.opacity(side)))
                         gc.fill(
                             Path(CGRect(
-                                x: size.width - w, y: fenceRect.minY,
+                                x: boardMaxX - w, y: fenceRect.minY,
                                 width: w, height: fenceRect.height)),
                             with: .color(.white.opacity(side)))
                     }
