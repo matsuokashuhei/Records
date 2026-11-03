@@ -35,6 +35,10 @@
 //     本体・映り込み・下端・左右端・コーナーは固定比率で連動。
 //     0なら柵は完全に不可視)で、輝度のムラは「前柵のばらつき」
 //     (長手方向の波ノイズ+段ごとの個体差)で調整できる
+//   - 経年(aging-*): 壁に重ねる5要素(暖色被せ/セピア/染み/
+//     日焼け残り/周辺減光)。各要素の色・合成・強さは選択中の
+//     壁の AgingProfile に従い壁材に合わせる(暗い壁はmultiply
+//     が効かないので加算系に切替、日焼け残りは壁の元の色)
 //
 //  オーバーレイは合成側(ShelfView.shelfGrid)が
 //  .allowsHitTesting(false) で重ねるので、再生タップ・D&D・
@@ -72,6 +76,16 @@ struct StoreShelfPlugin: ShelfPlugin {
         /// ゆらがせ、段ごとの個体差も付ける(実物の切断面の
         /// 発光は磨きムラで均一でない)
         static let fenceVariation = "fence-variation"
+        /// 経年: 白熱灯の暖色被せ(0-1)
+        static let warmth = "aging-warmth"
+        /// 経年: セピア被り(0-1)
+        static let sepia = "aging-sepia"
+        /// 経年: 壁の染み(0-1)
+        static let stains = "aging-stains"
+        /// 経年: 日焼け残り — レコードに守られた壁の明るい跡(0-1)
+        static let fadeMarks = "aging-fade-marks"
+        /// 経年: 周辺減光(0-1)
+        static let vignette = "aging-vignette"
     }
 
     /// 壁。rawValueはsettings.jsonへの永続化値なので
@@ -121,6 +135,82 @@ struct StoreShelfPlugin: ShelfPlugin {
             case .paperNewsprint: return "paper-newsprint"
             case .paperLaid: return "paper-laid"
             case .paperCoated: return "paper-coated"
+            }
+        }
+
+        /// 経年表現の壁ごとの個性。同じパラメータ値でも壁材に合った
+        /// 見え方になるよう、染み/セピアの描き方・日焼け残りの色・
+        /// 各要素の強さ係数を壁が持つ
+        var agingProfile: AgingProfile {
+            switch self {
+            case .cream:
+                return .init(
+                    stain: .dark, stainGain: 1,
+                    sepiaMultiply: true, sepiaGain: 1,
+                    fadeMark: Color(red: 0.97, green: 0.94, blue: 0.86),
+                    fadeMarkGain: 1, warmthGain: 1,
+                    vignette: (0.45, 0.28, 0.12), vignetteGain: 1)
+            case .warmGray:
+                return .init(
+                    stain: .dark, stainGain: 0.9,
+                    sepiaMultiply: true, sepiaGain: 1,
+                    fadeMark: Color(red: 0.80, green: 0.77, blue: 0.70),
+                    fadeMarkGain: 1, warmthGain: 1.1,
+                    vignette: (0.38, 0.26, 0.15), vignetteGain: 1)
+            case .charcoal:
+                // 暗い壁: multiply系(セピア・暗い染み)は効かないので
+                // 加算系へ切替。染みは明るいかすれ/埃、日焼け残りは
+                // 焼ける前の明るい炭色、暖色とビネットは強め
+                return .init(
+                    stain: .light, stainGain: 1,
+                    sepiaMultiply: false, sepiaGain: 1,
+                    fadeMark: Color(red: 0.33, green: 0.33, blue: 0.38),
+                    fadeMarkGain: 1, warmthGain: 1.5,
+                    vignette: (0.12, 0.12, 0.16), vignetteGain: 1.2)
+            case .paperWhite:
+                return .init(
+                    stain: .dark, stainGain: 1.1,
+                    sepiaMultiply: true, sepiaGain: 1,
+                    fadeMark: Color(red: 0.98, green: 0.96, blue: 0.92),
+                    fadeMarkGain: 1, warmthGain: 1,
+                    vignette: (0.48, 0.32, 0.15), vignetteGain: 1)
+            case .paperKraft:
+                // 元から暖色なので暖色被せは弱め、染みは同系色で
+                // 沈みがちなため強め
+                return .init(
+                    stain: .dark, stainGain: 1.3,
+                    sepiaMultiply: true, sepiaGain: 0.8,
+                    fadeMark: Color(red: 0.84, green: 0.73, blue: 0.55),
+                    fadeMarkGain: 1, warmthGain: 0.7,
+                    vignette: (0.40, 0.24, 0.10), vignetteGain: 1)
+            case .paperRecycled:
+                return .init(
+                    stain: .dark, stainGain: 1,
+                    sepiaMultiply: true, sepiaGain: 1,
+                    fadeMark: Color(red: 0.88, green: 0.83, blue: 0.72),
+                    fadeMarkGain: 1, warmthGain: 1,
+                    vignette: (0.45, 0.29, 0.13), vignetteGain: 1)
+            case .paperNewsprint:
+                return .init(
+                    stain: .dark, stainGain: 1,
+                    sepiaMultiply: true, sepiaGain: 1,
+                    fadeMark: Color(red: 0.92, green: 0.89, blue: 0.81),
+                    fadeMarkGain: 1, warmthGain: 1,
+                    vignette: (0.46, 0.30, 0.14), vignetteGain: 1)
+            case .paperLaid:
+                return .init(
+                    stain: .dark, stainGain: 1,
+                    sepiaMultiply: true, sepiaGain: 1,
+                    fadeMark: Color(red: 0.96, green: 0.93, blue: 0.84),
+                    fadeMarkGain: 1, warmthGain: 1,
+                    vignette: (0.46, 0.30, 0.13), vignetteGain: 1)
+            case .paperCoated:
+                return .init(
+                    stain: .dark, stainGain: 1.1,
+                    sepiaMultiply: true, sepiaGain: 1,
+                    fadeMark: Color(red: 0.97, green: 0.95, blue: 0.90),
+                    fadeMarkGain: 1, warmthGain: 1,
+                    vignette: (0.48, 0.32, 0.15), vignetteGain: 1)
             }
         }
 
@@ -281,6 +371,41 @@ struct StoreShelfPlugin: ShelfPlugin {
                 step: 0.01,
                 defaultValue: Self.defaultFenceVariation
             )),
+            .slider(.init(
+                id: Param.warmth,
+                label: "Warm Light",
+                range: 0...1,
+                step: 0.01,
+                defaultValue: 0
+            )),
+            .slider(.init(
+                id: Param.sepia,
+                label: "Sepia Tint",
+                range: 0...1,
+                step: 0.01,
+                defaultValue: 0
+            )),
+            .slider(.init(
+                id: Param.stains,
+                label: "Stains",
+                range: 0...1,
+                step: 0.01,
+                defaultValue: 0
+            )),
+            .slider(.init(
+                id: Param.fadeMarks,
+                label: "Fade Marks",
+                range: 0...1,
+                step: 0.01,
+                defaultValue: 0
+            )),
+            .slider(.init(
+                id: Param.vignette,
+                label: "Vignette",
+                range: 0...1,
+                step: 0.01,
+                defaultValue: 0
+            )),
         ]
     }
 
@@ -288,12 +413,11 @@ struct StoreShelfPlugin: ShelfPlugin {
 
     func shelfBackdrop(context: ShelfStructureContext) -> AnyView? {
         let wall = resolvedWall(context: context)
-        // 背面なのでセルのヒット判定には影響しないが、空き領域への
-        // タップを壁が食わないよう保険を掛けておく
+        let backdrop: AnyView
         if let asset = wall.paperAsset {
             // 紙壁: 生成済みシームレスタイルを敷き詰め、その上に
             // 天井光(上が明るい)の薄い縦グラデーションを重ねる
-            return AnyView(
+            backdrop = AnyView(
                 Image(asset)
                     .resizable(resizingMode: .tile)
                     .overlay {
@@ -306,17 +430,201 @@ struct StoreShelfPlugin: ShelfPlugin {
                             endPoint: .bottom
                         )
                     }
-                    .allowsHitTesting(false)
+            )
+        } else {
+            backdrop = AnyView(
+                LinearGradient(
+                    gradient: wall.gradient,
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
             )
         }
+        let aging = resolvedAging(context: context)
+        logAppliedOnce(
+            wall: wall, board: resolvedBoard(context: context),
+            thickness: resolvedThickness(context: context),
+            fence: resolvedFenceHeight(context: context),
+            edge: resolvedFenceEdge(context: context),
+            variation: resolvedFenceVariation(context: context),
+            aging: aging, rows: context.gridRows)
+        guard !aging.isOff else {
+            return AnyView(backdrop.allowsHitTesting(false))
+        }
+        // 背面なのでセルのヒット判定には影響しないが、空き領域への
+        // タップを壁が食わないよう保険を掛けておく
         return AnyView(
+            backdrop
+                .overlay { agingLayers(aging, wall: wall, context: context) }
+                .allowsHitTesting(false)
+        )
+    }
+
+    /// 経年レイヤー群。壁の上に5要素を順に重ねる:
+    ///   暖色被せ → セピア → 染み → 日焼け残り → 周辺減光
+    /// 乗算したい要素(セピア・暗い染み・周辺減光)は必ずView修飾子
+    /// `.blendMode(.multiply)` の独立レイヤーにする。Canvas内の
+    /// `gc.blendMode` はCanvas自身のバッファ内でしか効かず、
+    /// 透明な下地へのmultiplyはsource-overと同義になるため、
+    /// 壁そのものへ掛けるにはView側のblendModeが必要。
+    /// 各要素の色・合成・強さは選択中のWallのAgingProfileで壁材に
+    /// 合わせる(暗い壁はmultiplyが効かないため加算系に切替)
+    @ViewBuilder
+    private func agingLayers(
+        _ a: Aging, wall: Wall, context: ShelfStructureContext
+    ) -> some View {
+        let p = wall.agingProfile
+        if a.warmth > 0 {
+            // 白熱灯: 上ほど強い琥珀色の被せ
             LinearGradient(
-                gradient: wall.gradient,
+                gradient: Gradient(colors: [
+                    Color(red: 1, green: 0.80, blue: 0.45)
+                        .opacity(0.28 * a.warmth * p.warmthGain),
+                    Color(red: 1, green: 0.76, blue: 0.42)
+                        .opacity(0.05 * a.warmth * p.warmthGain),
+                ]),
                 startPoint: .top,
                 endPoint: .bottom
             )
-            .allowsHitTesting(false)
-        )
+        }
+        if a.sepia > 0 {
+            let s = min(1, a.sepia * p.sepiaGain)
+            if p.sepiaMultiply {
+                Color(red: 0.93, green: 0.80, blue: 0.60)
+                    .opacity(s)
+                    .blendMode(.multiply)
+            } else {
+                // 暗い壁は乗算が効かないので暖色の加算被せにする
+                Color(red: 1, green: 0.72, blue: 0.40)
+                    .opacity(0.22 * s)
+            }
+        }
+        if a.stains > 0 {
+            stainsLayer(a, profile: p, context: context)
+        }
+        if a.fadeMarks > 0 {
+            fadeMarksLayer(a, profile: p, context: context)
+        }
+        if a.vignette > 0 {
+            vignetteLayer(a, profile: p)
+        }
+    }
+
+    /// 壁の染み: 面積比例の個数の、回転した楕円形の滲み
+    /// (放射グラデで縁を消す)。7割に小さな濃い芯を足す。
+    /// 位置・形状は決定論ハッシュで固定(再描画・再起動で変わらない)。
+    /// 明るい壁は暗い水染み(multiplyで紙の質感を残したまま沈める)、
+    /// 暗い壁は明るいかすれ/埃(normal合成の淡色)
+    private func stainsLayer(
+        _ a: Aging, profile p: AgingProfile, context: ShelfStructureContext
+    ) -> some View {
+        let dark = p.stain == .dark
+        let tone = dark
+            ? Color(red: 0.42, green: 0.30, blue: 0.15)
+            : Color(red: 0.68, green: 0.66, blue: 0.58)
+        let blobOpacity = a.stains * (dark ? 0.45 : 0.20) * p.stainGain
+        let coreOpacity = a.stains * (dark ? 0.35 : 0.15) * p.stainGain
+        let canvas = Canvas { gc, size in
+            guard size.width > 0, size.height > 0 else { return }
+            let cell2 = context.cellSize * context.cellSize
+            let count = max(3, min(8,
+                Int(size.width * size.height / cell2 * 0.22)))
+            for i in 0..<count {
+                let s = Double(i)
+                let cx = Self.hash01(s, salt: 3.1) * size.width
+                let cy = Self.hash01(s, salt: 7.9) * size.height
+                let rx = context.cellSize
+                    * (0.5 + Self.hash01(s, salt: 11.3) * 1.1)
+                let ry = rx * (0.55 + Self.hash01(s, salt: 17.7) * 0.6)
+                var t = gc
+                t.translateBy(x: cx, y: cy)
+                t.rotate(by: .degrees(
+                    (Self.hash01(s, salt: 23.5) - 0.5) * 80))
+                let blob = CGRect(
+                    x: -rx, y: -ry, width: rx * 2, height: ry * 2)
+                t.fill(Path(ellipseIn: blob), with: .radialGradient(
+                    Gradient(colors: [
+                        tone.opacity(min(1, blobOpacity)), .clear]),
+                    center: .zero, startRadius: 0, endRadius: ry))
+                if Self.hash01(s, salt: 31.9) < 0.7 {
+                    // 濃い芯: 染み内部のオフセット位置に小さな円
+                    let cr = ry * (0.25 + Self.hash01(s, salt: 37.3) * 0.3)
+                    let core = CGRect(
+                        x: (Self.hash01(s, salt: 41.7) - 0.5) * rx - cr,
+                        y: (Self.hash01(s, salt: 43.1) - 0.5) * ry - cr,
+                        width: cr * 2, height: cr * 2)
+                    t.fill(Path(ellipseIn: core), with: .radialGradient(
+                        Gradient(colors: [
+                            tone.opacity(min(1, coreOpacity)), .clear]),
+                        center: CGPoint(x: core.midX, y: core.midY),
+                        startRadius: 0, endRadius: cr))
+                }
+            }
+        }
+        return dark ? AnyView(canvas.blendMode(.multiply)) : AnyView(canvas)
+    }
+
+    /// 日焼け残り: レコードに守られた壁が周囲より明るく残る跡。
+    /// 全セル位置に「その壁の焼ける前の色」のぼかした矩形を敷く。
+    /// レコードのあるセルはジャケットで隠れるため「空きスロットの
+    /// 裏の壁だけ残った跡」として見える
+    private func fadeMarksLayer(
+        _ a: Aging, profile p: AgingProfile, context: ShelfStructureContext
+    ) -> some View {
+        let mark = p.fadeMark.opacity(
+            min(1, a.fadeMarks * 0.20 * p.fadeMarkGain))
+        let cell = context.cellSize
+        return Canvas { gc, size in
+            guard size.width > 0, size.height > 0 else { return }
+            gc.drawLayer { layer in
+                layer.addFilter(.blur(radius: 4))
+                for row in 0..<context.gridRows {
+                    for col in 0..<context.gridColumns {
+                        let rect = CGRect(
+                            x: context.edgePadding + CGFloat(col)
+                                * (cell + context.columnSpacing) + 1.5,
+                            y: context.topPadding + CGFloat(row)
+                                * (cell + context.rowSpacing) + 1.5,
+                            width: cell - 3, height: cell - 3)
+                        layer.fill(
+                            Path(roundedRect: rect, cornerRadius: 3),
+                            with: .color(mark))
+                    }
+                }
+            }
+        }
+    }
+
+    /// 周辺減光: 四辺からの帯をぼかした内側影(even-odd fillで
+    /// 中央をくり抜いたリングをぼかす)。中央は一切触らず四辺の
+    /// 帯と角だけを暗くする。multiplyはビュー側で掛けて自己完結
+    /// させる(帯色は乗算前提の色設計なので、付け忘れると
+    /// 不透明の帯として描かれてしまう)。帯の下の壁テクスチャは
+    /// 残ったまま沈む(全面ベールでテクスチャが消えた問題の対策
+    /// 2026-11-03)
+    private func vignetteLayer(_ a: Aging, profile p: AgingProfile) -> some View {
+        let k = min(1, a.vignette * p.vignetteGain)
+        return Canvas { gc, size in
+            guard size.width > 0, size.height > 0 else { return }
+            let frame = CGRect(origin: .zero, size: size)
+            let inset = min(size.width, size.height) * 0.14
+            var ring = Path()
+            ring.addRect(frame)
+            ring.addRoundedRect(
+                in: frame.insetBy(dx: inset, dy: inset),
+                cornerSize: CGSize(width: inset, height: inset))
+            gc.drawLayer { layer in
+                layer.addFilter(.blur(radius: inset * 0.55))
+                layer.fill(
+                    ring,
+                    with: .color(Color(
+                        red: 1 - (1 - p.vignette.r) * k,
+                        green: 1 - (1 - p.vignette.g) * k,
+                        blue: 1 - (1 - p.vignette.b) * k)),
+                    style: FillStyle(eoFill: true))
+            }
+        }
+        .blendMode(.multiply)
     }
 
     // MARK: - (f) グリッド前面(棚板+前柵)
@@ -339,10 +647,6 @@ struct StoreShelfPlugin: ShelfPlugin {
                 + CGFloat(r) * context.rowSpacing
         }
         let lastGap = max(0, context.edgePadding - t)
-        logAppliedOnce(
-            wall: resolvedWall(context: context), board: board,
-            thickness: t, fence: fenceRatio, edge: fenceEdge,
-            variation: fenceVar, rows: context.gridRows)
 
         return AnyView(
             Canvas { gc, size in
@@ -596,12 +900,68 @@ struct StoreShelfPlugin: ShelfPlugin {
         return v - v.rounded(.down)
     }
 
+    /// 任意シードの決定論疑似乱数(0〜1)。rowHashと同じsinハッシュ。
+    /// 染みの位置・サイズ・回転のようにインデックス以外の連続シード
+    /// から値を取る場面で使う
+    private static func hash01(_ seed: Double, salt: Double) -> Double {
+        let v = sin(seed * 127.1 + salt * 311.7) * 43758.5453
+        return v - v.rounded(.down)
+    }
+
     /// 前柵(アクリル板)の見え方の強さ(0〜1)。上端エッジの
     /// opacityそのもの。本体(透明度)・映り込み・下端/左右端・
     /// コーナー集光は固定比率で連動する
     private func resolvedFenceEdge(context: ShelfStructureContext) -> Double {
         min(1, max(0,
             context.number(Param.fenceEdge, default: Self.defaultFenceEdge)))
+    }
+
+    /// 経年表現の壁ごとの効き方(Wall.agingProfileで壁が定義)
+    private struct AgingProfile {
+        /// 染みの見え方。暗い壁に暗い染みは沈むので明るいかすれにする
+        enum Stain { case dark, light }
+        var stain: Stain
+        /// 染みの強さ係数
+        var stainGain: Double
+        /// セピアを乗算で掛けるか。暗い壁は乗算が効かないので
+        /// false にして暖色加算へ切り替える
+        var sepiaMultiply: Bool
+        var sepiaGain: Double
+        /// 日焼け残りの色=その壁の「焼ける前」の色
+        var fadeMark: Color
+        var fadeMarkGain: Double
+        /// 暖色被せの強さ係数
+        var warmthGain: Double
+        /// ビネット角の乗算色(v=1のときのRGB)と強さ係数
+        var vignette: (r: Double, g: Double, b: Double)
+        var vignetteGain: Double
+    }
+
+    /// 経年パラメータの解決済み値(各0-1)。全て0なら経年なし
+    private struct Aging {
+        /// 白熱灯の暖色被せ
+        var warmth = 0.0
+        /// セピア乗算
+        var sepia = 0.0
+        /// 壁の染み
+        var stains = 0.0
+        /// 日焼け残り(レコードに守られた明るい跡)
+        var fadeMarks = 0.0
+        /// 周辺減光
+        var vignette = 0.0
+        var isOff: Bool {
+            warmth + sepia + stains + fadeMarks + vignette <= 0
+        }
+    }
+
+    private func resolvedAging(context: ShelfStructureContext) -> Aging {
+        var a = Aging()
+        a.warmth = min(1, max(0, context.number(Param.warmth, default: 0)))
+        a.sepia = min(1, max(0, context.number(Param.sepia, default: 0)))
+        a.stains = min(1, max(0, context.number(Param.stains, default: 0)))
+        a.fadeMarks = min(1, max(0, context.number(Param.fadeMarks, default: 0)))
+        a.vignette = min(1, max(0, context.number(Param.vignette, default: 0)))
+        return a
     }
 
     private func resolvedWall(context: ShelfStructureContext) -> Wall {
@@ -620,9 +980,9 @@ struct StoreShelfPlugin: ShelfPlugin {
     private static var didLogApplied = false
     private func logAppliedOnce(wall: Wall, board: Board, thickness: CGFloat,
                                 fence: Double, edge: Double, variation: Double,
-                                rows: Int) {
+                                aging: Aging, rows: Int) {
         guard !Self.didLogApplied else { return }
         Self.didLogApplied = true
-        Self.logger.notice("store-shelf applied: wall=\(wall.rawValue, privacy: .public) board=\(board.rawValue, privacy: .public) thickness=\(thickness, privacy: .public) fence=\(fence, privacy: .public) edge=\(edge, privacy: .public) variation=\(variation, privacy: .public) rows=\(rows, privacy: .public)")
+        Self.logger.notice("store-shelf applied: wall=\(wall.rawValue, privacy: .public) board=\(board.rawValue, privacy: .public) thickness=\(thickness, privacy: .public) fence=\(fence, privacy: .public) edge=\(edge, privacy: .public) variation=\(variation, privacy: .public) aging=[warmth=\(aging.warmth, privacy: .public) sepia=\(aging.sepia, privacy: .public) stains=\(aging.stains, privacy: .public) fadeMarks=\(aging.fadeMarks, privacy: .public) vignette=\(aging.vignette, privacy: .public)] rows=\(rows, privacy: .public)")
     }
 }
