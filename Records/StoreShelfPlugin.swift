@@ -348,7 +348,7 @@ struct StoreShelfPlugin: ShelfPlugin {
             .slider(.init(
                 id: Param.boardThickness,
                 label: "Board Thickness",
-                range: 4...10,
+                range: 4...20,
                 step: 1,
                 defaultValue: Self.defaultBoardThickness
             )),
