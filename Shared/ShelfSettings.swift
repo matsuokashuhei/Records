@@ -12,6 +12,23 @@ struct ShelfSettings: Codable, Equatable {
     /// 列数/行数それぞれの選択上限
     static let maxDimension = 10
 
+    /// グリッドの間隔の既定値とスライダーの許容範囲。
+    /// columnSpacing=レコード同士の横の隙間、rowSpacing=シェルフ段の縦の隙間
+    static let defaultColumnSpacing: Double = 12
+    static let defaultRowSpacing: Double = 14
+    static let columnSpacingRange: ClosedRange<Double> = 0...64
+    static let rowSpacingRange: ClosedRange<Double> = 0...96
+
+    /// グリッド外周の余白の既定値とスライダーの許容範囲。
+    /// edgePadding=左右・下端、topPadding=上端。
+    /// topPaddingの下限は4: ShelfViewは上端に高さtopPaddingの透明な
+    /// WindowDragGesture帯を敷いており、0だとウィンドウを動かせなくなる
+    /// (タイトルバー非表示のため)
+    static let defaultEdgePadding: Double = 8
+    static let defaultTopPadding: Double = 8
+    static let edgePaddingRange: ClosedRange<Double> = 0...64
+    static let topPaddingRange: ClosedRange<Double> = 4...96
+
     /// 旧settings.jsonの登録枚数(capacity)を列×行へ変換するための退避表。
     /// 新フォーマットはcolumns/rowsを直接持つ。
     private static let legacyLayouts: [Int: (columns: Int, rows: Int)] = [
@@ -55,6 +72,14 @@ struct ShelfSettings: Codable, Equatable {
     /// デコード時は空辞書(=全プラグイン無効・デフォルト値)に倒す
     /// (Codable後方互換)。モデルは Shared/ShelfPluginModel.swift。
     var plugins: [String: PluginState]
+    /// レコード同士の横の隙間(pt)。スライダーで調整可能
+    var columnSpacing: Double
+    /// シェルフ段同士の縦の隙間(pt)。スライダーで調整可能
+    var rowSpacing: Double
+    /// グリッド外周の余白のうち左右・下端(pt)。スライダーで調整可能
+    var edgePadding: Double
+    /// グリッド外周の余白のうち上端(pt)。スライダーで調整可能
+    var topPadding: Double
 
     /// 表示スロット数(列×行)
     var capacity: Int { columns * rows }
@@ -81,15 +106,29 @@ struct ShelfSettings: Codable, Equatable {
 
     private enum CodingKeys: String, CodingKey {
         case columns, rows, artworkSize, plugins
+        case columnSpacing, rowSpacing
+        case edgePadding, topPadding
         case legacyCapacity = "capacity"
     }
 
     init(columns: Int, rows: Int, artworkSize: ArtworkSize,
-         plugins: [String: PluginState] = [:]) {
+         plugins: [String: PluginState] = [:],
+         columnSpacing: Double = Self.defaultColumnSpacing,
+         rowSpacing: Double = Self.defaultRowSpacing,
+         edgePadding: Double = Self.defaultEdgePadding,
+         topPadding: Double = Self.defaultTopPadding) {
         self.columns = min(max(columns, 1), Self.maxDimension)
         self.rows = min(max(rows, 1), Self.maxDimension)
         self.artworkSize = artworkSize
         self.plugins = plugins
+        self.columnSpacing = min(max(columnSpacing, Self.columnSpacingRange.lowerBound),
+                                 Self.columnSpacingRange.upperBound)
+        self.rowSpacing = min(max(rowSpacing, Self.rowSpacingRange.lowerBound),
+                              Self.rowSpacingRange.upperBound)
+        self.edgePadding = min(max(edgePadding, Self.edgePaddingRange.lowerBound),
+                               Self.edgePaddingRange.upperBound)
+        self.topPadding = min(max(topPadding, Self.topPaddingRange.lowerBound),
+                              Self.topPaddingRange.upperBound)
     }
 
     init(from decoder: Decoder) throws {
@@ -99,6 +138,16 @@ struct ShelfSettings: Codable, Equatable {
         // (=全プラグイン無効・デフォルト値)。壊れた辞書でも落ちないよう
         // try? で空へ倒す
         let plugins = (try? c.decode([String: PluginState].self, forKey: .plugins)) ?? [:]
+        // 新キー "columnSpacing"/"rowSpacing": 既存settings.jsonには無いので
+        // 省略時は既定値。initで範囲にクランプされる
+        let columnSpacing = (try? c.decode(Double.self, forKey: .columnSpacing))
+            ?? Self.defaultColumnSpacing
+        let rowSpacing = (try? c.decode(Double.self, forKey: .rowSpacing))
+            ?? Self.defaultRowSpacing
+        let edgePadding = (try? c.decode(Double.self, forKey: .edgePadding))
+            ?? Self.defaultEdgePadding
+        let topPadding = (try? c.decode(Double.self, forKey: .topPadding))
+            ?? Self.defaultTopPadding
         let columns = try? c.decode(Int.self, forKey: .columns)
         let rows = try? c.decode(Int.self, forKey: .rows)
         if columns != nil || rows != nil {
@@ -111,13 +160,20 @@ struct ShelfSettings: Codable, Equatable {
                 columns: columns ?? Self.default.columns,
                 rows: rows ?? Self.default.rows,
                 artworkSize: size,
-                plugins: plugins
+                plugins: plugins,
+                columnSpacing: columnSpacing,
+                rowSpacing: rowSpacing,
+                edgePadding: edgePadding,
+                topPadding: topPadding
             )
         } else {
             // 旧フォーマット(capacity: 6/12/20)からの移行
             let legacy = (try? c.decode(Int.self, forKey: .legacyCapacity)) ?? 20
             let layout = Self.legacyLayouts[legacy] ?? (5, 4)
-            self.init(columns: layout.columns, rows: layout.rows, artworkSize: size, plugins: plugins)
+            self.init(columns: layout.columns, rows: layout.rows, artworkSize: size,
+                      plugins: plugins, columnSpacing: columnSpacing,
+                      rowSpacing: rowSpacing, edgePadding: edgePadding,
+                      topPadding: topPadding)
         }
     }
 
@@ -130,6 +186,10 @@ struct ShelfSettings: Codable, Equatable {
         try c.encode(artworkSize, forKey: .artworkSize)
         // 常に書き出す。空なら "plugins":{} となり、読み戻しも空で一致する
         try c.encode(plugins, forKey: .plugins)
+        try c.encode(columnSpacing, forKey: .columnSpacing)
+        try c.encode(rowSpacing, forKey: .rowSpacing)
+        try c.encode(edgePadding, forKey: .edgePadding)
+        try c.encode(topPadding, forKey: .topPadding)
     }
 
     /// 設定はシェルフごとに Shelves/<shelfID>/settings.json に保存する
@@ -141,7 +201,7 @@ struct ShelfSettings: Codable, Equatable {
         do {
             let data = try Data(contentsOf: fileURL(shelfID: shelfID))
             let settings = try JSONDecoder().decode(ShelfSettings.self, from: data)
-            logger.notice("settings.json loaded (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
+            logger.notice("settings.json loaded (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
             return settings
         } catch {
             // 初回起動やファイル破損時は既定値。読めなくても既定値で動作継続する。
@@ -154,7 +214,7 @@ struct ShelfSettings: Codable, Equatable {
         do {
             let data = try JSONEncoder().encode(settings)
             try data.write(to: fileURL(shelfID: shelfID), options: .atomic)
-            logger.notice("settings.json saved (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
+            logger.notice("settings.json saved (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
         } catch {
             logger.error("settings.json save failed: \(error.localizedDescription, privacy: .public)")
         }
