@@ -26,8 +26,17 @@ final class ShelfStore: ObservableObject {
     @Published private(set) var artworkRevision = 0
 
     /// 現在の設定での表示スロット数(列×行)。entries自体はこれを超えて保持しうる
-    /// (縮小しても登録は消さず、先頭からcapacity分だけ表示する)。
+    /// (縮小しても登録は消さず、slotIndex >= capacityのものは非表示になるだけ。
+    ///  グリッドを広げれば同じスロット位置に再び見える)。
     var capacity: Int { settings.capacity }
+
+    /// 表示範囲[0, capacity)の先頭の空きスロット。無ければnil(=満杯)。
+    /// 「満杯」の判定はentries.countではなくこれで行う —
+    /// slotIndex >= capacity の非表示エントリが居ても、表示上の
+    /// 空きスロットがある限り追加を受理するため
+    var firstEmptySlot: Int? {
+        ShelfPlacement.firstEmptySlot(entries: entries, capacity: capacity)
+    }
 
     /// デコード済みジャケット画像のキャッシュ(entry.id → NSImage)。
     /// セルの body が走るたびに同期ディスク読み込み+デコードしないためのもの。
@@ -40,7 +49,16 @@ final class ShelfStore: ObservableObject {
         let loadedSettings = ShelfSettings.loadFromDisk(shelfID: shelfID)
         settings = loadedSettings
         persistedSettings = loadedSettings
-        entries = Self.readFromDisk(shelfID: shelfID)
+        // 読み込み時にslotIndexを正規化する(自由配置マイグレーション):
+        // 旧フォーマット(キー無し=-1)・重複・衝突はファイル順のまま先頭の
+        // 空きスロットへ割り当て、slotIndex昇順に並べる。
+        // 変更があった場合だけalbums.jsonを即座に保存する
+        let normalized = ShelfPlacement.normalized(Self.readFromDisk(shelfID: shelfID))
+        entries = normalized.entries
+        if normalized.changed {
+            Self.logger.notice("slotIndex normalized: shelf=\(shelfID, privacy: .public) entries=\(self.entries.count, privacy: .public) slots=\(self.entries.map(\.slotIndex).description, privacy: .public) — migrated albums.json saved")
+            save()
+        }
         ensureArtworkDownloaded()
     }
 
@@ -160,68 +178,94 @@ final class ShelfStore: ObservableObject {
 
     /// parse済みのURL/IDから カタログ取得→アートワーク取得→登録 までを
     /// まとめて行う。重複はfetch前に弾いて無駄なカタログアクセスを避ける。
-    /// insertAtを渡すと末尾ではなくその位置に挿入する(ドロップ位置への
+    /// atSlotを渡すと先頭の空きではなくそのスロットへ挿入する(ドロップ位置への
     /// 直接挿入。append→moveだと末尾に一瞬出てから滑るのが見えるため)
-    func addFromCatalog(_ parsed: MediaURLParser.Parsed, insertAt index: Int? = nil) async throws -> AddOutcome {
+    func addFromCatalog(_ parsed: MediaURLParser.Parsed, atSlot s: Int? = nil) async throws -> AddOutcome {
         guard !contains(parsed.id) else {
             Self.logger.notice("addFromCatalog: duplicate id=\(parsed.id, privacy: .public)")
             return .duplicate
         }
-        // 満杯もfetch前に弾く(失敗するとfetch+アートワークDLが無駄になり、
+        // 満杯=「[0, capacity)に空きスロットが無い」。entries.countではなく
+        // 空きスロットの有無で判定する(非表示エントリが居ても空きがあれば追加可)。
+        // fetch前に弾く(失敗するとfetch+アートワークDLが無駄になり、
         // 登録されない孤立jpgがArtwork/に残る)
-        guard entries.count < capacity else {
-            Self.logger.notice("addFromCatalog: shelf full capacity=\(self.capacity, privacy: .public) id=\(parsed.id, privacy: .public)")
+        guard firstEmptySlot != nil else {
+            Self.logger.notice("addFromCatalog: shelf full (no empty slot) capacity=\(self.capacity, privacy: .public) id=\(parsed.id, privacy: .public)")
             return .full
         }
         let entry = try await MediaCatalogClient.fetch(parsed)
         Self.logger.notice("addFromCatalog: fetched '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
         _ = try await Self.downloadArtwork(for: entry)
-        return registerFetched(entry, insertAt: index)
+        return registerFetched(entry, atSlot: s)
     }
 
     /// 取得済みエントリの最終登録(重複/満杯の再判定→挿入→保存)。
     /// ドロップのプリフェッチ経路など、fetch済みのentryを直接登録する
-    /// ときに使う。indexは挿入位置(nil/範囲外=末尾)。
+    /// ときに使う。atSlotは挿入先スロット(nil=先頭の空きスロット)。
+    /// 対象スロットが占有済みならShelfPlacement.insertionShiftが
+    /// 連続ランを左右どちらかへずらしてスロットを空ける。
     /// fetch待ちの間に同じIDが追加されたり満杯になったりする場合が
     /// あるので、ここで必ず再判定する。
-    func registerFetched(_ entry: MediaEntry, insertAt index: Int? = nil) -> AddOutcome {
+    /// なおinsertionShiftのずらしは常に[0, capacity)内で完結する
+    /// (右シフトはb+1 < capacityが条件なので、占有エントリが
+    /// capacity超へ押し出されることはない。仮に押し出す変更を入れても、
+    /// 押し出されるのは既存エントリであり slotIndex >= capacity の
+    /// 「登録保持・非表示」ルールで扱える)
+    func registerFetched(_ entry: MediaEntry, atSlot s: Int? = nil) -> AddOutcome {
         guard !contains(entry.id) else {
             Self.logger.notice("registerFetched: duplicate id=\(entry.id, privacy: .public)")
             return .duplicate
         }
-        guard entries.count < capacity else {
-            Self.logger.notice("registerFetched: shelf full capacity=\(self.capacity, privacy: .public) id=\(entry.id, privacy: .public)")
+        // 満杯=「[0, capacity)に空きスロットが無い」。entries.countでは
+        // 判定しない — 非表示エントリが居ても、atSlotが範囲内の空き
+        // (またはその他の空き)を指していればcount >= capacityでも受理する
+        guard firstEmptySlot != nil else {
+            Self.logger.notice("registerFetched: shelf full (no empty slot) capacity=\(self.capacity, privacy: .public) id=\(entry.id, privacy: .public)")
             return .full
         }
-        let i = min(max(index ?? entries.count, 0), entries.count)
-        entries.insert(entry, at: i)
-        save()
-        Self.logger.notice("registerFetched: added '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public) at=\(i, privacy: .public)")
-        return .added(entry)
-    }
-
-    /// ドラッグ&ドロップの並び替え。rawIndexは除去前の並びでの挿入位置
-    /// (レコードのセルなら左半分=index、右半分=index+1、空きはそのindex)。
-    /// 除去によるずれをresolvedInsertionIndexで吸収し、albums.jsonに保存する。
-    func move(_ id: String, toIndex rawIndex: Int) {
-        guard let from = entries.firstIndex(where: { $0.id == id }) else {
-            Self.logger.error("reorder failed: id=\(id, privacy: .public) not found")
-            return
+        // 指定が範囲外なら先頭の空きスロットに倒す
+        let target = (s != nil && s! >= 0 && s! < capacity) ? s : firstEmptySlot
+        guard let target,
+              let result = ShelfPlacement.insertionShift(
+                  entries: entries, inserting: entry, at: target, capacity: capacity
+              ) else {
+            // 空きがあれば必ず挿入できるはず。到達不能だが防御的に
+            Self.logger.error("registerFetched: no insertable slot id=\(entry.id, privacy: .public) requested=\(s ?? -1, privacy: .public) capacity=\(self.capacity, privacy: .public)")
+            return .full
         }
-        let to = Self.resolvedInsertionIndex(from: from, rawIndex: rawIndex, count: entries.count)
-        guard from != to else { return }
-        let entry = entries.remove(at: from)
-        entries.insert(entry, at: to)
-        Self.logger.notice("entry moved: '\(entry.title, privacy: .public)' \(from, privacy: .public)→\(to, privacy: .public)")
+        let oldSlots = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0.slotIndex) })
+        entries = result
+        for e in entries {
+            if e.id == entry.id {
+                Self.logger.notice("registerFetched: added '\(e.title, privacy: .public)' id=\(e.id, privacy: .public) slot=\(e.slotIndex, privacy: .public) shelf=\(self.shelfID, privacy: .public)")
+            } else if let old = oldSlots[e.id], old != e.slotIndex {
+                Self.logger.notice("entry shifted by insert: '\(e.title, privacy: .public)' \(old, privacy: .public)→\(e.slotIndex, privacy: .public)")
+            }
+        }
         save()
+        return .added(entries.first(where: { $0.id == entry.id }) ?? entry)
     }
 
-    /// rawIndex(除去前の並びでの挿入位置)を除去後のindexに換算する。
-    /// ドロップで実際に順番が変わるかの事前判定にも使う(=fromなら変化なし)。
-    nonisolated static func resolvedInsertionIndex(from: Int, rawIndex: Int, count: Int) -> Int {
-        var to = min(max(rawIndex, 0), count)
-        if from < to { to -= 1 }
-        return to
+    /// シミュレート済みの配置結果(ShelfPlacement.place/reorder/
+    /// insertionShiftの返り値。slotIndex昇順)をそのまま確定する。
+    /// ドロップの着地時に遅延適用するためのもの — perform時点で
+    /// entriesを変えると、ずれ込むレコードが着地フライ中に見えて
+    /// ゴーストと2個表示されるため(2026-11-03報告)。
+    /// 変化のあったエントリをログに出してalbums.jsonに保存する
+    func applyPlacement(_ result: [MediaEntry]) {
+        guard result != entries else { return }
+        let oldSlots = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0.slotIndex) })
+        entries = result
+        for e in entries {
+            if let old = oldSlots[e.id] {
+                if old != e.slotIndex {
+                    Self.logger.notice("entry moved: '\(e.title, privacy: .public)' \(old, privacy: .public)→\(e.slotIndex, privacy: .public)")
+                }
+            } else {
+                Self.logger.notice("entry added by landing: '\(e.title, privacy: .public)' id=\(e.id, privacy: .public) slot=\(e.slotIndex, privacy: .public)")
+            }
+        }
+        save()
     }
 
     func remove(_ id: String) {
@@ -286,12 +330,12 @@ final class ShelfStore: ObservableObject {
 
     // MARK: - 表示用
 
-    /// 常に設定枚数分のスロットに満たす。空きは nil。
-    /// entriesがcapacityを超えていても先頭capacity件のみ返す(登録自体は保持)。
+    /// 常に設定枚数分のスロットを返す。空きは nil。
+    /// 自由配置モデル: slotIndexがそのままスロット位置になるので、
+    /// 途中に空きがあってもよい。slotIndex >= capacityのエントリは
+    /// 登録を保持したままここには現れない(非表示)
     func paddedSlots() -> [MediaEntry?] {
-        var slots: [MediaEntry?] = entries
-        while slots.count < capacity { slots.append(nil) }
-        return Array(slots.prefix(capacity))
+        ShelfPlacement.paddedSlots(entries, capacity: capacity)
     }
 
     // MARK: - アートワーク

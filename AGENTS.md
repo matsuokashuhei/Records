@@ -79,11 +79,59 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   競合してレコード上で開かないため、`NSEvent.addLocalMonitorForEvents`で
   右クリックを拾ってNSMenuを出す(下の「右上ツールバーと右クリックメニュー」参照)。
   確認アラートを経て削除する(実機確認済み)
-- レコードの並び替えはドラッグ&ドロップ。`.onDrag`(開始時にdraggedID記録)
-  + 各セル背面の左右半分に分けた `.dropDestination(for: String.self)` ゾーン
-  (左=直前、右=直後に挿入、空きスロットは末尾移動)。
-  半透明表示(dropTargetOpacity)はisTargeted && willMove(実際に順番が変わる半分)のみ。
-  `ShelfStore.move(_:toIndex:)` がalbums.jsonを更新。
+- **レコードの配置は自由配置(スパース)モデル**(2026-11-03)。各MediaEntryが
+  永続化プロパティ `slotIndex`(0始まりの行優先index、albums.jsonに保存、
+  デフォルト-1=未配置)を持ち、その値がそのままグリッド位置になる。
+  途中に空きスロットがあってよい。旧フォーマット(キー無し)・重複・
+  衝突は読み込み時に `ShelfPlacement.normalized` がファイル順のまま
+  先頭の空きスロットへ割り当て(=旧密配置と同じ見え方)、変更があった
+  場合だけalbums.jsonへ即座に保存する。entries配列は常にslotIndex昇順。
+  スロット計算の純ロジックは `Shared/MediaEntry.swift` の
+  `enum ShelfPlacement`(normalized/paddedSlots/firstEmptySlot/place/
+  reorder/insertionShift/slotCenter/nearestEmptySlot)に集約し、
+  RecordsTestsから直接テストしている。
+  - slotIndex >= capacityのエントリは登録を保持したまま非表示
+    (「縮小しても登録は消さない」セマンティクス。グリッドを広げれば
+    同じスロット位置に再び現れる)。
+    ※indexは行優先の通し番号なので、**列数(columns)を変えると同じ
+      slotIndexが別のグリッド位置へ再解釈され配置がリフローする**。
+      行数(rows)の変更はcapacityの増減で、スロット位置は維持されて
+      表示/非表示の枚数だけが変わる
+  - **「満杯」は「[0, capacity)に空きスロットが無い」で判定する**
+    (`ShelfStore.firstEmptySlot` → `ShelfPlacement.firstEmptySlot`。
+     entries.countではない — 非表示エントリが居ても表示上の空きが
+     あれば追加を受理する)
+- レコードの移動はドラッグ&ドロップ。`.onDrag`(開始時にdraggedID記録)
+  + 各セル背面の左右半分に分けた `.dropDestination(for: String.self)` ゾーン。
+  - 空きスロット上: 左右どちらの半分でも `ShelfPlacement.place` で
+    そのスロットに配置(他のレコードは一切動かない)。
+  - 占有セル上: 左=直前/右=直後の順序位置への挿入として
+    `ShelfPlacement.reorder` がスライド再割当てする
+    (占有順序Eと占有スロット位置集合P(不変)を使い、Eからドラッグを
+    外して対象の直前/直後へ挿入後、順序i番目へP[i]を再割当て。
+    間のレコードが1スロットずつスライドし、ギャップの向こうや
+    非表示エントリは動かない。密配置では旧moveと一致)
+  - perform/transferDropはこれらを**シミュレートだけ**呼び、
+    確定は着地時の `ShelfStore.applyPlacement(_:)`(差分ログ+save)
+    — 遅延確定の理由は上のゴースト項参照。着地時はその時点の
+    entriesへ再シミュレートする(飛行中のentries変化で結果を
+    消し飛ばさないため)
+  - 半透明表示(dropTargetOpacity)はisTargeted && willMoveのみ
+    (空きスロット=slotIndexが変わる場合、占有セル=reorderを
+    シミュレートして変化が出る半分のみ)。isTargeted(false)では
+    シミュレーションを走らせず、その半分がセットした分だけ消す
+    (dropTargetAfterで左右の区別を記録。同一スロットの半分間の
+    移動でハイライトが瞬断しない)
+  - 新規レコード(外部テキスト/URL。シェルフ間転送は上の着地確定項参照)の挿入:
+    `registerFetched(atSlot:)` → `ShelfPlacement.insertionShift`。
+    挿入スロットsは占有セルの左半分=index、右半分=index+1
+    (s >= capacityなら最近傍空きスロットへ流す)。s空き=そのまま配置、
+    s占有=連続占有ラン[a,b]を右(+1、要b+1 < capacity)か左(-1、
+    要a>0)へずらして新規をsへ。余白ドロップは
+    `ShelfPlacement.nearestEmptySlot`(ドロップ位置に最も近い空き
+    スロット中心とのユークリッド距離)で着地先を決める
+  - fetch待ちの半透明は `pendingAddSlot`(スロットindex)で管理
+    (着地予定位置そのものをマークする)
   ドラッグ表示は自前ゴースト(GhostPanel=枠なし透明パネル)に一本化。
   **ウィンドウ内のNSViewオーバーレイだとポインタがウィンドウ外へ
   出た瞬間にクリップされてレコードが消える**ため、画面座標で自由に
@@ -109,7 +157,14 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
     (ロード中にドロップ成立していたらshowしない)と、flyGhostの
     completion(飛行中にtakeOverされていたらhideしない)。どちらも
     `ghost.owner == nil || == shelfID`で判定する
-  - ドラッグ元セルはdraggedID/ghostEntryIDの間はopacity 0で非表示
+  - ドラッグ元セルはdraggedID/ghostEntryIDの間はopacity 0で非表示。
+    **並び替え/配置の確定は着地時に遅らせる**: perform時点でentriesを
+    変えると、ずれ込むレコードが着地フライ中に見えてゴーストと2個
+    表示される(2026-11-03報告)。performはShelfPlacement.reorder/place/
+    insertionShiftをシミュレートするだけで着地スロットを決め、
+    flyGhostのonLandedでstore.applyPlacementで確定する
+    (シェルフ間転送も同じ: 着地でapplyPlacement+元シェルフremove。
+    先に消すと失敗時にどちらにも無い状態になりうる)
   - 追従: leftMouseDraggedはドラッグセッションに吸収されてモニタに
     届かないので、60fpsタイマーでNSEvent.mouseLocationをポーリング
     (.commonモード登録)。パネルのframeを命令的に動かす
@@ -277,11 +332,14 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   .onAppearで+1、.onDisappearで-1、0で停止)
 - シェルフ間ドラッグ: ペーストボードに`ShelfDragPayload`
   (sourceShelfID+MediaEntryのJSON)を載せる。ドロップ先でdecodeし、
-  同じシェルフなら並び替え(move)、別シェルフならtransferDrop
-  (registerFetchedで挿入→成功後に元シェルフからremove。先に消すと
-  失敗時にレコードが消える)。重複/満杯はfalseで拒否=元に残る。
-  元ウィンドウのゴースト/draggedIDは、終了検知モニタがentriesから
-  消えたことを見てhide(滑り戻し不要)で片付く
+  同じシェルフなら配置/並び替え(ShelfPlacement.place/reorderの
+  シミュレート→着地でapplyPlacement)、別シェルフならtransferDrop
+  (insertionShiftシミュレート→着地でapplyPlacement+元シェルフremove。
+  先に消すと失敗時にレコードが消える)。重複/満杯はfalseで拒否=元に残る。
+  元ウィンドウのゴースト/draggedIDは、終了検知モニタがゴーストの
+  所有権移譲を見て「移動済み」と片付く(※entries所属ではなく
+  `ghost.owner`で判定する — 着地removeまで元entriesに残っているため
+  entries判定だとキャンセルと誤認してフライバックを上書きする)
 - **透明ガラス領域は合成クリックが素通りする**(実測): NSGlassEffectView
   だけの余白/空きスロットへのCGEvent右クリックは背面アプリに届くことが
   ある。検証時は不透明なレコード画像か、ウィンドウをAXRaiseしてから
