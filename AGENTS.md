@@ -151,7 +151,13 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
 
 ## ウィンドウの余白と信号ボタン(2026-10-25 実装・実機検証済み)
 
-- グリッドの余白は**四辺8pt**。コンテンツは `.ignoresSafeArea()` で
+- グリッドの余白は**シェルフごとの設定値**(2026-11-03から調整可能。
+  settings.jsonの `edgePadding`=左右・下端(既定8、0〜64)、
+  `topPadding`=上端(既定8、4〜96 — 下限制限は下の
+  WindowDragGesture 確保のため)。列間隔 `columnSpacing`(既定12、
+  0〜64)と行間隔 `rowSpacing`(既定14、0〜96)も同じくシェルフごとの
+  設定値で、Settings画面のスライダーでtransient更新+400msデバウンスで
+  永続化する)。コンテンツは `.ignoresSafeArea()` で
   タイトルバー帯(32pt)の下=ウィンドウ上端まで広げ、信号ボタン
   (閉じる/最小化)はMusicアプリのミニプレーヤーと同じく
   1枚目のジャケットの上に重なる
@@ -167,7 +173,9 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   ジャケット上の帯でもSwiftUIのホスティングビューが返る)。信号ボタン上は
   `_NSThemeCloseWidget` 等が返るのでボタンも押せる
 - コンテンツが上端まで来るとAppKitのタイトルバードラッグ領域が無くなるため、
-  上辺の8pt余白に `WindowDragGesture` を置いてウィンドウ移動を確保している
+  上辺の余白(`settings.topPadding`)に `WindowDragGesture` を置いて
+  ウィンドウ移動を確保している(topPaddingの下限4ptはこのストリップを
+  残すため)
 - `slotScreenCenter` のグリッド→画面座標変換からタイトルバー帯の控除は不要
   (グリッド上端=ウィンドウ上端)
 

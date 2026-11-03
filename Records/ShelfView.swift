@@ -266,13 +266,11 @@ struct ShelfView: View {
         PlaybackMonitor.shared.stopIfActiveEntryHidden()
     }
 
-    // グリッドの間隔はstore.settings.columnSpacing/rowSpacing(ユーザーが
-    // 設定画面のスライダーで変更可能)から毎回読む。余白は固定値で、
-    // ウィンドウサイズはこれらと設定値から厳密に計算する。
-    // 四辺すべて同じ余白。コンテンツはignoresSafeAreaでウィンドウ上端まで
-    // 広がっている(信号ボタンはMusicアプリ同様にコンテンツの上へ重なる)
-    private static let edgePadding: CGFloat = 8
-    private static let topPadding: CGFloat = 8
+    // グリッドの間隔と余白はstore.settingsのcolumnSpacing/rowSpacing/
+    // edgePadding/topPadding(ユーザーが設定画面のスライダーで変更可能)
+    // から毎回読む。ウィンドウサイズはこれらと設定値から厳密に計算する。
+    // コンテンツはignoresSafeAreaでウィンドウ上端まで広がっている
+    // (信号ボタンはMusicアプリ同様にコンテンツの上へ重なる)
     /// 右上ツールバーの余白とサイズ。信号ボタン(左上13pt, 14pt)の中心
     /// (20pt)と高さを揃えるため、上8pt・高さ24ptにしている
     /// (中心 = 8 + 24/2 = 20)。右の余白はMusic実測14pt+4pt
@@ -306,6 +304,8 @@ struct ShelfView: View {
         let rowCount = settings.rows
         let columnSpacing = CGFloat(settings.columnSpacing)
         let rowSpacing = CGFloat(settings.rowSpacing)
+        let edgePadding = CGFloat(settings.edgePadding)
+        let topPadding = CGFloat(settings.topPadding)
         // entry.idは数値列または"pl.xxx"なので"empty-N"と衝突しない
         let slots = store.paddedSlots().enumerated().map { offset, entry in
             Slot(id: entry?.id ?? "empty-\(offset)", index: offset, entry: entry)
@@ -316,10 +316,10 @@ struct ShelfView: View {
         )
         let width = CGFloat(columnCount) * cell
             + CGFloat(columnCount - 1) * columnSpacing
-            + Self.edgePadding * 2
+            + edgePadding * 2
         let height = CGFloat(rowCount) * cell
             + CGFloat(rowCount - 1) * rowSpacing
-            + Self.topPadding + Self.edgePadding
+            + topPadding + edgePadding
 
         // 最大構成(10列×10行・L=216pt)ではコンテンツが約2332×2278ptに
         // なり、多くのディスプレイのvisibleFrameを超える。
@@ -339,13 +339,14 @@ struct ShelfView: View {
             cellSize: cell,
             columnSpacing: columnSpacing,
             rowSpacing: rowSpacing,
-            edgePadding: Self.edgePadding,
-            topPadding: Self.topPadding
+            edgePadding: edgePadding,
+            topPadding: topPadding
         )
 
         // ウィンドウはwindowResizability(.contentSize)なので、
         // この固定フレームがそのままmin=maxのウィンドウサイズになる
-        // (コンテンツは上端まで広がるので、四辺の余白は8ptずつ)。
+        // (コンテンツは上端まで広がるので、四辺の余白はsettingsの
+        //  edgePadding/topPaddingの値)。
         // 設定変更でstore.settingsが変わると自動的に追従する。
         let grid = LazyVGrid(columns: columns, spacing: rowSpacing) {
             ForEach(slots) { slot in
@@ -395,10 +396,10 @@ struct ShelfView: View {
             }
         }
         .padding(EdgeInsets(
-            top: Self.topPadding,
-            leading: Self.edgePadding,
-            bottom: Self.edgePadding,
-            trailing: Self.edgePadding
+            top: topPadding,
+            leading: edgePadding,
+            bottom: edgePadding,
+            trailing: edgePadding
         ))
         // 棚レベルプラグイン: 背面に壁、前面に棚板+前柵をレジストリ順に
         // 重畳する。padding適用済みのgrid側(ScrollViewで包む前)に付ける
@@ -436,11 +437,12 @@ struct ShelfView: View {
         .frame(width: frameW, height: frameH)
         // タイトルバーを隠してコンテンツを上端まで広げたため、AppKitの
         // タイトルバー(=ウィンドウ移動)のドラッグ領域が無くなる。
-        // 上辺の余白(8pt)をつかんでウィンドウを動かせるようにする
+        // 上辺の余白(topPadding。設定の下限4ptが最低帯幅を保証する)を
+        // つかんでウィンドウを動かせるようにする
         // (Musicアプリのミニプレーヤーと同じ「余白をつかんで移動」)
         .overlay(alignment: .top) {
             Color.clear
-                .frame(height: Self.topPadding)
+                .frame(height: topPadding)
                 .contentShape(Rectangle())
                 .gesture(WindowDragGesture())
         }
@@ -967,9 +969,10 @@ struct ShelfView: View {
         // のスクロールビューを探す(非keyウィンドウへのドラッグでも正しくなる)
         let scrollOffset = Self.findScrollView(in: windowBox.window?.contentView)?
             .documentVisibleRect.origin ?? .zero
+        let settings = store.settings
         return CGPoint(
-            x: p.x - Self.edgePadding + scrollOffset.x,
-            y: p.y - Self.topPadding + scrollOffset.y
+            x: p.x - CGFloat(settings.edgePadding) + scrollOffset.x,
+            y: p.y - CGFloat(settings.topPadding) + scrollOffset.y
         )
     }
 
@@ -1275,9 +1278,10 @@ struct ShelfView: View {
         // documentVisibleRect.originが左上基準のスクロール量になる。
         let scrollOffset = Self.findScrollView(in: window.contentView)?
             .documentVisibleRect.origin ?? .zero
+        let settings = store.settings
         return window.convertPoint(toScreen: CGPoint(
-            x: rect.midX + Self.edgePadding - scrollOffset.x,
-            y: window.frame.height - Self.topPadding
+            x: rect.midX + CGFloat(settings.edgePadding) - scrollOffset.x,
+            y: window.frame.height - CGFloat(settings.topPadding)
                 - rect.midY + scrollOffset.y
         ))
     }

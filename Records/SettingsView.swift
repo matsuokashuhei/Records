@@ -43,7 +43,7 @@ struct SettingsView: View {
                 // @ObservedObjectで購読する
                 if let store {
                     ShelfPickers(store: store)
-                    ShelfSpacingSliders(store: store)
+                    ShelfLayoutSliders(store: store)
                 }
             }
             // エフェクトプラグインのセクション。登録が1つも無いときは
@@ -176,12 +176,13 @@ private struct ShelfPickers: View {
     }
 }
 
-/// レコード間隔(横)とシェルフ段間隔(縦)のスライダー。
+/// グリッドレイアウトのスライダー群。レコード間隔(横)・シェルフ段間隔(縦)・
+/// 外周余白(左右/下端・上端)を調整する。
 /// 値の変更はupdateSettingsTransientでメモリ上だけ反映(グリッドと
 /// windowResizability(.contentSize)経由でウィンドウへライブ反映)し、
 /// settings.jsonへの永続化+変更ログはPluginSliderRowと同じデバウンスで
 /// commitSettingsにまとめる
-private struct ShelfSpacingSliders: View {
+private struct ShelfLayoutSliders: View {
 
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
 
@@ -202,6 +203,14 @@ private struct ShelfSpacingSliders: View {
             Slider(value: columnSpacingBinding,
                    in: ShelfSettings.columnSpacingRange, step: 1) {
                 Text("Record Spacing")
+            }
+            Slider(value: edgePaddingBinding,
+                   in: ShelfSettings.edgePaddingRange, step: 1) {
+                Text("Edge Margin")
+            }
+            Slider(value: topPaddingBinding,
+                   in: ShelfSettings.topPaddingRange, step: 1) {
+                Text("Top Margin")
             }
         }
         // 設定画面が閉じる時点でtransientな変更が残っていたら即確定する
@@ -225,6 +234,20 @@ private struct ShelfSpacingSliders: View {
         )
     }
 
+    private var edgePaddingBinding: Binding<Double> {
+        Binding(
+            get: { store.settings.edgePadding },
+            set: { newValue in setSpacing { $0.edgePadding = newValue } }
+        )
+    }
+
+    private var topPaddingBinding: Binding<Double> {
+        Binding(
+            get: { store.settings.topPadding },
+            set: { newValue in setSpacing { $0.topPadding = newValue } }
+        )
+    }
+
     /// 現行settingsをコピーして1フィールドだけ変え、メモリ上に反映する
     /// (新規インスタンスだと将来増えるフィールドが既定値に戻るため)
     private func setSpacing(mutate: (inout ShelfSettings) -> Void) {
@@ -243,7 +266,7 @@ private struct ShelfSpacingSliders: View {
             guard !Task.isCancelled else { return }
             commitTask = nil
             store.commitSettings()
-            Self.logger.notice("settings: spacing committed rowSpacing=\(self.store.settings.rowSpacing, privacy: .public) columnSpacing=\(self.store.settings.columnSpacing, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
+            Self.logger.notice("settings: layout committed rowSpacing=\(self.store.settings.rowSpacing, privacy: .public) columnSpacing=\(self.store.settings.columnSpacing, privacy: .public) edgePadding=\(self.store.settings.edgePadding, privacy: .public) topPadding=\(self.store.settings.topPadding, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
         }
     }
 }
