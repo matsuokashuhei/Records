@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <g>
+    <rect width="1024" height="1024" fill="#EAD8BD"></rect>
+    <path d="M0 879H1024V1024H0Z" fill="#C7A781"></path>
+  </g>
+  <g>
+    <circle cx="741" cy="465" r="257" fill="#292724"></circle>
+    <circle cx="741" cy="465" r="199" fill="none" stroke="#51483D" stroke-width="6"></circle>
+    <circle cx="741" cy="465" r="166" fill="none" stroke="#51483D" stroke-width="6"></circle>
+    <circle cx="741" cy="465" r="137" fill="none" stroke="#51483D" stroke-width="6"></circle>
+    <circle cx="741" cy="465" r="61" fill="#B85B40"></circle>
+    <circle cx="741" cy="465" r="13" fill="#EAD8BD"></circle>
+  </g>
+  <g>
+    <path d="M40 762H984V870H40Z" fill="#82583B"></path>
+    <path d="M40 762H984V782H40Z" fill="#AC7C53"></path>
+    <path d="M75 870H125V920H75ZM899 870H949V920H899Z" fill="#70492F"></path>
+  </g>
+  <g>
+    <path d="M181 179H749V751H181Z" fill="#26201C"></path>
+    <ellipse cx="430" cy="380" rx="240" ry="180" fill="#332B25" opacity="0.7"></ellipse>
+    <ellipse cx="620" cy="560" rx="160" ry="120" fill="#1E1A17" opacity="0.6"></ellipse>
+    <ellipse cx="300" cy="620" rx="130" ry="90" fill="#38312B" opacity="0.5"></ellipse>
+    <path d="M181 640H749V751H181Z" fill="#332C26" opacity="0.55"></path>
+    <g fill="#14100E">
+      <path d="M440 300C500 290 560 320 565 370C570 420 540 455 500 460C450 465 420 440 415 395C410 350 415 310 440 300Z"></path>
+      <circle cx="455" cy="470" r="32"></circle>
+      <path d="M430 445L395 520L330 660L302 695L332 703L392 582L458 478Z"></path>
+      <path d="M498 445L538 560L572 685L606 695L578 562L545 458Z"></path>
+      <path d="M520 395L600 458L652 508L638 533L578 478L502 428Z"></path>
+    </g>
+    <path d="M636 498L748 282L764 296L658 518Z" fill="#54463C" opacity="0.9"></path>
+    <ellipse cx="676" cy="556" rx="56" ry="30" transform="rotate(-24 676 556)" fill="#241E1A"></ellipse>
+    <text x="320" y="250" font-family="Georgia, serif" font-size="62" font-style="italic" font-weight="bold" fill="#F2EDE8">The Clash</text>
+    <g font-family="Impact, 'Arial Black', sans-serif" font-weight="900" fill="#E59AAE">
+      <text x="205" y="258" font-size="82">L</text>
+      <text x="205" y="340" font-size="82">O</text>
+      <text x="205" y="422" font-size="82">N</text>
+      <text x="205" y="504" font-size="82">D</text>
+      <text x="205" y="586" font-size="82">O</text>
+      <text x="205" y="668" font-size="82">N</text>
+    </g>
+    <text x="190" y="741" font-family="Impact, 'Arial Black', sans-serif" font-weight="900" font-size="126" letter-spacing="16" fill="#2FA04C">CALLING</text>
+  </g>
+</svg>

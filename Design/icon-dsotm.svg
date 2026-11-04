@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <g>
+    <rect width="1024" height="1024" fill="#EAD8BD"></rect>
+    <path d="M0 879H1024V1024H0Z" fill="#C7A781"></path>
+  </g>
+  <g>
+    <circle cx="741" cy="465" r="257" fill="#292724"></circle>
+    <circle cx="741" cy="465" r="199" fill="none" stroke="#51483D" stroke-width="6"></circle>
+    <circle cx="741" cy="465" r="166" fill="none" stroke="#51483D" stroke-width="6"></circle>
+    <circle cx="741" cy="465" r="137" fill="none" stroke="#51483D" stroke-width="6"></circle>
+    <circle cx="741" cy="465" r="61" fill="#B85B40"></circle>
+    <circle cx="741" cy="465" r="13" fill="#EAD8BD"></circle>
+  </g>
+  <g>
+    <path d="M40 762H984V870H40Z" fill="#82583B"></path>
+    <path d="M40 762H984V782H40Z" fill="#AC7C53"></path>
+    <path d="M75 870H125V920H75ZM899 870H949V920H899Z" fill="#70492F"></path>
+  </g>
+  <g>
+    <path d="M181 179H749V751H181Z" fill="#0F0D0B"></path>
+    <path d="M430 300L295 605H565Z" fill="#0A0908" stroke="#E8E5DE" stroke-width="8" stroke-linejoin="round"></path>
+    <path d="M368 455L488 450" stroke="#EDEAE2" stroke-width="9" opacity="0.35"></path>
+    <path d="M181 505L368 455" stroke="#EDEAE2" stroke-width="9"></path>
+    <path d="M488 450L749 375" stroke="#E5392C" stroke-width="22"></path>
+    <path d="M488 450L749 407" stroke="#F28C28" stroke-width="22"></path>
+    <path d="M488 450L749 439" stroke="#F2C230" stroke-width="22"></path>
+    <path d="M488 450L749 471" stroke="#3DA34A" stroke-width="22"></path>
+    <path d="M488 450L749 503" stroke="#3B7BC4" stroke-width="22"></path>
+    <path d="M488 450L749 535" stroke="#8A4FA3" stroke-width="22"></path>
+  </g>
+</svg>
