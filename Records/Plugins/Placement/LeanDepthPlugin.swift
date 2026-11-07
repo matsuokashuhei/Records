@@ -52,6 +52,7 @@ struct LeanDepthPlugin: ShelfPlugin {
 
     let id = "lean-depth"
     let displayName = "Lean Depth"
+    let category: ShelfPluginCategory = .placement
 
     init() {
         Self.logger.info("plugin registered: lean-depth ('Lean Depth')")

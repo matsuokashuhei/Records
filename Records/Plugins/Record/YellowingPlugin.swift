@@ -64,6 +64,7 @@ struct YellowingPlugin: ShelfPlugin {
 
     let id = "yellowing"
     let displayName = "Yellowing"
+    let category: ShelfPluginCategory = .record
 
     init() {
         Self.logger.info("plugin registered: yellowing ('Yellowing')")

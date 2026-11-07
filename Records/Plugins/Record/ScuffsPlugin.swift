@@ -51,6 +51,7 @@ struct ScuffsPlugin: ShelfPlugin {
 
     let id = "scuffs"
     let displayName = "Scuffs"
+    let category: ShelfPluginCategory = .record
 
     init() {
         Self.logger.info("plugin registered: scuffs ('Scuffs')")

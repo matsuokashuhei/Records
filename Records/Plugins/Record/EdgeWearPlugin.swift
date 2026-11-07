@@ -47,6 +47,7 @@ struct EdgeWearPlugin: ShelfPlugin {
 
     let id = "edge-wear"
     let displayName = "Edge Wear"
+    let category: ShelfPluginCategory = .record
 
     init() {
         Self.logger.info("plugin registered: edge-wear ('Edge Wear')")

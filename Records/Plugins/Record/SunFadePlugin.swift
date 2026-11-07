@@ -32,6 +32,7 @@ struct SunFadePlugin: ShelfPlugin {
 
     let id = "sun-fade"
     let displayName = "Sun Fade"
+    let category: ShelfPluginCategory = .record
 
     init() {
         Self.logger.info("plugin registered: sun-fade ('Sun Fade')")
