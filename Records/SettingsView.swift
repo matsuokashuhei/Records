@@ -30,28 +30,39 @@ struct SettingsView: View {
 
     var body: some View {
         Form {
-            Section("Display") {
+            Section("General") {
                 Picker("Language", selection: languageSelection) {
                     Text("System").tag("system")
                     ForEach(Self.languageCodes, id: \.self) { code in
                         Text(languageName(for: code)).tag(code)
                     }
                 }
-                // この3つのピッカーはフォーカス中のシェルフにだけ効く。
-                // 監視するのはstore側(manager.focusedStoreの参照変更だけでは
-                // settingsの更新で再描画されないため)、サブビューに切り出して
-                // @ObservedObjectで購読する
-                if let store {
-                    ShelfPickers(store: store)
-                    ShelfSpacingSliders(store: store)
-                }
             }
-            // エフェクトプラグインのセクション。登録が1つも無いときは
-            // セクションごと出さない(基盤だけの状態で空セクションを
-            // 見せない — P0-7)。編集対象はピッカーと同じくフォーカス中シェルフ
-            if let store, !ShelfPluginRegistry.all.isEmpty {
-                Section("Effects") {
-                    ShelfEffectSettings(store: store)
+            // 表示設定は「レコード」「棚」「レコードの置き方」の
+            // 3セクションに分ける。編集対象は「最後にキーになった
+            // シェルフウィンドウ」(ShelfManager.focusedStore)。
+            // 監視するのはstore側(manager.focusedStoreの参照変更だけでは
+            // settingsの更新で再描画されないため)、サブビューに切り出して
+            // @ObservedObjectで購読する
+            if let store {
+                Section("Records") {
+                    ArtworkSizePicker(store: store)
+                    ShelfEffectSettings(store: store, category: .record)
+                }
+                Section("Shelf") {
+                    ShelfPickers(store: store)
+                    SpacingSlider(store: store,
+                                  title: "Shelf Spacing",
+                                  range: ShelfSettings.rowSpacingRange,
+                                  spacing: \.rowSpacing)
+                    ShelfEffectSettings(store: store, category: .shelf)
+                }
+                Section("Record Placement") {
+                    SpacingSlider(store: store,
+                                  title: "Record Spacing",
+                                  range: ShelfSettings.columnSpacingRange,
+                                  spacing: \.columnSpacing)
+                    ShelfEffectSettings(store: store, category: .placement)
                 }
             }
         }
@@ -105,7 +116,7 @@ struct SettingsView: View {
 
 }
 
-/// 列数/行数/アートワークサイズのピッカー群。
+/// 棚セクションのピッカー群(構造スタイル・列数・行数)。
 /// @ObservedObjectでstoreを購読するためにSettingsViewから切り出した
 /// (SettingsViewが見るのはmanager.focusedStoreの参照だけなので、
 ///  settingsが変わっても再描画されずピッカー表示が古いままになる)
@@ -132,12 +143,6 @@ private struct ShelfPickers: View {
                 Text("\(n) rows").tag(n)
             }
         }
-        Picker("Artwork Size", selection: artworkSizeSelection) {
-            ForEach(ShelfSettings.ArtworkSize.allCases) { size in
-                Text(size.label).tag(size)
-            }
-        }
-        .pickerStyle(.segmented)
     }
 
     private var styleSelection: Binding<ShelfSettings.ShelfStyle> {
@@ -170,17 +175,7 @@ private struct ShelfPickers: View {
         )
     }
 
-    private var artworkSizeSelection: Binding<ShelfSettings.ArtworkSize> {
-        Binding(
-            get: { store.settings.artworkSize },
-            set: { newValue in
-                Self.logger.notice("settings: artwork size picker changed to \(newValue.rawValue, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
-                updateDisplaySettings { $0.artworkSize = newValue }
-            }
-        )
-    }
-
-    /// 列数/行数/サイズの変更をフォーカス中のシェルフの設定に反映する。
+    /// 列数/行数/スタイルの変更をフォーカス中のシェルフの設定に反映する。
     /// 新規インスタンスを組み立てず現行settingsをコピーして変えるので、
     /// 後から増えたフィールド(間隔等)が黙って既定値に戻ることはない。
     /// 縮小で非表示になった再生中プレイリストは停止UIが消えるためここで止める。
@@ -192,16 +187,47 @@ private struct ShelfPickers: View {
     }
 }
 
-/// グリッドの間隔スライダー群。レコード間隔(横)・シェルフ段間隔(縦)を
-/// 調整する。外周の余白は独立した設定ではなく間隔から導出される
+/// レコードセクションのアートワークサイズピッカー。
+/// ShelfPickersと同じく@ObservedObjectでstoreを購読するサブビュー
+private struct ArtworkSizePicker: View {
+
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+
+    @ObservedObject var store: ShelfStore
+
+    var body: some View {
+        Picker("Artwork Size", selection: artworkSizeSelection) {
+            ForEach(ShelfSettings.ArtworkSize.allCases) { size in
+                Text(size.label).tag(size)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private var artworkSizeSelection: Binding<ShelfSettings.ArtworkSize> {
+        Binding(
+            get: { store.settings.artworkSize },
+            set: { newValue in
+                Self.logger.notice("settings: artwork size picker changed to \(newValue.rawValue, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
+                var s = store.settings
+                s.artworkSize = newValue
+                store.updateSettings(s)
+                PlaybackMonitor.shared.stopIfActiveEntryHidden()
+            }
+        )
+    }
+}
+
+/// グリッド間隔のスライダー1本。spacingのキーで対象フィールドを
+/// 指定する(rowSpacing=棚セクション、columnSpacing=置き方セクション)。
+/// 外周の余白は独立した設定ではなく間隔から導出される
 /// (edgePadding=columnSpacing、topPadding=max(4,rowSpacing)、
-///  bottomPadding=rowSpacing。ShelfSettings参照)のでスライダーは
-/// この2つだけ。
+///  bottomPadding=rowSpacing。ShelfSettings参照)。
 /// 値の変更はupdateSettingsTransientでメモリ上だけ反映(グリッドと
 /// windowResizability(.contentSize)経由でウィンドウへライブ反映)し、
 /// settings.jsonへの永続化+変更ログはPluginSliderRowと同じデバウンスで
 /// commitSettingsにまとめる
-private struct ShelfSpacingSliders: View {
+private struct SpacingSlider: View {
 
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
 
@@ -210,19 +236,16 @@ private struct ShelfSpacingSliders: View {
     private static let commitDelay: Duration = .milliseconds(400)
 
     @ObservedObject var store: ShelfStore
+    let title: LocalizedStringKey
+    let range: ClosedRange<Double>
+    /// ShelfSettingsの間隔フィールドを指すキー
+    let spacing: WritableKeyPath<ShelfSettings, Double>
     /// デバウンス中のコミットTask。連続変更のたびに張り替える
     @State private var commitTask: Task<Void, Never>?
 
     var body: some View {
-        Group {
-            Slider(value: rowSpacingBinding,
-                   in: ShelfSettings.rowSpacingRange, step: 1) {
-                Text("Shelf Spacing")
-            }
-            Slider(value: columnSpacingBinding,
-                   in: ShelfSettings.columnSpacingRange, step: 1) {
-                Text("Record Spacing")
-            }
+        Slider(value: spacingBinding, in: range, step: 1) {
+            Text(title)
         }
         // 設定画面が閉じる時点でtransientな変更が残っていたら即確定する
         .onDisappear {
@@ -231,27 +254,16 @@ private struct ShelfSpacingSliders: View {
         }
     }
 
-    private var rowSpacingBinding: Binding<Double> {
+    private var spacingBinding: Binding<Double> {
         Binding(
-            get: { store.settings.rowSpacing },
-            set: { newValue in setSpacing { $0.rowSpacing = newValue } }
+            get: { store.settings[keyPath: spacing] },
+            set: { newValue in
+                var s = store.settings
+                s[keyPath: spacing] = newValue
+                store.updateSettingsTransient(s)
+                scheduleCommit()
+            }
         )
-    }
-
-    private var columnSpacingBinding: Binding<Double> {
-        Binding(
-            get: { store.settings.columnSpacing },
-            set: { newValue in setSpacing { $0.columnSpacing = newValue } }
-        )
-    }
-
-    /// 現行settingsをコピーして1フィールドだけ変え、メモリ上に反映する
-    /// (新規インスタンスだと将来増えるフィールドが既定値に戻るため)
-    private func setSpacing(mutate: (inout ShelfSettings) -> Void) {
-        var s = store.settings
-        mutate(&s)
-        store.updateSettingsTransient(s)
-        scheduleCommit()
     }
 
     /// 無入力commitDelay後にsettingsを永続化してコミットログを出す。
@@ -263,13 +275,20 @@ private struct ShelfSpacingSliders: View {
             guard !Task.isCancelled else { return }
             commitTask = nil
             store.commitSettings()
-            Self.logger.notice("settings: spacing committed rowSpacing=\(self.store.settings.rowSpacing, privacy: .public) columnSpacing=\(self.store.settings.columnSpacing, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
+            Self.logger.notice("settings: spacing committed \(self.spacingLabel, privacy: .public)=\(self.store.settings[keyPath: self.spacing], privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
         }
+    }
+
+    /// ログ用のフィールド名(keyPathの文字列表現は読みにくいので手動で対応)
+    private var spacingLabel: String {
+        spacing == \.rowSpacing ? "rowSpacing" : "columnSpacing"
     }
 }
 
-/// エフェクトプラグインの設定セクション(レジストリ列挙)。
+/// エフェクトプラグインの設定行(レジストリ列挙)。
 /// 各プラグイン = 有効トグル + 有効時はパラメータ調整UI(スライダー等)。
+/// categoryで「レコード」「棚」「レコードの置き方」のどの
+/// セクションに属するかを絞る(セクション内の順序はレジストリ順=適用順)。
 /// ShelfPickersと同じく、store.settingsの更新で再描画されるよう
 /// @ObservedObjectでstoreを購読するサブビューに切り出してある。
 /// 変更はstore.updateSettingsでフォーカス中シェルフへ即時反映・永続化。
@@ -278,14 +297,17 @@ private struct ShelfEffectSettings: View {
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
 
     @ObservedObject var store: ShelfStore
+    /// このセクションに表示するプラグインの分類
+    let category: ShelfPluginCategory
 
     var body: some View {
-        // レジストリ順=適用順=表示順(決定論的)。
+        // レジストリ順=適用順=セクション内の表示順(決定論的)。
         // 構造プラグインは選択中のスタイルのものだけ列挙する
         // (非選択側はレジストリでもresolveされないので、
         //  トグルを出しても見た目に効かず混乱するだけ)
         ForEach(ShelfPluginRegistry.all.filter {
-            $0.shelfStyle == nil || $0.shelfStyle == store.settings.shelfStyle
+            $0.category == category
+                && ($0.shelfStyle == nil || $0.shelfStyle == store.settings.shelfStyle)
         }, id: \.id) { plugin in
             pluginRow(plugin)
         }

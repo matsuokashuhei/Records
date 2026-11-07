@@ -147,6 +147,7 @@ struct StoreShelfPlugin: ShelfPlugin {
 
     let id = "store-shelf"
     let displayName = "Store Shelf"
+    let category: ShelfPluginCategory = .shelf
     /// 構造系プラグインは既定で有効(最初から棚らしい見た目にする)
     let defaultEnabled = true
     /// 通し棚板+前柵はstoreスタイルの支え構造

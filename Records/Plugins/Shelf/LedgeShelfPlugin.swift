@@ -121,6 +121,7 @@ struct LedgeShelfPlugin: ShelfPlugin {
 
     let id = "ledge-shelf"
     let displayName = "Wood Ledges"
+    let category: ShelfPluginCategory = .shelf
     /// 構造系プラグインは既定で有効(スタイルを選んだ時点で
     /// 棚らしい見た目にする)
     let defaultEnabled = true

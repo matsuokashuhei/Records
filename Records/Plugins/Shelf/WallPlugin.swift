@@ -209,6 +209,7 @@ struct WallPlugin: ShelfPlugin {
 
     let id = "wall"
     let displayName = "Wall"
+    let category: ShelfPluginCategory = .shelf
     /// 構造系プラグインは既定で有効(壁の無い棚は選択肢に無い)
     let defaultEnabled = true
 

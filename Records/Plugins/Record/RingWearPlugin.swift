@@ -57,6 +57,7 @@ struct RingWearPlugin: ShelfPlugin {
 
     let id = "ring-wear"
     let displayName = "Ring Wear"
+    let category: ShelfPluginCategory = .record
 
     init() {
         Self.logger.info("plugin registered: ring-wear ('Ring Wear')")

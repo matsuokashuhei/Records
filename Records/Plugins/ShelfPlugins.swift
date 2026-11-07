@@ -43,6 +43,19 @@ enum ShelfPluginLayout {
     }
 }
 
+/// プラグインが設定画面のどのセクションに属するか(表示上の分類)。
+/// レジストリ順(=適用順)とは独立で、永続化スキーマにも影響しない。
+/// プラグインファイルもこの分類ごとのサブディレクトリ
+/// (Records/Plugins/{Record,Shelf,Placement})に置く
+enum ShelfPluginCategory {
+    /// レコード(ジャケット)の見た目。色調・摩耗・光沢など
+    case record
+    /// 棚(構造・背景)。壁・棚板・レッジなど
+    case shelf
+    /// レコードの置き方。傾きなど配置に関わる見た目
+    case placement
+}
+
 /// プラグインのフックに渡される実行コンテキスト。
 /// パラメータ値はspecのデフォルトで解決済み(キー欠損を気にしない)。
 struct ShelfPluginContext {
@@ -141,6 +154,11 @@ protocol ShelfPlugin {
     ///  同じ規則で未保存時を解釈する)
     var defaultEnabled: Bool { get }
 
+    /// 設定画面での分類(ShelfPluginCategory)。設定画面はこの値で
+    /// プラグインを「レコード」「棚」「レコードの置き方」の
+    /// セクションに振り分ける。レジストリ順(適用順)とは独立
+    var category: ShelfPluginCategory { get }
+
     /// このプラグインが担当するシェルフ構造スタイル。
     /// nil=スタイル非依存(壁・効果系など常に動くプラグイン)。
     /// 非nil=構造プラグイン(棚板・レッジ等の支え)で、
@@ -218,7 +236,8 @@ struct ResolvedShelfStructure {
 }
 
 /// 利用可能なプラグインの登録簿。
-/// all の並び = 適用順(決定論的) = 設定画面の表示順。
+/// all の並び = 適用順(決定論的)。設定画面では category ごとの
+/// セクションに分かれ、セクション内の表示順はこの並びを保つ。
 /// プラグイン追加はここに具象型を登録するだけで
 /// 設定画面・永続化・合成まで通る。
 enum ShelfPluginRegistry {
