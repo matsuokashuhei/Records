@@ -492,3 +492,78 @@ WidgetKit拡張(RecordsWidget)は**撤去した**。正方形ウィジェット�
 - 設置済みウィジェットのkind名を変えると `No matching descriptor` で壊れる
 - 描画が壊れたときのリセットは `~/Library/Containers/com.cacheandbuffer.Records.widget/`
   コンテナごとFinderで削除(TCCでターミナルからは消せない)
+
+## 更新チェック(Sparkle 2)とEdDSA鍵(2026-11-08 実装・E2E検証済み)
+
+### 構成
+
+- **Sparkle 2.10.1**(SPM、project.ymlでexact pin。バンプするときは
+  `.github/workflows/release.yml`の`SPARKLE_VERSION`も一緒に上げる)
+- 更新UIはすべてSparkle標準(`SPUStandardUpdaterController`のデフォルト
+  UserDriver)。`Records/UpdateController.swift`はログ用
+  `SPUUpdaterDelegate`を差し込む薄いラッパーだけ
+- メニューはRecords→「Check for Updates…」(`CommandGroup(after: .appInfo)`)、
+  自動チェックは`SUEnableAutomaticChecks`=YES + `startingUpdater:true`
+  (アプリ側にスケジュールコードは無い)
+- `UpdateController`は`--catalog-test`経路では生成しない
+  (その経路はUIを出さず即exitするのでSparkleのスケジューラを
+  起動させない。RecordsApp.initでoptionalにしてある)
+- Sparkle系の詳細ログはサブシステム`org.sparkle-project.Sparkle`にも
+  出る。更新失敗の原因調査はこちらを見ること:
+  `log show --last 5m --info --predicate 'subsystem CONTAINS "sparkle"'`
+
+### フィードとリリース
+
+- `SUFeedURL` = `https://github.com/matsuokashuhei/Records/releases/latest/download/appcast.xml`
+  (各リリースに`appcast.xml`を添付する方式。`latest/download`が常に
+  最新リリースのアセットへリダイレクトするので固定URLで済む)
+- `release.yml`が`generate_appcast`でappcastを生成し
+  `gh release upload --clobber`で添付する
+- `Records/Info.plist`は部分plistで、ビルド時に生成Info.plistへ
+  マージされる(SUFeedURL/SUPublicEDKey/SUEnableAutomaticChecksの3キー)
+
+### EdDSA鍵(最重要)
+
+- **鍵ペアは2026-11-08に`generate_keys`(Sparkle 2.10.1同梱ツール)で生成済み**
+- 公開鍵: `Records/Info.plist`の`SUPublicEDKey`に埋め込み済み
+- 秘密鍵の置き場所(2箇所、どちらもリポジトリ外):
+  - macOSログインキーチェーン(「Private key for signing Sparkle updates」。
+    `sign_update`/`generate_appcast`は引数無しでこれを自動利用する)
+  - エクスポートファイル `~/.config/records/sparkle-eddsa-private-key`
+    (mode 600。`generate_keys -x`形式の44バイト)
+- **秘密鍵を絶対にコミット・ログ・PR・スクショに出さない**。
+  漏洩すると第三者が正規の更新を偽造できる。紛失・漏洩時は
+  `generate_keys`で新ペアを生成し、新SUPublicEDKeyを含むリリースで
+  ローテーション(Sparkleは鍵ローテーションをサポート)
+- **GitHubシークレット `SPARKLE_EDDSA_PRIVATE_KEY`**(ファイルの中身
+  そのまま)が`release.yml`のappcast生成で必須。CIからはキーチェーンへ
+  アクセスできないため。登録:
+  `gh secret set SPARKLE_EDDSA_PRIVATE_KEY -R matsuokashuhei/Records < ~/.config/records/sparkle-eddsa-private-key`
+
+### 検証済みの落とし穴(2026-11-08 実機)
+
+- **`sparkle:version`はCFBundleVersionとしか比較しない**
+  (shortVersionStringへのフォールバックは無い)。配布済みv0.1.0は
+  `CFBundleVersion=1`なので、今後のCFBundleVersionは必ず"1"を超える
+  単調増加整数でなければならない → リリースビルドは
+  `CURRENT_PROJECT_VERSION="${{ github.run_number }}"`を採用
+  (semverを入れると`0.2.0 < 1`でv0.1.0へ永遠に更新が届かない)。
+  MARKETING_VERSION側が人間向け表示を担う
+- **更新ペイロードにも`SUPublicEDKey`が必須**。ホストに鍵があるのに
+  新appに無いと「key removal」として検証失敗する(2026-11-08に
+  Sparkle未搭載のv0.2.0 DMGへの更新が実際に拒否されたことを確認)。
+  Sparkleを含まないリリースは更新対象になり得ない
+- **SPM由来のSparkle.frameworkはadhoc署名**。リリース署名はinside-out
+  (XPC群→Autoupdate→Updater.app→framework→app)でないとnotarizationで
+  rejectされる。`--deep`一発ではネストに`--options runtime`が伝わらない
+- `generate_appcast`が`sparkle:edSignature`を付けないことがある
+  (2026-11-08に1度確認、原因不明・2回目は付いた)。CIのログ
+  (`head -30 appcast.xml`)で必ず`edSignature=`の有無を確認すること。
+  無いappcastは更新が拒否される → その場合は`sign_update`で署名して
+  enclosure属性へ手動追加すればよい(実施済み手順はPR #47の報告参照)
+- 手動でリリースにappcastを後付けする手順(Sparkleツールのtar.xzを
+  DL、`generate_appcast --ed-key-file`、`gh release upload --clobber`)は
+  実測済み。`sparkle:version`の手直しもXMLを直接編集すればよい
+- **E2E実証済み**: localhostフィード+Sparkle入りペイロードで
+  検出→DL→EdDSA検証→インストール→自動再起動→新バージョン稼働まで
+  全経路が動いた(テスト手順はgit履歴/Devinセッション参照)
