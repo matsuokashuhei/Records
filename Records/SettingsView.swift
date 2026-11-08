@@ -45,25 +45,31 @@ struct SettingsView: View {
             // settingsの更新で再描画されないため)、サブビューに切り出して
             // @ObservedObjectで購読する
             if let store {
+                // カテゴリ見出し(Records/Shelf/…)はそのカテゴリの先頭
+                // ボックス(固定項目)に付け、プラグインは1つ=1ボックスの
+                // Sectionとして直後に並べる。プラグインのボックス内は
+                // 先頭行が有効トグル(太字タイトル)、以降の行がパラメータ
+                // 調整UIという、macOSのシステム設定と同じグループ構造
+                // (例: Spotlightの「Results from Clipboard」)
                 Section("Records") {
                     ArtworkSizePicker(store: store)
-                    ShelfEffectSettings(store: store, category: .record)
                 }
+                ShelfEffectSettings(store: store, category: .record)
                 Section("Shelf") {
                     ShelfPickers(store: store)
                     SpacingSlider(store: store,
                                   title: "Shelf Spacing",
                                   range: ShelfSettings.rowSpacingRange,
                                   spacing: \.rowSpacing)
-                    ShelfEffectSettings(store: store, category: .shelf)
                 }
+                ShelfEffectSettings(store: store, category: .shelf)
                 Section("Record Placement") {
                     SpacingSlider(store: store,
                                   title: "Record Spacing",
                                   range: ShelfSettings.columnSpacingRange,
                                   spacing: \.columnSpacing)
-                    ShelfEffectSettings(store: store, category: .placement)
                 }
+                ShelfEffectSettings(store: store, category: .placement)
             }
         }
         .formStyle(.grouped)
@@ -285,8 +291,12 @@ private struct SpacingSlider: View {
     }
 }
 
-/// エフェクトプラグインの設定行(レジストリ列挙)。
-/// 各プラグイン = 有効トグル + 有効時はパラメータ調整UI(スライダー等)。
+/// エフェクトプラグインの設定ボックス群(レジストリ列挙)。
+/// 各プラグイン = 1つのSection(独立したグループボックス)で、
+/// 先頭行が有効トグル(太字タイトル)、以降の行がパラメータ調整UI
+/// (スライダー等)。パラメータ行は常時表示し、プラグイン無効時は
+/// .disabledで標準の選択不可表現(グレー・操作不可)にする
+/// — システム設定の「Spotlight > Results from Clipboard」と同じ構造。
 /// categoryで「レコード」「棚」「レコードの置き方」のどの
 /// セクションに属するかを絞る(セクション内の順序はレジストリ順=適用順)。
 /// ShelfPickersと同じく、store.settingsの更新で再描画されるよう
@@ -309,28 +319,33 @@ private struct ShelfEffectSettings: View {
             $0.category == category
                 && ($0.shelfStyle == nil || $0.shelfStyle == store.settings.shelfStyle)
         }, id: \.id) { plugin in
-            pluginRow(plugin)
+            Section {
+                pluginGroup(plugin)
+            }
         }
         // スライダーのtransient更新が確定前に残らないよう、
-        // セクションが閉じる/畳まれる時点で必ず永続化する
-        // (変更が無ければcommitSettingsはno-op)
+        // 設定画面が閉じる時点で必ず永続化する
+        // (変更が無ければcommitSettingsはno-op。
+        //  3カテゴリ分のShelfEffectSettingsがそれぞれ呼ぶが同じくno-op)
         .onDisappear { store.commitSettings() }
     }
 
     @ViewBuilder
-    private func pluginRow(_ plugin: any ShelfPlugin) -> some View {
+    private func pluginGroup(_ plugin: any ShelfPlugin) -> some View {
         Toggle(isOn: enabledBinding(plugin)) {
             // displayName/labelはStringなのでText(String)=verbatim initに
             // 解決されてしまう。LocalizedStringKey経由にしてカタログを
-            // 引かせる(キーが無ければそのまま表示される)
+            // 引かせる(キーが無ければそのまま表示される)。
+            // 太字にしてボックス内の先頭行=グループのタイトルに見せる
             Text(LocalizedStringKey(plugin.displayName))
+                .font(.headline)
         }
-        // 有効時だけパラメータ調整UIを出す(無効なら行ごと畳む)
-        if isEnabled(plugin) {
-            ForEach(plugin.parameterSpecs, id: \.id) { spec in
-                parameterControl(plugin, spec: spec)
-            }
+        // パラメータ調整UIは有効/無効に関わらず常時表示し、
+        // 無効時は標準のディセーブル表現(グレー・操作不可)にする
+        ForEach(plugin.parameterSpecs, id: \.id) { spec in
+            parameterControl(plugin, spec: spec)
         }
+        .disabled(!isEnabled(plugin))
     }
 
     @ViewBuilder
@@ -427,7 +442,7 @@ private struct PluginSliderRow: View {
                 }
             }
         }
-        // 行が畳まれる(トグルoff)・設定画面が閉じる時点で
+        // 行が一覧から外れる(スタイル切替等)・設定画面が閉じる時点で
         // transientな変更が残っていたら即確定する
         .onDisappear {
             commitTask?.cancel()
@@ -480,6 +495,11 @@ private struct PluginOptionsRow: View {
     @ObservedObject var store: ShelfStore
     let plugin: any ShelfPlugin
     let spec: PluginParameterSpec.Options
+    /// 親トグルOFFで行が.disabledにされたか。標準コントロールは
+    /// 自前でグレー化するが、グリッドピッカーは自前描画なので
+    /// この値を見て減光させる(ボタンの操作不可自体は
+    /// .disabled環境値が効く)
+    @Environment(\.isEnabled) private var isEnabled
 
     var body: some View {
         switch spec.presentation {
@@ -525,11 +545,14 @@ private struct PluginOptionsRow: View {
     }
 
     /// 固定列数のグリッドピッカー。各セルは照明(sun)アイコンで、
-    /// 選択中のセルだけ点灯した表示にする(光の位置を視覚的に選ぶUI)
+    /// 選択中のセルだけ点灯した表示にする(光の位置を視覚的に選ぶUI)。
+    /// 行が.disabledのときは標準コントロールと同じくグレー化する
+    /// (自前描画なのでisEnabledを見て自分で減光する必要がある)
     @ViewBuilder
     private func gridPicker(columns: Int) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(LocalizedStringKey(spec.label))
+                .foregroundStyle(isEnabled ? .primary : .secondary)
             LazyVGrid(
                 columns: Array(
                     repeating: GridItem(.fixed(Self.gridCellSize), spacing: 4),
@@ -549,6 +572,7 @@ private struct PluginOptionsRow: View {
                     .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
+            .opacity(isEnabled ? 1 : 0.4)
         }
     }
 

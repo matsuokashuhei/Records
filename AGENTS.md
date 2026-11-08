@@ -34,6 +34,13 @@ macOSアプリ。Apple Musicのアルバム/プレイリスト20個を壁のレ�
 新しいスキル(SKILL.md)は `.agents/skills/<name>/SKILL.md` に置く。
 `.devin/skills/` には置かない(既存スキルもすべて `.agents/skills/` にある)。
 
+### 5. 実装したら必ず builder-reviewer-loop を回す
+
+コード実装(自分で書いた場合も含む)の完了前に、必ず
+`.agents/skills/builder-reviewer-loop` のレビューゲートを通す
+(ユーザー指示 — 2026-11-08)。自分で実装した場合でも、レビュアー
+(subagent_explore)による要件・ルール照合と実機検証の手順は省略しない。
+
 ## ビルド・起動コマンド
 
 ```bash
