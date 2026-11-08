@@ -13,11 +13,19 @@ struct RecordsApp: App {
 
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
 
+    /// Sparkleのアップデーター。--catalog-test(CLI)モードでは生成しない:
+    /// その経路はウィンドウを出さず即exitするため、Sparkleのスケジューラを
+    /// 起動してはいけない。起動時の自動チェックはUpdateController側の
+    /// startingUpdater:true + Info.plistのSUEnableAutomaticChecksに任せる
+    /// (アプリ側にトリガーコードは要らない)。
+    private let updaterController: UpdateController?
+
     init() {
         // デバッグ: `--catalog-test <url>` で起動するとUIを出さずに
         // MediaCatalogClient.fetch を実行して結果をログに出す。
         // MusicKit(App Service)の有効性をCLIから検証するための経路。
         if let url = Self.catalogTestArgument() {
+            updaterController = nil
             let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "CatalogTest")
             logger.notice("catalog-test start url=\(url, privacy: .public)")
             let shouldPlay = ProcessInfo.processInfo.arguments.contains("--play")
@@ -40,6 +48,8 @@ struct RecordsApp: App {
                     logger.error("catalog-test FAILED: \(String(describing: error), privacy: .public)")
                 }
             }
+        } else {
+            updaterController = UpdateController()
         }
     }
 
@@ -91,6 +101,21 @@ struct RecordsApp: App {
                     }
                 }
                 .keyboardShortcut("n", modifiers: [.command, .shift])
+            }
+            // 「Check for Updates…」をアプリメニュー(Aboutの下)に追加。
+            // 確認UI(最新です/新バージョンあり/進捗)はすべてSparkle標準に任せる
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") {
+                    let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Update")
+                    logger.notice("menu: Check for Updates clicked")
+                    if let updater = updaterController?.updater {
+                        updater.checkForUpdates()
+                    } else {
+                        // --catalog-test経路ではUpdaterを作らない(メニュー自体
+                        // 表示されないはずだが、来たらno-opでなくログに残す)
+                        logger.error("check for updates: updater not initialized")
+                    }
+                }
             }
         }
 

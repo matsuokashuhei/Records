@@ -4,6 +4,13 @@ options:
   createIntermediateGroups: true
   deploymentTarget:
     macOS: "26.0"
+# Sparkle 2 (アップデート機構)。リリースの安定性のため exact version で固定。
+# 上げるときは .github/workflows/release.yml のツールダウンロードも同じ版に
+# 合わせること(generate_appcastの出力互換のため)
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    version: 2.10.1
 settings:
   base:
     DEVELOPMENT_TEAM: CY4LJR5KMM
@@ -16,13 +23,20 @@ targets:
     type: application
     platform: macOS
     sources:
-      - Records
+      # Info.plistは部分plist(生成キーにマージされる)なので
+      # リソースとしてコピーされないよう除外する
+      - path: Records
+        excludes:
+          - Info.plist
       - Shared
+    dependencies:
+      - package: Sparkle
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.cacheandbuffer.Records
         PRODUCT_NAME: Records
         GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: Records/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: Records
         INFOPLIST_KEY_NSAppleMusicUsageDescription: Used to fetch albums and playlists from the Apple Music catalog and play them.
   RecordsTests:
