@@ -3,8 +3,10 @@
 //  Records
 //
 //  プラグイン「レコード店の棚」(構造系、shelfStyle=.store)。
-//  レコード店の壁面陳列棚を再現する支え構造: 各行の黒い水平棚板
+//  レコード店の壁面陳列棚を再現する支え構造: 各行の木製水平棚板
 //  + 棚板手前端に立つ透明アクリルの前柵。
+//  棚板の素材はLedgeShelfPluginのレッジと共通のWoodMaterial
+//  (wood-*テクスチャをWoodTextureで描く)。
 //  壁と経年表現はスタイル非依存のWallPluginが担当する
 //  (このプラグインを無効にしても壁は残る。壁も消したい場合は
 //   設定画面でWallを無効にする)。
@@ -69,39 +71,10 @@ struct StoreShelfPlugin: ShelfPlugin {
         static let fenceVariation = "fence-variation"
     }
 
-    /// 棚板の色。rawValueは永続化値
-    private enum Board: String, CaseIterable {
-        /// 黒い棚板(写真の再現)
-        case black
-        /// 暗い茶系(ウォールナット)
-        case walnut
-
-        var label: String {
-            switch self {
-            case .black: return "Black"
-            case .walnut: return "Walnut"
-            }
-        }
-
-        /// 上端がわずかに明るい縦グラデーション(天面が光を拾う)
-        var gradient: Gradient {
-            switch self {
-            case .black:
-                return Gradient(colors: [
-                    Color(red: 0x26/255, green: 0x26/255, blue: 0x2A/255),
-                    Color(red: 0x10/255, green: 0x10/255, blue: 0x14/255),
-                ])
-            case .walnut:
-                return Gradient(colors: [
-                    Color(red: 0x5A/255, green: 0x44/255, blue: 0x30/255),
-                    Color(red: 0x38/255, green: 0x29/255, blue: 0x1C/255),
-                ])
-            }
-        }
-    }
-
     /// デフォルト値
-    private static let defaultBoard = Board.black
+    /// 棚板の素材はLedgeShelfPluginのレッジと共通のWoodMaterial。
+    /// rawValueは永続化値なので選択肢のrawValueは変えない
+    private static let defaultBoard = WoodMaterial.black
     static let defaultBoardThickness: Double = 7
     static let defaultFenceHeight: Double = 0.22
     /// 前柵エッジの既定の強さ(上端エッジのopacity)
@@ -162,7 +135,7 @@ struct StoreShelfPlugin: ShelfPlugin {
             .options(.init(
                 id: Param.board,
                 label: "Board",
-                choices: Board.allCases.map {
+                choices: WoodMaterial.allCases.map {
                     .init(id: $0.rawValue, label: $0.label)
                 },
                 defaultValue: Self.defaultBoard.rawValue
@@ -230,6 +203,10 @@ struct StoreShelfPlugin: ShelfPlugin {
         return AnyView(
             Canvas { gc, size in
                 guard size.width > 0, size.height > 0 else { return }
+                // 棚板の木目テクスチャはループの外で1回だけ解決する
+                // (素材はLedgeShelfPluginのレッジと共通のWoodMaterial)
+                let texture = WoodTexture(material: board, in: gc)
+                if !texture.isAvailable { logMissingTextureOnce(material: board) }
                 let boardMinX = endMargin
                 let boardMaxX = size.width - endMargin
                 let boardWidth = max(0, boardMaxX - boardMinX)
@@ -240,12 +217,12 @@ struct StoreShelfPlugin: ShelfPlugin {
                         let boardRect = CGRect(
                             x: boardMinX, y: bottom,
                             width: boardWidth, height: t)
-                        gc.fill(
-                            Path(boardRect),
-                            with: .linearGradient(
-                                board.gradient,
-                                startPoint: CGPoint(x: 0, y: boardRect.minY),
-                                endPoint: CGPoint(x: 0, y: boardRect.maxY)))
+                        // 木目は行ごとに切り出し位置をずらし、
+                        // 段ごとに別の板から切った見え方にする
+                        // (テクスチャ欠落時はWoodTexture内でグラデに退く)
+                        texture.paint(
+                            context: gc, path: Path(boardRect),
+                            rect: boardRect, seed: Double(r))
                         // 天面エッジ: 板上端の1ptの明るい線
                         gc.fill(
                             Path(CGRect(
@@ -494,16 +471,25 @@ struct StoreShelfPlugin: ShelfPlugin {
             context.number(Param.fenceEdge, default: Self.defaultFenceEdge)))
     }
 
-    private func resolvedBoard(context: ShelfStructureContext) -> Board {
+    private func resolvedBoard(context: ShelfStructureContext) -> WoodMaterial {
         let raw = context.text(Param.board, default: Self.defaultBoard.rawValue)
-        return Board(rawValue: raw) ?? Self.defaultBoard
+        return WoodMaterial(rawValue: raw) ?? Self.defaultBoard
+    }
+
+    /// テクスチャアセットの読み込み失敗をプロセス内で1回だけ記録する
+    /// (解決は描画のたびに走るので毎回ログは出さない)
+    private static var didLogMissingTexture = false
+    private func logMissingTextureOnce(material: WoodMaterial) {
+        guard !Self.didLogMissingTexture else { return }
+        Self.didLogMissingTexture = true
+        Self.logger.error("store-shelf: wood texture missing asset=\(material.assetName, privacy: .public) (fallback: gradient)")
     }
 
     /// プロセス内で最初の1回だけ解決値を記録する
     /// (描画のたびに呼ばれるので、毎回ログは出さない。
     ///  有効/無効とパラメータ確定のログはSettingsView側が出す)
     private static var didLogApplied = false
-    private func logAppliedOnce(board: Board, thickness: CGFloat,
+    private func logAppliedOnce(board: WoodMaterial, thickness: CGFloat,
                                 fence: Double, edge: Double,
                                 variation: Double, rows: Int) {
         guard !Self.didLogApplied else { return }

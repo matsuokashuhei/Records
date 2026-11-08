@@ -433,7 +433,17 @@ jacketShape(cellIndex:)。実物のLPジャケットは角ごとにわずかに�
   幅はセル幅比1/3〜11/10のスライダー、厚さは棚板と同じ
   min(設定値,rowSpacing-2,bottomPadding)クランプ、
   lipでジャケット下端へ前唇を重ねる(=レコードがレッジに載る見え方)、
-  variationでスロットごとの中心ずれ/傾きをsinハッシュで付与
+  variationでスロットごとの中心ずれ/傾きをsinハッシュで付与。
+  木目はwoodパラメータ(pine/oak/walnut/mahogany/black)ごとの
+  Assets.xcassetsの`wood-*`画像を等倍で貼り(WoodTexture.paint。
+  テクスチャより大きい面だけaspect-fillで拡大)、切り出し位置を
+  seedのsinハッシュでずらす(画像の端をrect端より外にはみ出す
+  形でずらさないと未描画領域が残る)。アセット欠落時は縦グラデに退く。
+  **素材と描画はStoreShelfPluginの棚板(board)と共通**:
+  `Records/Plugins/Shelf/WoodMaterial.swift`の`WoodMaterial`
+  (選択肢+assetName+フォールバックgradient)と`WoodTexture`
+  (Canvas先頭で1回resolve→paint)を両プラグインが使う。
+  boardパラメータも同じ5択で、seedは行番号
 - **新しいスタイルの追加手順**: ShelfStyleにcaseを足し、
   `shelfStyle`を返す構造プラグインを作ってレジストリへ登録するだけで
   ピッカー・フィルタ・resolveまで全部通る
