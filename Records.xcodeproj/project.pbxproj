@@ -30,11 +30,13 @@
 		9D54F51755BC2B1C0CC040BE /* MediaCatalogClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */; };
 		A1DE54C7E330CE74F6E7E188 /* PlaybackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */; };
 		AAAAA656657CCE20C75D338C /* ShelfPlugins.swift in Sources */ = {isa = PBXBuildFile; fileRef = 357545350D1ACD37751BAFF3 /* ShelfPlugins.swift */; };
+		B18E9E40AA84FDFC11183B95 /* Records Playback.shortcut in Resources */ = {isa = PBXBuildFile; fileRef = 7B4B08DAE0F0441627935537 /* Records Playback.shortcut */; };
 		BB4FFD2FA58D9A500C8DE516 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FF979F49C4844488727111E7 /* InfoPlist.xcstrings */; };
 		BD77655F3C211E60D1C764F0 /* ShelfSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */; };
 		DE2065EC093BEE33CA9F3AD3 /* RecordsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */; };
 		E0475F4FB720E91566573C4B /* ShelfManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 312CF0B9A1FD1E113D0DD7F6 /* ShelfManager.swift */; };
 		F161C579BE4930784F54DF03 /* ShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D593FE3DA37740B77984F0 /* ShelfView.swift */; };
+		F81CE19F6B0C73FC0838B89C /* ShortcutInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = E099E597E2954D970E537483 /* ShortcutInstaller.swift */; };
 		F9D1B2EDCE9D0B900030E688 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = BDB56EC137EBA234D33377C5 /* Localizable.xcstrings */; };
 		FF2E95971A8C1D31D6228E8F /* ScuffsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2748801A96B1373EE8986D34 /* ScuffsPlugin.swift */; };
 /* End PBXBuildFile section */
@@ -58,11 +60,13 @@
 		5326779F8829EBA05B501896 /* PlaylistPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistPlayer.swift; sourceTree = "<group>"; };
 		54EF98EA96353F7782B148F9 /* ShelfStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfStore.swift; sourceTree = "<group>"; };
 		79AF5BE0A651670867B2A9B0 /* Records.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Records.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		7B4B08DAE0F0441627935537 /* Records Playback.shortcut */ = {isa = PBXFileReference; path = "Records Playback.shortcut"; sourceTree = "<group>"; };
 		85E8F5AA1D2EF9E809EEA7FE /* WallPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallPlugin.swift; sourceTree = "<group>"; };
 		B20B3A7E71DA8A4C2DD47891 /* PlaybackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackEngine.swift; sourceTree = "<group>"; };
 		BDB56EC137EBA234D33377C5 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackMonitor.swift; sourceTree = "<group>"; };
 		D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaCatalogClient.swift; sourceTree = "<group>"; };
+		E099E597E2954D970E537483 /* ShortcutInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutInstaller.swift; sourceTree = "<group>"; };
 		E5FFDDD7598AB062B80E4E0A /* LedgeShelfPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgeShelfPlugin.swift; sourceTree = "<group>"; };
 		F9E9BFC0BF72904FED5AF76E /* WoodMaterial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WoodMaterial.swift; sourceTree = "<group>"; };
 		FA871A2E0C8D11E6A15AB79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -126,6 +130,7 @@
 				31E9BF2A068A6B6BDBC24C3D /* ShelfPluginModel.swift */,
 				FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */,
 				54EF98EA96353F7782B148F9 /* ShelfStore.swift */,
+				E099E597E2954D970E537483 /* ShortcutInstaller.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -137,6 +142,7 @@
 				FF979F49C4844488727111E7 /* InfoPlist.xcstrings */,
 				BDB56EC137EBA234D33377C5 /* Localizable.xcstrings */,
 				CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */,
+				7B4B08DAE0F0441627935537 /* Records Playback.shortcut */,
 				43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */,
 				FA871A2E0C8D11E6A15AB79F /* SettingsView.swift */,
 				29D593FE3DA37740B77984F0 /* ShelfView.swift */,
@@ -266,6 +272,7 @@
 				16991DD74B4D0200A03E101A /* Assets.xcassets in Resources */,
 				BB4FFD2FA58D9A500C8DE516 /* InfoPlist.xcstrings in Resources */,
 				F9D1B2EDCE9D0B900030E688 /* Localizable.xcstrings in Resources */,
+				B18E9E40AA84FDFC11183B95 /* Records Playback.shortcut in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -294,6 +301,7 @@
 				BD77655F3C211E60D1C764F0 /* ShelfSettings.swift in Sources */,
 				695479100C2EE21BB2BC229C /* ShelfStore.swift in Sources */,
 				F161C579BE4930784F54DF03 /* ShelfView.swift in Sources */,
+				F81CE19F6B0C73FC0838B89C /* ShortcutInstaller.swift in Sources */,
 				95A8BA7DC651DBD30759F5F9 /* SleeveGlossPlugin.swift in Sources */,
 				4508163CFC08E145A23BE590 /* StoreShelfPlugin.swift in Sources */,
 				1BDA6AED3ED1A4A7BB9BF9EF /* SunFadePlugin.swift in Sources */,
@@ -421,7 +429,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1.0;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -482,7 +490,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.0;
+				MARKETING_VERSION = 0.1.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";

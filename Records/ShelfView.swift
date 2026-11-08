@@ -28,6 +28,13 @@ struct ShelfView: View {
     @State private var isPrimaryWindow: Bool
     @ObservedObject private var store: ShelfStore
     @ObservedObject private var manager = ShelfManager.shared
+    /// 再生用ショートカット未インストールの要求を監視する
+    /// (起動時チェックと再生失敗の両方がinstallRequestを進める)
+    @ObservedObject private var shortcutInstaller = ShortcutInstaller.shared
+    /// 「Playback Shortcut Required」アラートの表示フラグ。
+    /// installRequestが進んだ時点でキーの窓だけが立てる(複数窓での
+    /// 重複表示防止)
+    @State private var showShortcutAlert = false
     @Environment(\.openWindow) private var openWindow
     /// このビューが載っているNSWindow(マウス座標変換・シェルフ削除時の
     /// window.close()用)。@Stateに持つとviewDidMoveToWindow中の代入で
@@ -176,6 +183,31 @@ struct ShelfView: View {
             } message: {
                 Text(addError ?? "")
             }
+        // 再生用ショートカット未インストールの案内。起動時チェックと
+        // 再生失敗(shortcutMissing)の両方から立つ。
+        // 「Install Shortcut…」で同梱 .shortcut を開き、Shortcutsアプリの
+        // インポート画面でユーザーに「Add Shortcut」を押してもらう
+        // (サイレントにショートカットを作るAPIはOSに無い)
+            .alert(
+                "Playback Shortcut Required",
+                isPresented: $showShortcutAlert
+            ) {
+                Button("Install Shortcut…") {
+                    Self.logger.notice("install shortcut clicked")
+                    Task {
+                        do {
+                            try await ShortcutInstaller.shared.install()
+                        } catch {
+                            Self.logger.error("shortcut install failed: \(error.localizedDescription, privacy: .public)")
+                        }
+                    }
+                }
+                Button("Later", role: .cancel) {
+                    Self.logger.notice("shortcut install deferred")
+                }
+            } message: {
+                Text("Album playback uses a Shortcuts shortcut named \"Records Playback\", which isn't installed yet. Install it and click \"Add Shortcut\" in the Shortcuts app window that opens.")
+            }
         // シェルフ自体の削除確認。コンテキストメニューの「Delete Shelf…」から。
             .alert(
                 "Delete this shelf?",
@@ -187,6 +219,16 @@ struct ShelfView: View {
                 }
             } message: {
                 Text("The records on this shelf will be removed.")
+            }
+        // ショートカット案内の要求が来たら、キーになっている窓だけが
+        // 自分のアラートを出す(複数シェルフを開いていても1枚だけ。
+        // どの窓もキーでない場合は取りこぼすが、起動時チェックは
+        // プライマリ窓がキー、再生失敗はクリックした窓がキーなので
+        // 実運用では必ず誰かが出す)
+            .onChange(of: shortcutInstaller.installRequest) { _, _ in
+                // nil === nil(窓未アタッチ+アプリ非アクティブ)を避けるため明示的に取る
+                guard let window = windowBox.window, window === NSApp.keyWindow else { return }
+                showShortcutAlert = true
             }
         // アラート(削除確認など)を出している間はchromeを自動で隠さない
             .onChange(of: hasModalAlert) { _, active in
@@ -237,6 +279,13 @@ struct ShelfView: View {
                         ShelfManager.shared.openMissingShelfWindows { id in
                             openWindow(id: "shelf", value: id)
                         }
+                        // 起動時1回だけ再生用ショートカットの有無を確認し、
+                        // 無ければインストールを案内する。
+                        // --catalog-test(CLI)でもdefaultLaunchBehaviorで
+                        // 窓が作られonAppearは走るので明示的に除く
+                        if !ProcessInfo.processInfo.arguments.contains("--catalog-test") {
+                            Task { await ShortcutInstaller.shared.checkAtLaunch() }
+                        }
                     }
                 }
                 // 重複ウィンドウ(自己クローズする側)は登録しない。
@@ -260,7 +309,7 @@ struct ShelfView: View {
 
     /// 確認/エラー系のアラートを出しているか(chromeの自動非表示を止める条件)
     private var hasModalAlert: Bool {
-        pendingDelete != nil || pendingShelfDelete || addError != nil
+        pendingDelete != nil || pendingShelfDelete || addError != nil || showShortcutAlert
     }
 
     /// 確認済みのシェルフ削除。データを消してウィンドウを閉じる
@@ -2383,6 +2432,10 @@ private struct AlbumSlotView: View {
                     try await monitor.toggle(entry)
                 } catch {
                     Self.logger.error("playback failed for '\(entry.title, privacy: .public)': \(error.localizedDescription, privacy: .public)")
+                    // 再生用ショートカットが無い失敗はインストールを案内する
+                    if case PlaybackEngine.PlaybackError.shortcutMissing = error {
+                        ShortcutInstaller.shared.promptForMissing()
+                    }
                 }
             }
         }

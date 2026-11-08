@@ -14,8 +14,12 @@ enum PlaybackEngine {
 
     private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Playback")
 
-    /// 対応するショートカット名(この順で優先)
+    /// 対応するショートカット名(この順で優先)。
+    /// "Records Playback" はアプリが同梱ファイルからインストールする名前
+    /// (ASCIIなのでNFD/NFC正規化の問題を踏まない)。
+    /// 残り2つは過去に手動作成を案内していた名前の後方互換。
     static let shortcutNameCandidates = [
+        "Records Playback",
         "Recordsで再生",
         "Apple Musicミニプレイヤー",
     ]
@@ -117,7 +121,17 @@ enum PlaybackEngine {
         }
         logger.notice("installed shortcuts: \(installed.joined(separator: " | "), privacy: .public)")
 
-        guard let name = shortcutNameCandidates.first(where: { installed.contains($0) }) else {
+        // 呼び出し名は `shortcuts list` が返す表記をそのまま使う。
+        // Shortcutsはショートカット名をNFD(濁点分解)で保存するため、
+        // ソース上のNFCリテラルをpercent-encodingして送ると
+        // run-shortcut側の名解決が失敗する(2026-11-08実機:
+        // NFC名→「Could not find the shortcut」、NFD名→成功)。
+        // SwiftのString == は正準等価で比較するためマッチ自体は
+        // NFC候補でも成立し、ここで得るのはストレージ上の表記。
+        // 優先順は候補リスト側を外側に回す(出現順では効かない)
+        guard let name = shortcutNameCandidates
+            .compactMap({ candidate in installed.first(where: { $0 == candidate }) })
+            .first else {
             logger.error("no candidate name installed")
             throw PlaybackError.shortcutMissing(visible: installed)
         }
@@ -157,7 +171,7 @@ enum PlaybackEngine {
     ///   パイプバッファが満杯→子がwriteでブロック→終了しないデッドロックになる)
     /// - `toolTimeout` 秒で応答がなければ terminate して継続を解放する。
     @discardableResult
-    private static func runTool(_ toolPath: String, _ arguments: [String], captureOutput: Bool = false) async throws -> String? {
+    static func runTool(_ toolPath: String, _ arguments: [String], captureOutput: Bool = false) async throws -> String? {
         logger.notice("run \(toolPath, privacy: .public) \(arguments.joined(separator: " "), privacy: .public)")
 
         let process = Process()
