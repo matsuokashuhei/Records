@@ -17,7 +17,9 @@
 //     (=レコードがレッジに載っている見え方)。前面の厚さは
 //     設定値を min(設定値, rowSpacing-2, bottomPadding) に
 //     クランプして行間と下端余白に収める(棚板と同じ規則)。
-//     縦グラデの前面+上端の明るい稜線+下端の暗い線+小さな落ち影。
+//     木目テクスチャの前面+上端の明るい稜線+下端の暗い線+小さな落ち影。
+//     テクスチャは等倍で貼り、切り出し位置をスロットごとにずらす。
+//     アセットが無いときは従来の縦グラデに退く。
 //   - ばらつき(variation): 実物のディスプレイは1枚ごとに
 //     置き方が微妙に違うので、スロットindexのsinハッシュで
 //     決定論的に中心ずれと傾きを付ける(0なら整列)
@@ -54,48 +56,8 @@ struct LedgeShelfPlugin: ShelfPlugin {
         static let variation = "ledge-variation"
     }
 
-    /// 木材の色。rawValueはsettings.jsonへの永続化値なので
-    /// 一度決めたら変更しない
-    private enum Wood: String, CaseIterable {
-        /// 明るい松系のはちみつ色
-        case pine
-        /// 中間色のオーク
-        case oak
-        /// 暗いウォールナット
-        case walnut
-
-        var label: String {
-            switch self {
-            case .pine: return "Pine"
-            case .oak: return "Oak"
-            case .walnut: return "Walnut"
-            }
-        }
-
-        /// 上端がわずかに明るい縦グラデーション(前面が光を拾う)
-        var gradient: Gradient {
-            switch self {
-            case .pine:
-                return Gradient(colors: [
-                    Color(red: 0xEC/255, green: 0xD2/255, blue: 0xA2/255),
-                    Color(red: 0xC4/255, green: 0x9E/255, blue: 0x66/255),
-                ])
-            case .oak:
-                return Gradient(colors: [
-                    Color(red: 0xCB/255, green: 0xA6/255, blue: 0x76/255),
-                    Color(red: 0x9A/255, green: 0x73/255, blue: 0x49/255),
-                ])
-            case .walnut:
-                return Gradient(colors: [
-                    Color(red: 0x5A/255, green: 0x44/255, blue: 0x30/255),
-                    Color(red: 0x38/255, green: 0x29/255, blue: 0x1C/255),
-                ])
-            }
-        }
-    }
-
     /// デフォルト値
-    private static let defaultWood = Wood.oak
+    private static let defaultWood = WoodMaterial.oak
     /// レッジ幅の既定値(セル幅の1/3)
     static let defaultWidth: Double = 1.0 / 3.0
     static let defaultThickness: Double = 8
@@ -137,7 +99,7 @@ struct LedgeShelfPlugin: ShelfPlugin {
             .options(.init(
                 id: Param.wood,
                 label: "Wood",
-                choices: Wood.allCases.map {
+                choices: WoodMaterial.allCases.map {
                     .init(id: $0.rawValue, label: $0.label)
                 },
                 defaultValue: Self.defaultWood.rawValue
@@ -198,6 +160,10 @@ struct LedgeShelfPlugin: ShelfPlugin {
         return AnyView(
             Canvas { gc, size in
                 guard size.width > 0, size.height > 0 else { return }
+                // 木目テクスチャはループの外で1回だけ解決する
+                // (素材はStoreShelfPluginの棚板と共通のWoodMaterial)
+                let texture = WoodTexture(material: wood, in: gc)
+                if !texture.isAvailable { logMissingTextureOnce(material: wood) }
                 for (r, bottom) in bottoms.enumerated() {
                     // レッジの下に残る余白(落ち影を描ける分)
                     let gap = (r == bottoms.count - 1)
@@ -250,13 +216,15 @@ struct LedgeShelfPlugin: ShelfPlugin {
                         g.translateBy(x: rect.midX, y: rect.midY)
                         g.rotate(by: .degrees(tilt))
                         g.translateBy(x: -rect.midX, y: -rect.midY)
-                        g.fill(
-                            Path(roundedRect: rect,
-                                 cornerRadius: Self.cornerRadius),
-                            with: .linearGradient(
-                                wood.gradient,
-                                startPoint: CGPoint(x: 0, y: rect.minY),
-                                endPoint: CGPoint(x: 0, y: rect.maxY)))
+                        let bodyPath = Path(
+                            roundedRect: rect,
+                            cornerRadius: Self.cornerRadius)
+                        // 切り出し位置はスロットのsinハッシュでずらし、
+                        // 1枚ごとに別の板から切った見え方にする
+                        // (テクスチャ欠落時はWoodTexture内でグラデに退く)
+                        texture.paint(
+                            context: g, path: bodyPath, rect: rect,
+                            seed: Double(slot))
                         // 天面エッジ: 上面が光を拾う明るい線
                         g.fill(
                             Path(CGRect(
@@ -283,9 +251,9 @@ struct LedgeShelfPlugin: ShelfPlugin {
 
     // MARK: - パラメータ解決
 
-    private func resolvedWood(context: ShelfStructureContext) -> Wood {
+    private func resolvedWood(context: ShelfStructureContext) -> WoodMaterial {
         let raw = context.text(Param.wood, default: Self.defaultWood.rawValue)
-        return Wood(rawValue: raw) ?? Self.defaultWood
+        return WoodMaterial(rawValue: raw) ?? Self.defaultWood
     }
 
     /// レッジ幅のセル幅比(1/3〜11/10)
@@ -321,11 +289,20 @@ struct LedgeShelfPlugin: ShelfPlugin {
         return v - v.rounded(.down)
     }
 
+    /// テクスチャアセットの読み込み失敗をプロセス内で1回だけ記録する
+    /// (解決は描画のたびに走るので毎回ログは出さない)
+    private static var didLogMissingTexture = false
+    private func logMissingTextureOnce(material: WoodMaterial) {
+        guard !Self.didLogMissingTexture else { return }
+        Self.didLogMissingTexture = true
+        Self.logger.error("ledge-shelf: wood texture missing asset=\(material.assetName, privacy: .public) (fallback: gradient)")
+    }
+
     /// プロセス内で最初の1回だけ解決値を記録する
     /// (描画のたびに呼ばれるので、毎回ログは出さない。
     ///  有効/無効とパラメータ確定のログはSettingsView側が出す)
     private static var didLogApplied = false
-    private func logAppliedOnce(wood: Wood, width: Double, thickness: CGFloat,
+    private func logAppliedOnce(wood: WoodMaterial, width: Double, thickness: CGFloat,
                                 lip: CGFloat, variation: Double, rows: Int) {
         guard !Self.didLogApplied else { return }
         Self.didLogApplied = true

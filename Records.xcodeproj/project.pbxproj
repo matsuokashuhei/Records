@@ -20,6 +20,7 @@
 		27A82E51697CE7DF2125EC23 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA871A2E0C8D11E6A15AB79F /* SettingsView.swift */; };
 		432D51B3CA508F4DBEBE756F /* ShelfPluginModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31E9BF2A068A6B6BDBC24C3D /* ShelfPluginModel.swift */; };
 		4508163CFC08E145A23BE590 /* StoreShelfPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0BD15418FA29B2B6B0599D /* StoreShelfPlugin.swift */; };
+		4DEAFCC0BC33814C011022D0 /* WoodMaterial.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9E9BFC0BF72904FED5AF76E /* WoodMaterial.swift */; };
 		695479100C2EE21BB2BC229C /* ShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54EF98EA96353F7782B148F9 /* ShelfStore.swift */; };
 		72B030C755A9D422BE44E05F /* EdgeWearPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F2FDE5891C27B5551C7F16F /* EdgeWearPlugin.swift */; };
 		7B34EF7456500CBD9C1481DF /* RingWearPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03BE6F4C2A7E8B737A5578C5 /* RingWearPlugin.swift */; };
@@ -63,6 +64,7 @@
 		CCECCEC8CE321C57B89B3C4F /* PlaybackMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackMonitor.swift; sourceTree = "<group>"; };
 		D23D6FD531864DCE47DBAC0C /* MediaCatalogClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaCatalogClient.swift; sourceTree = "<group>"; };
 		E5FFDDD7598AB062B80E4E0A /* LedgeShelfPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgeShelfPlugin.swift; sourceTree = "<group>"; };
+		F9E9BFC0BF72904FED5AF76E /* WoodMaterial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WoodMaterial.swift; sourceTree = "<group>"; };
 		FA871A2E0C8D11E6A15AB79F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		FAB464F15B4376012996DEAC /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfSettings.swift; sourceTree = "<group>"; };
@@ -88,6 +90,7 @@
 				E5FFDDD7598AB062B80E4E0A /* LedgeShelfPlugin.swift */,
 				FF0BD15418FA29B2B6B0599D /* StoreShelfPlugin.swift */,
 				85E8F5AA1D2EF9E809EEA7FE /* WallPlugin.swift */,
+				F9E9BFC0BF72904FED5AF76E /* WoodMaterial.swift */,
 			);
 			path = Shelf;
 			sourceTree = "<group>";
@@ -296,6 +299,7 @@
 				1BDA6AED3ED1A4A7BB9BF9EF /* SunFadePlugin.swift in Sources */,
 				153B65EB487084D258366CE9 /* WallPlugin.swift in Sources */,
 				7C42B8D43EDC2D7DEB273951 /* WindowGlass.swift in Sources */,
+				4DEAFCC0BC33814C011022D0 /* WoodMaterial.swift in Sources */,
 				1EFCEB32D2F0CB58E9E426AB /* YellowingPlugin.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
