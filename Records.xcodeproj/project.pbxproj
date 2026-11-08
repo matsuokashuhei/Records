@@ -21,6 +21,7 @@
 		432D51B3CA508F4DBEBE756F /* ShelfPluginModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31E9BF2A068A6B6BDBC24C3D /* ShelfPluginModel.swift */; };
 		4508163CFC08E145A23BE590 /* StoreShelfPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF0BD15418FA29B2B6B0599D /* StoreShelfPlugin.swift */; };
 		4DEAFCC0BC33814C011022D0 /* WoodMaterial.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9E9BFC0BF72904FED5AF76E /* WoodMaterial.swift */; };
+		4FCA365FAF133377F32084A2 /* UpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 178AA4E14E678052D3C28B83 /* UpdateController.swift */; };
 		695479100C2EE21BB2BC229C /* ShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54EF98EA96353F7782B148F9 /* ShelfStore.swift */; };
 		72B030C755A9D422BE44E05F /* EdgeWearPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F2FDE5891C27B5551C7F16F /* EdgeWearPlugin.swift */; };
 		7B34EF7456500CBD9C1481DF /* RingWearPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03BE6F4C2A7E8B737A5578C5 /* RingWearPlugin.swift */; };
@@ -33,6 +34,7 @@
 		B18E9E40AA84FDFC11183B95 /* Records Playback.shortcut in Resources */ = {isa = PBXBuildFile; fileRef = 7B4B08DAE0F0441627935537 /* Records Playback.shortcut */; };
 		BB4FFD2FA58D9A500C8DE516 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FF979F49C4844488727111E7 /* InfoPlist.xcstrings */; };
 		BD77655F3C211E60D1C764F0 /* ShelfSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB1ADEEAC4177A4FDE8D8EDE /* ShelfSettings.swift */; };
+		BE50FDBE0748AF8BD9A573E0 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 0109CAE15E058FB702AFB007 /* Sparkle */; };
 		DE2065EC093BEE33CA9F3AD3 /* RecordsApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */; };
 		E0475F4FB720E91566573C4B /* ShelfManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 312CF0B9A1FD1E113D0DD7F6 /* ShelfManager.swift */; };
 		F161C579BE4930784F54DF03 /* ShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29D593FE3DA37740B77984F0 /* ShelfView.swift */; };
@@ -44,6 +46,7 @@
 /* Begin PBXFileReference section */
 		03BE6F4C2A7E8B737A5578C5 /* RingWearPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingWearPlugin.swift; sourceTree = "<group>"; };
 		065945501B73341956B54777 /* RecordsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordsTests.swift; sourceTree = "<group>"; };
+		178AA4E14E678052D3C28B83 /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
 		1E8E5B72C21ED9C039D9D14E /* MediaEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaEntry.swift; sourceTree = "<group>"; };
 		26E722075A65DABCA285C2CC /* WindowGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowGlass.swift; sourceTree = "<group>"; };
 		2748801A96B1373EE8986D34 /* ScuffsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScuffsPlugin.swift; sourceTree = "<group>"; };
@@ -76,6 +79,17 @@
 		FF0BD15418FA29B2B6B0599D /* StoreShelfPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreShelfPlugin.swift; sourceTree = "<group>"; };
 		FF979F49C4844488727111E7 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		2E78A3304DC8B9AB78A7FAF2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				BE50FDBE0748AF8BD9A573E0 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		06CE9FCDE9BD0BC37ADD324B = {
@@ -146,6 +160,7 @@
 				43FB7F601EE4E36F168F4A77 /* RecordsApp.swift */,
 				FA871A2E0C8D11E6A15AB79F /* SettingsView.swift */,
 				29D593FE3DA37740B77984F0 /* ShelfView.swift */,
+				178AA4E14E678052D3C28B83 /* UpdateController.swift */,
 				26E722075A65DABCA285C2CC /* WindowGlass.swift */,
 				2BFF377F430178DF81E68EE5 /* Plugins */,
 			);
@@ -190,6 +205,7 @@
 			buildPhases = (
 				63DA1005C8BF2A72529D9F9F /* Sources */,
 				7BAEC0DE5DF83F3E9ED0CBF1 /* Resources */,
+				2E78A3304DC8B9AB78A7FAF2 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -197,6 +213,7 @@
 			);
 			name = Records;
 			packageProductDependencies = (
+				0109CAE15E058FB702AFB007 /* Sparkle */,
 			);
 			productName = Records;
 			productReference = 79AF5BE0A651670867B2A9B0 /* Records.app */;
@@ -253,6 +270,9 @@
 			);
 			mainGroup = 06CE9FCDE9BD0BC37ADD324B;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				D5105E784B94A093C073B202 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 33C7714C3C540960E908CAAA /* Products */;
 			projectDirPath = "";
@@ -305,6 +325,7 @@
 				95A8BA7DC651DBD30759F5F9 /* SleeveGlossPlugin.swift in Sources */,
 				4508163CFC08E145A23BE590 /* StoreShelfPlugin.swift in Sources */,
 				1BDA6AED3ED1A4A7BB9BF9EF /* SunFadePlugin.swift in Sources */,
+				4FCA365FAF133377F32084A2 /* UpdateController.swift in Sources */,
 				153B65EB487084D258366CE9 /* WallPlugin.swift in Sources */,
 				7C42B8D43EDC2D7DEB273951 /* WindowGlass.swift in Sources */,
 				4DEAFCC0BC33814C011022D0 /* WoodMaterial.swift in Sources */,
@@ -330,6 +351,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Records/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Records;
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Used to fetch albums and playlists from the Apple Music catalog and play them.";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -507,6 +529,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Records/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = Records;
 				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Used to fetch albums and playlists from the Apple Music catalog and play them.";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -550,6 +573,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D5105E784B94A093C073B202 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		0109CAE15E058FB702AFB007 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D5105E784B94A093C073B202 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = F318AC7B9E208287BED6358B /* Project object */;
 }

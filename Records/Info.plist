@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 部分plist: GENERATE_INFOPLIST_FILE=YES が生成するキーにマージされる。
+     Sparkle 2 の設定だけをここに書く。 -->
+<plist version="1.0">
+<dict>
+	<key>SUFeedURL</key>
+	<string>https://github.com/matsuokashuhei/Records/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>Q0zrY71Hwvvw6JaapsltqfcqoRnUUGcL+FG3ejO0LEQ=</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+</dict>
+</plist>

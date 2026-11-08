@@ -48,13 +48,46 @@ jobs:
 
       - name: Build
         run: |
+          # Sparkleはappcast itemの sparkle:version (=DMG内appのCFBundleVersion)
+          # とホストのCFBundleVersionだけを数値比較する
+          # (CFBundleShortVersionStringへのフォールバックは無い)。
+          # 既に配布済みのv0.1.0はCFBundleVersion="1"で出ているため、
+          # 今後のCFBundleVersionは"1"を必ず超える単調増加の整数でなければ
+          # ならない。semverを入れると 0.2.0 < 1 となり v0.1.0 利用者へ
+          # 永遠に更新が届かないので、workflow実行ごとに増える
+          # github.run_number(整数、以後の実行では必ず>=2)を使う。
+          # 表示用の人間向けバージョンはMARKETING_VERSION側が担う
+          # (サフィックス付きタグでも3成分以内に収めるため%%-*で落とす)。
+          RELEASE_VERSION="${GITHUB_REF_NAME#v}"
           xcodebuild -project Records.xcodeproj -scheme Records \
             -configuration Release -derivedDataPath .build \
-            MARKETING_VERSION="${GITHUB_REF_NAME#v}" \
+            MARKETING_VERSION="${RELEASE_VERSION%%-*}" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             CODE_SIGNING_ALLOWED=NO build
 
       - name: Sign app
         run: |
+          # Sparkle.frameworkはSPMバイナリ由来でadhoc署名しか持たない。
+          # 外側だけ署名するとネストがadhocのまま残り、--deep --strictの検証や
+          # notarization(全実行ファイルにDeveloper ID署名+ランタイム必須)で
+          # 落ちる。--deep一発だとネストコードに--options runtimeが伝わらない
+          # ため、内側から順に明示署名する(Sparkle公式の手順と同じ)。
+          FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
+          if [ -d "$FRAMEWORK" ]; then
+            find "$FRAMEWORK" -name "*.xpc" -print0 | while IFS= read -r -d '' xpc; do
+              codesign --force --options runtime --timestamp \
+                --sign "$SIGNING_IDENTITY" "$xpc"
+            done
+            codesign --force --options runtime --timestamp \
+              --sign "$SIGNING_IDENTITY" "$FRAMEWORK/Versions/B/Autoupdate"
+            # Updater.appも実バイナリ(Contents/MacOS/Updater)を持つ。
+            # 署名漏れはnotarization拒否になるので、XPC/Autoupdateと
+            # フレームワーク本体の間(内側から外側へ)に署名する
+            codesign --force --options runtime --timestamp \
+              --sign "$SIGNING_IDENTITY" "$FRAMEWORK/Versions/B/Updater.app"
+            codesign --force --options runtime --timestamp \
+              --sign "$SIGNING_IDENTITY" "$FRAMEWORK"
+          fi
           codesign --force --options runtime --timestamp \
             --sign "$SIGNING_IDENTITY" "$APP"
           codesign --verify --deep --strict --verbose=2 "$APP"
@@ -82,7 +115,37 @@ jobs:
           xcrun stapler staple "$DMG"
           rm AuthKey.p8
 
+      - name: Generate Sparkle appcast
+        env:
+          SPARKLE_EDDSA_PRIVATE_KEY: ${{ secrets.SPARKLE_EDDSA_PRIVATE_KEY }}
+        run: |
+          # project.ymlの packages.Sparkle でピンしている版と必ず一致させる
+          # (generate_appcastの出力形式互換のため)。Sparkleをバンプするときは
+          # project.yml側と一緒にここも更新すること
+          SPARKLE_VERSION="2.10.1"
+          curl -sL -o sparkle-tools.tar.xz \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          tar -xf sparkle-tools.tar.xz
+          KEY_FILE="$RUNNER_TEMP/sparkle-eddsa-private-key"
+          printf '%s' "$SPARKLE_EDDSA_PRIVATE_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+          # DMGを入れたディレクトリを渡してappcastを生成する。
+          # enclosure URLは --download-url-prefix + ファイル名で決まる
+          mkdir -p appcast-input
+          cp "$DMG" appcast-input/
+          ./bin/generate_appcast \
+            --ed-key-file "$KEY_FILE" \
+            --download-url-prefix "https://github.com/matsuokashuhei/Records/releases/download/$GITHUB_REF_NAME/" \
+            -o appcast.xml \
+            appcast-input
+          rm -f "$KEY_FILE"
+          head -30 appcast.xml
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" "$DMG" --generate-notes --title "Records $GITHUB_REF_NAME"
+        run: |
+          gh release create "$GITHUB_REF_NAME" "$DMG" --generate-notes --title "Records $GITHUB_REF_NAME"
+          # SUFeedURL (releases/latest/download/appcast.xml) が
+          # 常に最新リリースのappcastを指すよう、リリースに添付する
+          gh release upload "$GITHUB_REF_NAME" appcast.xml --clobber
