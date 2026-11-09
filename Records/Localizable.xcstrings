@@ -212,6 +212,47 @@
         }
       }
     },
+    "Album playback uses a Shortcuts shortcut named \"Records Playback\", which isn't installed yet. Install it and click \"Add Shortcut\" in the Shortcuts app window that opens." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Die Albumwiedergabe verwendet einen Kurzbefehl namens „Records Playback“, der noch nicht installiert ist. Installiere ihn und klicke im sich öffnenden Fenster der Kurzbefehle-App auf „Kurzbefehl hinzufügen“."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La reproducción de álbumes usa un atajo llamado «Records Playback» que aún no está instalado. Instálalo y haz clic en «Añadir atajo» en la ventana de la app Atajos que se abra."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "La lecture d’album utilise un raccourci nommé « Records Playback » qui n’est pas encore installé. Installez-le et cliquez sur « Ajouter un raccourci » dans la fenêtre de l’app Raccourcis qui s’ouvre."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アルバムの再生には「Records Playback」という名前のショートカットを使用しますが、まだインストールされていません。インストールして、開いたショートカットAppのウィンドウで「ショートカットを追加」をクリックしてください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앨범 재생에는 \"Records Playback\"라는 단축어를 사용하지만 아직 설치되지 않았습니다. 설치한 후 열리는 단축어 앱 창에서 \"단축어 추가\"를 클릭하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "专辑播放使用名为“Records Playback”的快捷指令，但尚未安装。请安装，然后在打开的“快捷指令”App窗口中点击“添加快捷指令”。"
+          }
+        }
+      }
+    },
     "album" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1893,6 +1934,47 @@
         }
       }
     },
+    "Install Shortcut…" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Kurzbefehl installieren…"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Instalar atajo…"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installer le raccourci…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ショートカットをインストール…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "단축어 설치…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "安装快捷指令…"
+          }
+        }
+      }
+    },
     "Intensity" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2053,6 +2135,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "语言"
+          }
+        }
+      }
+    },
+    "Later" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Später"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Más tarde"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Plus tard"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "あとで"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "나중에"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以后"
           }
         }
       }
@@ -2791,6 +2914,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "松木"
+          }
+        }
+      }
+    },
+    "Playback Shortcut Required" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wiedergabe-Kurzbefehl erforderlich"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Se requiere un atajo de reproducción"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Raccourci de lecture requis"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再生用ショートカットが必要です"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "재생용 단축어 필요"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "需要播放快捷指令"
           }
         }
       }
