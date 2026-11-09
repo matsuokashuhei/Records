@@ -306,7 +306,8 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   は廃止。`ShelfStore(shelfID:)`を`manager.store(for:)`経由で引く
 - 新シェルフは ⇧⌘N(CommandGroupで.newItemを置き換え=標準⌘Nは無い)か
   右上ツールバーの3点リーダーメニューから。新シェルフは空で始まる
-  (プリセットは"main"のみ。読み込み失敗時のfallbackも"main"のみプリセット)
+  (プリセットアルバムのシードは廃止 — 2026-11-09。読み込み失敗時の
+  fallbackも全シェルフ空)
 - ウィンドウの値=`WindowGroup(id:"shelf", for:String.self)`のString?
   (シェルフID)。値なし(nil)のウィンドウ=起動時やドックアイコンで
   システムが作るもの → プライマリシェルフになり、

@@ -62,41 +62,6 @@ final class ShelfStore: ObservableObject {
         ensureArtworkDownloaded()
     }
 
-    // MARK: - プリインストール済みアルバム(albums.json が無い初回起動時に表示)
-
-    nonisolated static let presetEntries: [MediaEntry] = [
-        MediaEntry(
-            kind: .album,
-            id: "1440842296",
-            title: "Brown Sugar",
-            artist: "ディアンジェロ",
-            country: "jp",
-            url: "https://music.apple.com/jp/album/brown-sugar/1440842296",
-            artworkURL: "https://is1-ssl.mzstatic.com/image/thumb/Music112/v4/3d/b7/01/3db701ab-9511-83e3-54d6-a6ccfcf560a2/13UABIM50177.rgb.jpg/300x300bb.jpg",
-            addedAt: Date(timeIntervalSince1970: 0)
-        ),
-        MediaEntry(
-            kind: .album,
-            id: "6798814647",
-            title: "Fly Girl / Nature of a Sista' - EP",
-            artist: "クイーン・ラティファ",
-            country: "jp",
-            url: "https://music.apple.com/jp/album/fly-girl-nature-of-a-sista-ep/6798814647",
-            artworkURL: "https://is1-ssl.mzstatic.com/image/thumb/Music221/v4/de/8c/60/de8c60a9-ebfe-f619-d50b-71cc6e90346a/016998086384.png/300x300bb.jpg",
-            addedAt: Date(timeIntervalSince1970: 0)
-        ),
-        MediaEntry(
-            kind: .album,
-            id: "1443791664",
-            title: "House of Music",
-            artist: "トニー・トニー・トニー",
-            country: "jp",
-            url: "https://music.apple.com/jp/album/house-of-music/1443791664",
-            artworkURL: "https://is1-ssl.mzstatic.com/image/thumb/Music125/v4/26/f9/32/26f9325b-8b1f-4aea-68d0-849fe7dbc6aa/00731453425026.rgb.jpg/300x300bb.jpg",
-            addedAt: Date(timeIntervalSince1970: 0)
-        ),
-    ]
-
     // MARK: - ストレージ
 
     nonisolated static var baseDirectory: URL {
@@ -136,9 +101,8 @@ final class ShelfStore: ObservableObject {
     }
 
     nonisolated static func readFromDisk(shelfID: String) -> [MediaEntry] {
-        // プリセットはプライマリシェルフ("main")だけに入れる。
-        // 新規シェルフは空で始める(プリセットが毎回出ると邪魔なため)
-        let fallback = shelfID == "main" ? presetEntries : []
+        // 読み込めない場合は空のシェルフとして起動する
+        let fallback: [MediaEntry] = []
         let file = albumFile(shelfID)
         do {
             let data = try Data(contentsOf: file)
