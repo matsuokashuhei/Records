@@ -74,7 +74,7 @@
 
 ## P4. プラグイン「色褪せ(日焼け褪色)」id: sun-fade
 
-対象ファイル: Records/SunFadePlugin.swift
+対象ファイル: Sleeves/Plugins/Record/SunFadePlugin.swift
 
 - [ ] P4-1. transformJacket で日焼け褪色を表現する。実物観測(70枚調査)
       の典型パターンは「彩度低下+赤/マゼンタへのシフト+コントラスト低下
@@ -92,7 +92,7 @@
 
 ## P5. プラグイン「フチ・角の摩耗」id: edge-wear
 
-対象ファイル: Records/EdgeWearPlugin.swift
+対象ファイル: Sleeves/Plugins/Record/EdgeWearPlugin.swift
 
 - [ ] P5-1. jacketOverlay で、ジャケットのフチに沿った白っぽい
       擦り切れ(抜き差しで印刷が剥げた紙色)と、角のつぶれを重ねる。
@@ -109,7 +109,7 @@
 
 ## P6. プラグイン「黄変」id: yellowing
 
-対象ファイル: Records/YellowingPlugin.swift
+対象ファイル: Sleeves/Plugins/Record/YellowingPlugin.swift
 
 - [ ] P6-1. 白・淡色のジャケットが経年でアイボリー〜クリーム色に
       黄ばむ劣化を表現する。淡色部ほど強く効くこと
@@ -125,7 +125,7 @@
 
 ## P7. プラグイン「リングウェア」id: ring-wear
 
-対象ファイル: Records/RingWearPlugin.swift
+対象ファイル: Sleeves/Plugins/Record/RingWearPlugin.swift
 
 - [ ] P7-1. jacketOverlay で、中身のレコード盤の形がジャケット表面に
       浮き出た円形のすり跡を描く。実物の特徴: 盤の外周に沿った
@@ -143,7 +143,7 @@
 
 ## P8. プラグイン「スカッフ(擦りキズ)」id: scuffs
 
-対象ファイル: Records/ScuffsPlugin.swift
+対象ファイル: Sleeves/Plugins/Record/ScuffsPlugin.swift
 
 - [ ] P8-1. jacketOverlay で、ジャケット表面の擦りキズを2種類描く:
       髪の毛状の細い淡い線傷(短い弧・直線状)と、白い斑点状の
@@ -160,7 +160,7 @@
 ## 共通(全PR)
 
 - [ ] C-1. プラグイン有効/無効・パラメータ変更を`os.Logger`で記録
-      (subsystem: com.cacheandbuffer.Records、`\(v, privacy: .public)`)
+      (subsystem: com.cacheandbuffer.Sleeves、`\(v, privacy: .public)`)
 - [ ] C-2. 新規Swiftファイル追加時は
       `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodegen generate`
       (project.ymlのsources設定で拾えるか確認。pbxproj手編集禁止)

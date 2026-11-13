@@ -25,7 +25,7 @@ targets:
     sources:
       # Info.plistは部分plist(生成キーにマージされる)なので
       # リソースとしてコピーされないよう除外する
-      - path: Records
+      - path: Sleeves
         excludes:
           - Info.plist
       - Shared
@@ -36,7 +36,7 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: com.cacheandbuffer.Sleeves
         PRODUCT_NAME: Sleeves
         GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_FILE: Records/Info.plist
+        INFOPLIST_FILE: Sleeves/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: Sleeves
         INFOPLIST_KEY_NSAppleMusicUsageDescription: Used to fetch albums and playlists from the Apple Music catalog and play them.
   SleevesTests:

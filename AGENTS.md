@@ -380,7 +380,7 @@ pkill -x Sleeves; open .build/Build/Products/Debug/Sleeves.app
 ## シェルフエフェクトプラグイン(2026-11-01 CAC-9で面変形フック追加)
 
 ジャケットへの劣化加工・光沢・後傾などをプラグイン化する機構。
-基盤は `Records/ShelfPlugins.swift`(`ShelfPlugin`プロトコル+
+基盤は `Sleeves/Plugins/ShelfPlugins.swift`(`ShelfPlugin`プロトコル+
 `ShelfPluginRegistry`)、合成点はShelfView.swiftのAlbumSlotView。
 `ShelfPluginRegistry.all`の並び=適用順=設定画面の表示順。
 
@@ -450,7 +450,7 @@ jacketShape(cellIndex:)。実物のLPジャケットは角ごとにわずかに�
   seedのsinハッシュでずらす(画像の端をrect端より外にはみ出す
   形でずらさないと未描画領域が残る)。アセット欠落時は縦グラデに退く。
   **素材と描画はStoreShelfPluginの棚板(board)と共通**:
-  `Records/Plugins/Shelf/WoodMaterial.swift`の`WoodMaterial`
+  `Sleeves/Plugins/Shelf/WoodMaterial.swift`の`WoodMaterial`
   (選択肢+assetName+フォールバックgradient)と`WoodTexture`
   (Canvas先頭で1回resolve→paint)を両プラグインが使う。
   boardパラメータも同じ5択で、seedは行番号
@@ -477,7 +477,7 @@ jacketShape(cellIndex:)。実物のLPジャケットは角ごとにわずかに�
 
 - `Shared/` — アプリにリンクされる共有層
   (MediaEntry/MediaURLParser, MediaCatalogClient, ShelfStore, ShelfSettings, PlaybackEngine, PlaylistPlayer)
-- `Records/` — アプリ本体(ShelfView, SettingsView, WindowGlass, PlaybackMonitor)
+- `Sleeves/` — アプリ本体(ShelfView, SettingsView, WindowGlass, PlaybackMonitor)
   - `Localizable.xcstrings` — UI文字列カタログ。開発言語en、キーは英語リテラル
     (補間は%@/%lld形式)。対応言語: en/ja/es/zh-Hans/ko/fr/de
   - `InfoPlist.xcstrings` — NSAppleMusicUsageDescriptionの翻訳
@@ -507,7 +507,7 @@ WidgetKit拡張(RecordsWidget)は**撤去した**。正方形ウィジェット�
 - **Sparkle 2.10.1**(SPM、project.ymlでexact pin。バンプするときは
   `.github/workflows/release.yml`の`SPARKLE_VERSION`も一緒に上げる)
 - 更新UIはすべてSparkle標準(`SPUStandardUpdaterController`のデフォルト
-  UserDriver)。`Records/UpdateController.swift`はログ用
+  UserDriver)。`Sleeves/UpdateController.swift`はログ用
   `SPUUpdaterDelegate`を差し込む薄いラッパーだけ
 - メニューはSleeves→「Check for Updates…」(`CommandGroup(after: .appInfo)`)、
   自動チェックは`SUEnableAutomaticChecks`=YES + `startingUpdater:true`
@@ -521,18 +521,18 @@ WidgetKit拡張(RecordsWidget)は**撤去した**。正方形ウィジェット�
 
 ### フィードとリリース
 
-- `SUFeedURL` = `https://github.com/matsuokashuhei/Records/releases/latest/download/appcast.xml`
+- `SUFeedURL` = `https://github.com/matsuokashuhei/Sleeves/releases/latest/download/appcast.xml`
   (各リリースに`appcast.xml`を添付する方式。`latest/download`が常に
   最新リリースのアセットへリダイレクトするので固定URLで済む)
 - `release.yml`が`generate_appcast`でappcastを生成し
   `gh release upload --clobber`で添付する
-- `Records/Info.plist`は部分plistで、ビルド時に生成Info.plistへ
+- `Sleeves/Info.plist`は部分plistで、ビルド時に生成Info.plistへ
   マージされる(SUFeedURL/SUPublicEDKey/SUEnableAutomaticChecksの3キー)
 
 ### EdDSA鍵(最重要)
 
 - **鍵ペアは2026-11-08に`generate_keys`(Sparkle 2.10.1同梱ツール)で生成済み**
-- 公開鍵: `Records/Info.plist`の`SUPublicEDKey`に埋め込み済み
+- 公開鍵: `Sleeves/Info.plist`の`SUPublicEDKey`に埋め込み済み
 - 秘密鍵の置き場所(2箇所、どちらもリポジトリ外):
   - macOSログインキーチェーン(「Private key for signing Sparkle updates」。
     `sign_update`/`generate_appcast`は引数無しでこれを自動利用する)
@@ -545,7 +545,7 @@ WidgetKit拡張(RecordsWidget)は**撤去した**。正方形ウィジェット�
 - **GitHubシークレット `SPARKLE_EDDSA_PRIVATE_KEY`**(ファイルの中身
   そのまま)が`release.yml`のappcast生成で必須。CIからはキーチェーンへ
   アクセスできないため。登録:
-  `gh secret set SPARKLE_EDDSA_PRIVATE_KEY -R matsuokashuhei/Records < ~/.config/records/sparkle-eddsa-private-key`
+  `gh secret set SPARKLE_EDDSA_PRIVATE_KEY -R matsuokashuhei/Sleeves < ~/.config/records/sparkle-eddsa-private-key`
 
 ### 検証済みの落とし穴(2026-11-08 実機)
 

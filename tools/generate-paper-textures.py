@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Store Shelf の壁用の紙テクスチャを生成する。
 
-生成物は Records/Assets.xcassets/paper-<variant>.imageset/ に書き出す。
+生成物は Sleeves/Assets.xcassets/paper-<variant>.imageset/ に書き出す。
 テクスチャは texture-generator (https://github.com/nmpowell/texture-generator)
 の paper バリアントを使う。creases=0.0 にするとシームレスにタイルできる
 (生成されるすべてのフィールドが周期化される)。
@@ -23,7 +23,7 @@ from pathlib import Path
 from texture_generators import generate
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-ASSETS = REPO_ROOT / "Records" / "Assets.xcassets"
+ASSETS = REPO_ROOT / "Sleeves" / "Assets.xcassets"
 
 # 1024px のタイルを @2x アセットにして 512pt 幅で敷き詰める。
 # mm_across は紙ごとの描画範囲(reference.md)の上限側に固定して、

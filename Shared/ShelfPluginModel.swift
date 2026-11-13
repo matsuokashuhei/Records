@@ -3,7 +3,7 @@ import os
 
 /// シェルフエフェクトプラグインの永続化モデル(純データ層)。
 /// UI側のプラグイン定義(ShelfPluginプロトコル・レジストリ・合成)は
-/// Records/Plugins/ShelfPlugins.swift にあり、ここには settings.json に
+/// Sleeves/Plugins/ShelfPlugins.swift にあり、ここには settings.json に
 /// 保存するための値型だけを置く(Shared=アプリ/将来の拡張共用)。
 ///
 /// 永続化スキーマ(settings.json内):

@@ -135,7 +135,7 @@ jobs:
           cp "$DMG" appcast-input/
           ./bin/generate_appcast \
             --ed-key-file "$KEY_FILE" \
-            --download-url-prefix "https://github.com/matsuokashuhei/Records/releases/download/$GITHUB_REF_NAME/" \
+            --download-url-prefix "https://github.com/matsuokashuhei/Sleeves/releases/download/$GITHUB_REF_NAME/" \
             -o appcast.xml \
             appcast-input
           rm -f "$KEY_FILE"

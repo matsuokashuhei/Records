@@ -41,7 +41,7 @@ description: "Sleeves用の2サブエージェント実装ループ。ビルダ�
     を実行する。project.pbxprojの手編集は禁止。
   - `SleevesApp.init`内の`Sleeves --catalog-test <URL> [--play]` CLI経路を
     壊さない。
-- ファイルマップ: `Records/`(アプリUI)、`Shared/`(アプリとウィジェット
+- ファイルマップ: `Sleeves/`(アプリUI)、`Shared/`(アプリとウィジェット
   双方にリンク — ここを変えるとウィジェットに影響)、`project.yml`。
 - ビルドコマンド:
   `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Sleeves.xcodeproj -scheme Sleeves -configuration Debug -derivedDataPath .build build`
