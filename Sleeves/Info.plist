@@ -5,7 +5,7 @@
 <plist version="1.0">
 <dict>
 	<key>SUFeedURL</key>
-	<string>https://github.com/matsuokashuhei/Records/releases/latest/download/appcast.xml</string>
+	<string>https://github.com/matsuokashuhei/Sleeves/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>Q0zrY71Hwvvw6JaapsltqfcqoRnUUGcL+FG3ejO0LEQ=</string>
 	<key>SUEnableAutomaticChecks</key>

@@ -46,7 +46,7 @@ enum ShelfPluginLayout {
 /// プラグインが設定画面のどのセクションに属するか(表示上の分類)。
 /// レジストリ順(=適用順)とは独立で、永続化スキーマにも影響しない。
 /// プラグインファイルもこの分類ごとのサブディレクトリ
-/// (Records/Plugins/{Record,Shelf,Placement})に置く
+/// (Sleeves/Plugins/{Record,Shelf,Placement})に置く
 enum ShelfPluginCategory {
     /// レコード(ジャケット)の見た目。色調・摩耗・光沢など
     case record
