@@ -1,6 +1,6 @@
 //
 //  ScuffsPlugin.swift
-//  Records
+//  Sleeves
 //
 //  プラグイン「スカッフ(擦りキズ)」。
 //  ジャケット表面の髪の毛状の細い擦り傷と、白い斑点状の
@@ -13,7 +13,7 @@ import os
 struct ScuffsPlugin: ShelfPlugin {
 
     private static let logger = Logger(
-        subsystem: "com.cacheandbuffer.Records", category: "Plugins")
+        subsystem: "com.cacheandbuffer.Sleeves", category: "Plugins")
 
     /// パラメータID。PluginState.valuesの永続化キーになるので
     /// 一度決めたら変更しない(変えると保存済みの値が効かなくなる)

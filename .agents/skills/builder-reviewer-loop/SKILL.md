@@ -1,6 +1,6 @@
 ---
 name: builder-reviewer-loop
-description: "Records用の2サブエージェント実装ループ。ビルダーがコードを書いてビルドし、レビュアーがプロジェクトのスキルとAGENTS.mdのルールに照らしてレビューし、レビュアーが合格するまでメインエージェントが指摘を中継する。「ビルダー/レビュアーのサブエージェントで開発して」「レビューゲートを通してから完了報告して」といった指示や、非自明なUI/機能開発で使う。"
+description: "Sleeves用の2サブエージェント実装ループ。ビルダーがコードを書いてビルドし、レビュアーがプロジェクトのスキルとAGENTS.mdのルールに照らしてレビューし、レビュアーが合格するまでメインエージェントが指摘を中継する。「ビルダー/レビュアーのサブエージェントで開発して」「レビューゲートを通してから完了報告して」といった指示や、非自明なUI/機能開発で使う。"
 ---
 
 # ビルダー / レビュアー ループ
@@ -35,16 +35,16 @@ description: "Records用の2サブエージェント実装ループ。ビルダ�
 - 番号付き要件(採点できる粒度でそのまま書く)。
 - AGENTS.mdの鉄則を引用して書く(ビルダーが見落とせないように):
   - すべてのUIアクションと非同期処理に`os.Logger`を仕込む。
-    subsystemは`com.cacheandbuffer.Records`、文字列補間は`\(v, privacy: .public)`。
+    subsystemは`com.cacheandbuffer.Sleeves`、文字列補間は`\(v, privacy: .public)`。
   - ファイルの追加・削除・リネーム後は必ず
     `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodegen generate`
     を実行する。project.pbxprojの手編集は禁止。
-  - `RecordsApp.init`内の`Records --catalog-test <URL> [--play]` CLI経路を
+  - `SleevesApp.init`内の`Sleeves --catalog-test <URL> [--play]` CLI経路を
     壊さない。
 - ファイルマップ: `Records/`(アプリUI)、`Shared/`(アプリとウィジェット
   双方にリンク — ここを変えるとウィジェットに影響)、`project.yml`。
 - ビルドコマンド:
-  `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Records.xcodeproj -scheme Records -configuration Debug -derivedDataPath .build build`
+  `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild -project Sleeves.xcodeproj -scheme Sleeves -configuration Debug -derivedDataPath .build build`
 - ビルダーはUIを目視できないこと — スクリーンショットではなく
   コンパイル+ログで検証するよう指示する。
 - 報告フォーマット: 変更/新規/削除ファイル一覧、設計上の主要な選択、
@@ -84,11 +84,11 @@ description: "Records用の2サブエージェント実装ループ。ビルダ�
 サブエージェントはUIを見られず、古い状態を見落とすことがある — 
 必ず自分で確認する:
 
-- 起動中のアプリが古いバイナリのことがある。`open .build/Build/Products/Debug/Records.app`
-  の前に`pkill -x Records`すること。さもないと`open`は古い
+- 起動中のアプリが古いバイナリのことがある。`open .build/Build/Products/Debug/Sleeves.app`
+  の前に`pkill -x Sleeves`すること。さもないと`open`は古い
   インスタンスを活性化するだけになる(実際に一度起きた)。
 - 期待するログ行が出ているか確認:
-  `/usr/bin/log show --last 2m --style compact --info --predicate 'subsystem == "com.cacheandbuffer.Records"'`
+  `/usr/bin/log show --last 2m --style compact --info --predicate 'subsystem == "com.cacheandbuffer.Sleeves"'`
   (debugレベルを出すには`--info`が必要)。
 - `git status`でファイル一覧がビルダーの報告と一致するか照合。
 - 画面キャプチャは権限がなく使えない — 見た目はユーザーに確認を

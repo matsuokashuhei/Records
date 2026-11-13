@@ -1,6 +1,6 @@
 //
 //  WindowGlass.swift
-//  Records
+//  Sleeves
 //
 //  Created by Shuhei Matsuoka on 2026/10/18.
 //
@@ -30,7 +30,7 @@ struct GlassBackgroundView: NSViewRepresentable {
 /// キー化(onBecameKey)を呼び出し側へ通知できる。
 struct WindowConfigurator: NSViewRepresentable {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
 
     /// ビューがウィンドウにアタッチ/デタッチされたとき呼ぶ
     var onWindowReady: ((NSWindow?) -> Void)?

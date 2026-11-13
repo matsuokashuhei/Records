@@ -1,6 +1,6 @@
 //
-//  RecordsApp.swift
-//  Records
+//  SleevesApp.swift
+//  Sleeves
 //
 //  Created by Shuhei Matsuoka on 2026/10/18.
 //
@@ -9,9 +9,9 @@ import SwiftUI
 import os
 
 @main
-struct RecordsApp: App {
+struct SleevesApp: App {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
 
     /// Sparkleのアップデーター。--catalog-test(CLI)モードでは生成しない:
     /// その経路はウィンドウを出さず即exitするため、Sparkleのスケジューラを
@@ -26,7 +26,7 @@ struct RecordsApp: App {
         // MusicKit(App Service)の有効性をCLIから検証するための経路。
         if let url = Self.catalogTestArgument() {
             updaterController = nil
-            let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "CatalogTest")
+            let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "CatalogTest")
             logger.notice("catalog-test start url=\(url, privacy: .public)")
             let shouldPlay = ProcessInfo.processInfo.arguments.contains("--play")
             Task {
@@ -106,7 +106,7 @@ struct RecordsApp: App {
             // 確認UI(最新です/新バージョンあり/進捗)はすべてSparkle標準に任せる
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") {
-                    let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Update")
+                    let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "Update")
                     logger.notice("menu: Check for Updates clicked")
                     if let updater = updaterController?.updater {
                         updater.checkForUpdates()

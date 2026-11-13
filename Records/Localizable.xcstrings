@@ -171,84 +171,84 @@
         }
       }
     },
-    "Access to Apple Music is not allowed. Allow Records in System Settings → Privacy & Security → Media & Apple Music." : {
+    "Access to Apple Music is not allowed. Allow Sleeves in System Settings → Privacy & Security → Media & Apple Music." : {
       "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Der Zugriff auf Apple Music ist nicht erlaubt. Erlaube Records unter Systemeinstellungen → Datenschutz & Sicherheit → Medien & Apple Music."
+            "value" : "Der Zugriff auf Apple Music ist nicht erlaubt. Erlaube Sleeves unter Systemeinstellungen → Datenschutz & Sicherheit → Medien & Apple Music."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "No se permite el acceso a Apple Music. Permite Records en Ajustes del Sistema → Privacidad y seguridad → Contenido multimedia y Apple Music."
+            "value" : "No se permite el acceso a Apple Music. Permite Sleeves en Ajustes del Sistema → Privacidad y seguridad → Contenido multimedia y Apple Music."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "L’accès à Apple Music n’est pas autorisé. Autorisez Records dans Réglages Système → Confidentialité et sécurité → Médias et Apple Music."
+            "value" : "L’accès à Apple Music n’est pas autorisé. Autorisez Sleeves dans Réglages Système → Confidentialité et sécurité → Médias et Apple Music."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple Musicへのアクセスが許可されていません。システム設定 → プライバシーとセキュリティ → メディアとApple Music で Records を許可してください。"
+            "value" : "Apple Musicへのアクセスが許可されていません。システム設定 → プライバシーとセキュリティ → メディアとApple Music で Sleeves を許可してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Apple Music 접근이 허용되지 않았습니다. 시스템 설정 → 개인 정보 보호 및 보안 → 미디어 및 Apple Music에서 Records를 허용하세요."
+            "value" : "Apple Music 접근이 허용되지 않았습니다. 시스템 설정 → 개인 정보 보호 및 보안 → 미디어 및 Apple Music에서 Sleeves를 허용하세요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "未允许访问 Apple Music。请在“系统设置 → 隐私与安全性 → 媒体与 Apple Music”中允许 Records。"
+            "value" : "未允许访问 Apple Music。请在“系统设置 → 隐私与安全性 → 媒体与 Apple Music”中允许 Sleeves。"
           }
         }
       }
     },
-    "Album playback uses a Shortcuts shortcut named \"Records Playback\", which isn't installed yet. Install it and click \"Add Shortcut\" in the Shortcuts app window that opens." : {
+    "Album playback uses a Shortcuts shortcut named \"Sleeves Playback\", which isn't installed yet. Install it and click \"Add Shortcut\" in the Shortcuts app window that opens." : {
       "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die Albumwiedergabe verwendet einen Kurzbefehl namens „Records Playback“, der noch nicht installiert ist. Installiere ihn und klicke im sich öffnenden Fenster der Kurzbefehle-App auf „Kurzbefehl hinzufügen“."
+            "value" : "Die Albumwiedergabe verwendet einen Kurzbefehl namens „Sleeves Playback“, der noch nicht installiert ist. Installiere ihn und klicke im sich öffnenden Fenster der Kurzbefehle-App auf „Kurzbefehl hinzufügen“."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La reproducción de álbumes usa un atajo llamado «Records Playback» que aún no está instalado. Instálalo y haz clic en «Añadir atajo» en la ventana de la app Atajos que se abra."
+            "value" : "La reproducción de álbumes usa un atajo llamado «Sleeves Playback» que aún no está instalado. Instálalo y haz clic en «Añadir atajo» en la ventana de la app Atajos que se abra."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La lecture d’album utilise un raccourci nommé « Records Playback » qui n’est pas encore installé. Installez-le et cliquez sur « Ajouter un raccourci » dans la fenêtre de l’app Raccourcis qui s’ouvre."
+            "value" : "La lecture d’album utilise un raccourci nommé « Sleeves Playback » qui n’est pas encore installé. Installez-le et cliquez sur « Ajouter un raccourci » dans la fenêtre de l’app Raccourcis qui s’ouvre."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "アルバムの再生には「Records Playback」という名前のショートカットを使用しますが、まだインストールされていません。インストールして、開いたショートカットAppのウィンドウで「ショートカットを追加」をクリックしてください。"
+            "value" : "アルバムの再生には「Sleeves Playback」という名前のショートカットを使用しますが、まだインストールされていません。インストールして、開いたショートカットAppのウィンドウで「ショートカットを追加」をクリックしてください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "앨범 재생에는 \"Records Playback\"라는 단축어를 사용하지만 아직 설치되지 않았습니다. 설치한 후 열리는 단축어 앱 창에서 \"단축어 추가\"를 클릭하세요."
+            "value" : "앨범 재생에는 \"Sleeves Playback\"라는 단축어를 사용하지만 아직 설치되지 않았습니다. 설치한 후 열리는 단축어 앱 창에서 \"단축어 추가\"를 클릭하세요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "专辑播放使用名为“Records Playback”的快捷指令，但尚未安装。请安装，然后在打开的“快捷指令”App窗口中点击“添加快捷指令”。"
+            "value" : "专辑播放使用名为“Sleeves Playback”的快捷指令，但尚未安装。请安装，然后在打开的“快捷指令”App窗口中点击“添加快捷指令”。"
           }
         }
       }
@@ -1155,6 +1155,47 @@
         }
       }
     },
+    "Delete Confirmation" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Löschbestätigung"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmación de eliminación"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirmation de suppression"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除時の確認"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "삭제 확인"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "删除确认"
+          }
+        }
+      }
+    },
     "Delete Record" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1356,6 +1397,47 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "显示"
+          }
+        }
+      }
+    },
+    "Don't Ask Again" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nicht mehr nachfragen"
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No volver a preguntar"
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ne plus demander"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今後は確認しない"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다시 묻지 않음"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不再询问"
           }
         }
       }
@@ -3205,43 +3287,43 @@
         }
       }
     },
-    "Records" : {
+    "Sleeves" : {
       "extractionState" : "manual",
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Schallplatten"
+            "value" : "Sleeves"
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Discos"
+            "value" : "Sleeves"
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Disques"
+            "value" : "Sleeves"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "レコード"
+            "value" : "Sleeves"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "레코드"
+            "value" : "Sleeves"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "唱片"
+            "value" : "Sleeves"
           }
         }
       }
@@ -4063,42 +4145,42 @@
         }
       }
     },
-    "The new language will take effect after you restart Records." : {
+    "The new language will take effect after you restart Sleeves." : {
       "localizations" : {
         "de" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Die neue Sprache wird nach einem Neustart von Records wirksam."
+            "value" : "Die neue Sprache wird nach einem Neustart von Sleeves wirksam."
           }
         },
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El nuevo idioma se aplicará al reiniciar Records."
+            "value" : "El nuevo idioma se aplicará al reiniciar Sleeves."
           }
         },
         "fr" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "La nouvelle langue sera appliquée après le redémarrage de Records."
+            "value" : "La nouvelle langue sera appliquée après le redémarrage de Sleeves."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新しい言語はRecordsの再起動後に反映されます。"
+            "value" : "新しい言語はSleevesの再起動後に反映されます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "새 언어는 Records를 재시작한 후 적용됩니다."
+            "value" : "새 언어는 Sleeves를 재시작한 후 적용됩니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "新语言将在重新启动 Records 后生效。"
+            "value" : "新语言将在重新启动 Sleeves 后生效。"
           }
         }
       }

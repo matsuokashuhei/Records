@@ -1,6 +1,6 @@
 //
 //  ShelfPlugins.swift
-//  Records
+//  Sleeves
 //
 //  シェルフエフェクトプラグインの基盤。
 //  永続化モデル(PluginState/PluginParameterSpec/PluginParameterValue)は
@@ -243,7 +243,7 @@ struct ResolvedShelfStructure {
 enum ShelfPluginRegistry {
 
     private static let logger = Logger(
-        subsystem: "com.cacheandbuffer.Records", category: "Plugins")
+        subsystem: "com.cacheandbuffer.Sleeves", category: "Plugins")
 
     /// 登録済みプラグイン一覧。ここに足すだけで設定画面・永続化・
     /// セル合成まで全部通る

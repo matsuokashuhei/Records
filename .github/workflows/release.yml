@@ -13,8 +13,8 @@ jobs:
     name: Build, notarize and release DMG
     runs-on: macos-26
     env:
-      APP: .build/Build/Products/Release/Records.app
-      DMG: Records-${{ github.ref_name }}.dmg
+      APP: .build/Build/Products/Release/Sleeves.app
+      DMG: Sleeves-${{ github.ref_name }}.dmg
       SIGNING_IDENTITY: Developer ID Application
     steps:
       - uses: actions/checkout@v4
@@ -59,7 +59,7 @@ jobs:
           # 表示用の人間向けバージョンはMARKETING_VERSION側が担う
           # (サフィックス付きタグでも3成分以内に収めるため%%-*で落とす)。
           RELEASE_VERSION="${GITHUB_REF_NAME#v}"
-          xcodebuild -project Records.xcodeproj -scheme Records \
+          xcodebuild -project Sleeves.xcodeproj -scheme Sleeves \
             -configuration Release -derivedDataPath .build \
             MARKETING_VERSION="${RELEASE_VERSION%%-*}" \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
@@ -97,7 +97,7 @@ jobs:
           mkdir -p dmg-staging
           cp -R "$APP" dmg-staging/
           ln -s /Applications dmg-staging/Applications
-          hdiutil create -volname Records -srcfolder dmg-staging -ov -format UDZO "$DMG"
+          hdiutil create -volname Sleeves -srcfolder dmg-staging -ov -format UDZO "$DMG"
 
       - name: Notarize DMG
         env:
@@ -145,7 +145,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "$GITHUB_REF_NAME" "$DMG" --generate-notes --title "Records $GITHUB_REF_NAME"
+          gh release create "$GITHUB_REF_NAME" "$DMG" --generate-notes --title "Sleeves $GITHUB_REF_NAME"
           # SUFeedURL (releases/latest/download/appcast.xml) が
           # 常に最新リリースのappcastを指すよう、リリースに添付する
           gh release upload "$GITHUB_REF_NAME" appcast.xml --clobber

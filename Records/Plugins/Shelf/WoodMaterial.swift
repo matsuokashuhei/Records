@@ -1,6 +1,6 @@
 //
 //  WoodMaterial.swift
-//  Records
+//  Sleeves
 //
 //  木製パーツの共通素材。LedgeShelfPluginのレッジ(木目)と
 //  StoreShelfPluginの棚板(board)で共有する。

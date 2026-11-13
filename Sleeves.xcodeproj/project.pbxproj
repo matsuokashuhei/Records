@@ -1,0 +1,597 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0D8A625DC087823A969F7148 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = FF736F782B63AB35B9EB5A59 /* Assets.xcassets */; };
+		160549BED0E7777404297AC1 /* WoodMaterial.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DCCDC4CDC8F52776449AAA7 /* WoodMaterial.swift */; };
+		1D8A876EFBFA213D26A1867C /* ShelfPluginModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 333C11AB6C03887645FBD8FE /* ShelfPluginModel.swift */; };
+		2E8C389857C1556F4D6D052F /* PlaybackEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DC6AC4B510D4A4D2DA56E46 /* PlaybackEngine.swift */; };
+		3B2CA20163FF2E16F56BF460 /* SleeveGlossPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E7AB2001D853D3FBA8BA0C1 /* SleeveGlossPlugin.swift */; };
+		3C6540B64E2EA5A9ECCA0830 /* WallPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8DCCA126B1785B8F56F470C1 /* WallPlugin.swift */; };
+		4BF725FA46741B19381ECC8F /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 71F571E6DA27949893FA3C35 /* InfoPlist.xcstrings */; };
+		4D750E3D887F854CD7063C94 /* EdgeWearPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92C193FFC815EE740CCDD43C /* EdgeWearPlugin.swift */; };
+		5B3D55D8B71DBB710C7BD311 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 6989FE0B101E8FF04306BD42 /* Sparkle */; };
+		5FF924BA01483F7A8783A52C /* YellowingPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF8515D814B09FC177D0691E /* YellowingPlugin.swift */; };
+		62B72961EEA2C365EFEEEB34 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = A66B0C8E44830287C7DEA142 /* Localizable.xcstrings */; };
+		6C94F3F0277E666C2582AFCB /* MediaCatalogClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF41B33FA65823328513F71D /* MediaCatalogClient.swift */; };
+		6E29F1EBB500C4680C2FE11C /* UpdateController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B94C78973FCF34B5F11EAC49 /* UpdateController.swift */; };
+		6FBE45B914FD317B904F745B /* ShelfSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53D7F5C7FECC6433C4D1C51B /* ShelfSettings.swift */; };
+		7992567D6121E07B6C0EE63A /* SleevesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 850DF97C9A855C68BD10816F /* SleevesApp.swift */; };
+		853570E2DF2C1B7598C44B79 /* PlaylistPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74E8B7D55244864A35A382B1 /* PlaylistPlayer.swift */; };
+		91326CD69B7F812FCDA2DF4F /* ScuffsPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EEA258F86F6664720B9C247 /* ScuffsPlugin.swift */; };
+		99A76442DD95C19F3CBBA632 /* MediaEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3539282E2D00D87494F193BB /* MediaEntry.swift */; };
+		C5E39B5C49ABFEBBD7D59F3F /* RingWearPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5409B3E3CFE56C4766A16397 /* RingWearPlugin.swift */; };
+		CB46A127F4E60C2DAD6C4FAD /* LeanDepthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4492B5EF2579C776641CEE45 /* LeanDepthPlugin.swift */; };
+		CC1D776C8576AEF88AFA4A01 /* ShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DC6D43E127302A017ECFCC3 /* ShelfStore.swift */; };
+		CFBCC3E7D3FF5F9C7E73D81D /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DFC79B89FA985DAB1712AD79 /* SettingsView.swift */; };
+		D4384C65D02CE1ABFBA3DDD4 /* ShelfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47871275B796BC6A9C99195A /* ShelfView.swift */; };
+		D8121DCB06D8B94F77A8B66C /* Sleeves Playback.shortcut in Resources */ = {isa = PBXBuildFile; fileRef = 0D9570CCFD63B3BE46E54A3D /* Sleeves Playback.shortcut */; };
+		DBE67BF58F811E2080728CF3 /* ShortcutInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D69F2681A2A30997B8BC05D /* ShortcutInstaller.swift */; };
+		E93F1FD460B4040AAA844D06 /* SleevesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A36145D49F625C035F8E32 /* SleevesTests.swift */; };
+		E9B1E86AA82B4D87F196A560 /* LedgeShelfPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 81D7946B7FA7474CC2701A5A /* LedgeShelfPlugin.swift */; };
+		EE9DB7439C64E4857D02A9E4 /* WindowGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50DF450E443A4A28264FA483 /* WindowGlass.swift */; };
+		F8CA5E58AC015EEFFDA417FD /* ShelfManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B977B4E0818D38B502CB9DD8 /* ShelfManager.swift */; };
+		F98A001F6F823EA07106B9E0 /* MediaEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3539282E2D00D87494F193BB /* MediaEntry.swift */; };
+		F9E1A60DD75D407F5E569209 /* ShelfPlugins.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7713E93B4C838C7AA528E83F /* ShelfPlugins.swift */; };
+		FB2C59D3BA95A4338594A0EE /* SunFadePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = DAEEE8BDBB6B81182EEFF4F7 /* SunFadePlugin.swift */; };
+		FC0E9F9655A7D5BEBF6A6410 /* PlaybackMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2898817D12717D6F630A0EDB /* PlaybackMonitor.swift */; };
+		FEDE5FE0D9AC808DF2ADA9CF /* StoreShelfPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5BEB960529DDBCABF60A58B8 /* StoreShelfPlugin.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0D9570CCFD63B3BE46E54A3D /* Sleeves Playback.shortcut */ = {isa = PBXFileReference; path = "Sleeves Playback.shortcut"; sourceTree = "<group>"; };
+		1E7AB2001D853D3FBA8BA0C1 /* SleeveGlossPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleeveGlossPlugin.swift; sourceTree = "<group>"; };
+		2898817D12717D6F630A0EDB /* PlaybackMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackMonitor.swift; sourceTree = "<group>"; };
+		333C11AB6C03887645FBD8FE /* ShelfPluginModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfPluginModel.swift; sourceTree = "<group>"; };
+		3539282E2D00D87494F193BB /* MediaEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaEntry.swift; sourceTree = "<group>"; };
+		37EC8BF4FEAE187E8EB4FDE1 /* Sleeves.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Sleeves.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		4492B5EF2579C776641CEE45 /* LeanDepthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LeanDepthPlugin.swift; sourceTree = "<group>"; };
+		47871275B796BC6A9C99195A /* ShelfView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfView.swift; sourceTree = "<group>"; };
+		4D69F2681A2A30997B8BC05D /* ShortcutInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutInstaller.swift; sourceTree = "<group>"; };
+		50DF450E443A4A28264FA483 /* WindowGlass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WindowGlass.swift; sourceTree = "<group>"; };
+		53D7F5C7FECC6433C4D1C51B /* ShelfSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfSettings.swift; sourceTree = "<group>"; };
+		5409B3E3CFE56C4766A16397 /* RingWearPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RingWearPlugin.swift; sourceTree = "<group>"; };
+		5BEB960529DDBCABF60A58B8 /* StoreShelfPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreShelfPlugin.swift; sourceTree = "<group>"; };
+		5D26DB40A353E93D6B01093A /* SleevesTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SleevesTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		5EEA258F86F6664720B9C247 /* ScuffsPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScuffsPlugin.swift; sourceTree = "<group>"; };
+		71F571E6DA27949893FA3C35 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
+		74E8B7D55244864A35A382B1 /* PlaylistPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaylistPlayer.swift; sourceTree = "<group>"; };
+		7713E93B4C838C7AA528E83F /* ShelfPlugins.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfPlugins.swift; sourceTree = "<group>"; };
+		81D7946B7FA7474CC2701A5A /* LedgeShelfPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LedgeShelfPlugin.swift; sourceTree = "<group>"; };
+		850DF97C9A855C68BD10816F /* SleevesApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleevesApp.swift; sourceTree = "<group>"; };
+		8DCCA126B1785B8F56F470C1 /* WallPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallPlugin.swift; sourceTree = "<group>"; };
+		92C193FFC815EE740CCDD43C /* EdgeWearPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EdgeWearPlugin.swift; sourceTree = "<group>"; };
+		9DC6AC4B510D4A4D2DA56E46 /* PlaybackEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackEngine.swift; sourceTree = "<group>"; };
+		9DC6D43E127302A017ECFCC3 /* ShelfStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfStore.swift; sourceTree = "<group>"; };
+		9DCCDC4CDC8F52776449AAA7 /* WoodMaterial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WoodMaterial.swift; sourceTree = "<group>"; };
+		A66B0C8E44830287C7DEA142 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		B1A36145D49F625C035F8E32 /* SleevesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleevesTests.swift; sourceTree = "<group>"; };
+		B94C78973FCF34B5F11EAC49 /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
+		B977B4E0818D38B502CB9DD8 /* ShelfManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfManager.swift; sourceTree = "<group>"; };
+		CF8515D814B09FC177D0691E /* YellowingPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = YellowingPlugin.swift; sourceTree = "<group>"; };
+		DAEEE8BDBB6B81182EEFF4F7 /* SunFadePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SunFadePlugin.swift; sourceTree = "<group>"; };
+		DFC79B89FA985DAB1712AD79 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		FF41B33FA65823328513F71D /* MediaCatalogClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaCatalogClient.swift; sourceTree = "<group>"; };
+		FF736F782B63AB35B9EB5A59 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		0BFFB3D08C5D9DAF925F378B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5B3D55D8B71DBB710C7BD311 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		2430E4857287D2285BA097D6 /* Record */ = {
+			isa = PBXGroup;
+			children = (
+				92C193FFC815EE740CCDD43C /* EdgeWearPlugin.swift */,
+				5409B3E3CFE56C4766A16397 /* RingWearPlugin.swift */,
+				5EEA258F86F6664720B9C247 /* ScuffsPlugin.swift */,
+				1E7AB2001D853D3FBA8BA0C1 /* SleeveGlossPlugin.swift */,
+				DAEEE8BDBB6B81182EEFF4F7 /* SunFadePlugin.swift */,
+				CF8515D814B09FC177D0691E /* YellowingPlugin.swift */,
+			);
+			path = Record;
+			sourceTree = "<group>";
+		};
+		337882049D45014FC3C54FE7 /* Placement */ = {
+			isa = PBXGroup;
+			children = (
+				4492B5EF2579C776641CEE45 /* LeanDepthPlugin.swift */,
+			);
+			path = Placement;
+			sourceTree = "<group>";
+		};
+		3B11EE2A283BB7B55839EC77 /* Records */ = {
+			isa = PBXGroup;
+			children = (
+				FF736F782B63AB35B9EB5A59 /* Assets.xcassets */,
+				71F571E6DA27949893FA3C35 /* InfoPlist.xcstrings */,
+				A66B0C8E44830287C7DEA142 /* Localizable.xcstrings */,
+				2898817D12717D6F630A0EDB /* PlaybackMonitor.swift */,
+				DFC79B89FA985DAB1712AD79 /* SettingsView.swift */,
+				47871275B796BC6A9C99195A /* ShelfView.swift */,
+				0D9570CCFD63B3BE46E54A3D /* Sleeves Playback.shortcut */,
+				850DF97C9A855C68BD10816F /* SleevesApp.swift */,
+				B94C78973FCF34B5F11EAC49 /* UpdateController.swift */,
+				50DF450E443A4A28264FA483 /* WindowGlass.swift */,
+				491F010B31435303712AE876 /* Plugins */,
+			);
+			path = Records;
+			sourceTree = "<group>";
+		};
+		491F010B31435303712AE876 /* Plugins */ = {
+			isa = PBXGroup;
+			children = (
+				7713E93B4C838C7AA528E83F /* ShelfPlugins.swift */,
+				337882049D45014FC3C54FE7 /* Placement */,
+				2430E4857287D2285BA097D6 /* Record */,
+				CAB9554010AB63769D73C796 /* Shelf */,
+			);
+			path = Plugins;
+			sourceTree = "<group>";
+		};
+		6CFBF80655ADA506E07DA0B9 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				FF41B33FA65823328513F71D /* MediaCatalogClient.swift */,
+				3539282E2D00D87494F193BB /* MediaEntry.swift */,
+				9DC6AC4B510D4A4D2DA56E46 /* PlaybackEngine.swift */,
+				74E8B7D55244864A35A382B1 /* PlaylistPlayer.swift */,
+				B977B4E0818D38B502CB9DD8 /* ShelfManager.swift */,
+				333C11AB6C03887645FBD8FE /* ShelfPluginModel.swift */,
+				53D7F5C7FECC6433C4D1C51B /* ShelfSettings.swift */,
+				9DC6D43E127302A017ECFCC3 /* ShelfStore.swift */,
+				4D69F2681A2A30997B8BC05D /* ShortcutInstaller.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		7D530DF8E3A695D7653BCAE0 = {
+			isa = PBXGroup;
+			children = (
+				3B11EE2A283BB7B55839EC77 /* Records */,
+				6CFBF80655ADA506E07DA0B9 /* Shared */,
+				8E7D139F87B82AFA098AE746 /* SleevesTests */,
+				ED8D3F11127092C35E4EEBE8 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		8E7D139F87B82AFA098AE746 /* SleevesTests */ = {
+			isa = PBXGroup;
+			children = (
+				B1A36145D49F625C035F8E32 /* SleevesTests.swift */,
+			);
+			path = SleevesTests;
+			sourceTree = "<group>";
+		};
+		CAB9554010AB63769D73C796 /* Shelf */ = {
+			isa = PBXGroup;
+			children = (
+				81D7946B7FA7474CC2701A5A /* LedgeShelfPlugin.swift */,
+				5BEB960529DDBCABF60A58B8 /* StoreShelfPlugin.swift */,
+				8DCCA126B1785B8F56F470C1 /* WallPlugin.swift */,
+				9DCCDC4CDC8F52776449AAA7 /* WoodMaterial.swift */,
+			);
+			path = Shelf;
+			sourceTree = "<group>";
+		};
+		ED8D3F11127092C35E4EEBE8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				37EC8BF4FEAE187E8EB4FDE1 /* Sleeves.app */,
+				5D26DB40A353E93D6B01093A /* SleevesTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		AAA5416612D87E42DA59783E /* SleevesTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 8A999ACE76F0529419C7CCEE /* Build configuration list for PBXNativeTarget "SleevesTests" */;
+			buildPhases = (
+				0FF621BD38F66A9961CD1FD6 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SleevesTests;
+			packageProductDependencies = (
+			);
+			productName = SleevesTests;
+			productReference = 5D26DB40A353E93D6B01093A /* SleevesTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		EA593EBD1823BC432F75034A /* Sleeves */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 87147B6C0D45E1D96DE9C35D /* Build configuration list for PBXNativeTarget "Sleeves" */;
+			buildPhases = (
+				1B45FC2317C40210859ECCDC /* Sources */,
+				24D41CC3DD3F04CD74CF6341 /* Resources */,
+				0BFFB3D08C5D9DAF925F378B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Sleeves;
+			packageProductDependencies = (
+				6989FE0B101E8FF04306BD42 /* Sparkle */,
+			);
+			productName = Sleeves;
+			productReference = 37EC8BF4FEAE187E8EB4FDE1 /* Sleeves.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		E87B86A11BA4AFC5AB8EF113 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					AAA5416612D87E42DA59783E = {
+						DevelopmentTeam = CY4LJR5KMM;
+						ProvisioningStyle = Automatic;
+					};
+					EA593EBD1823BC432F75034A = {
+						DevelopmentTeam = CY4LJR5KMM;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = B9CEBFE996F55FF4DC812D41 /* Build configuration list for PBXProject "Sleeves" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				de,
+				en,
+				es,
+				fr,
+				ja,
+				ko,
+				"zh-Hans",
+			);
+			mainGroup = 7D530DF8E3A695D7653BCAE0;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				9F4F53701F4CED1A430646F8 /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = ED8D3F11127092C35E4EEBE8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				EA593EBD1823BC432F75034A /* Sleeves */,
+				AAA5416612D87E42DA59783E /* SleevesTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		24D41CC3DD3F04CD74CF6341 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0D8A625DC087823A969F7148 /* Assets.xcassets in Resources */,
+				4BF725FA46741B19381ECC8F /* InfoPlist.xcstrings in Resources */,
+				62B72961EEA2C365EFEEEB34 /* Localizable.xcstrings in Resources */,
+				D8121DCB06D8B94F77A8B66C /* Sleeves Playback.shortcut in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0FF621BD38F66A9961CD1FD6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F98A001F6F823EA07106B9E0 /* MediaEntry.swift in Sources */,
+				E93F1FD460B4040AAA844D06 /* SleevesTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1B45FC2317C40210859ECCDC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4D750E3D887F854CD7063C94 /* EdgeWearPlugin.swift in Sources */,
+				CB46A127F4E60C2DAD6C4FAD /* LeanDepthPlugin.swift in Sources */,
+				E9B1E86AA82B4D87F196A560 /* LedgeShelfPlugin.swift in Sources */,
+				6C94F3F0277E666C2582AFCB /* MediaCatalogClient.swift in Sources */,
+				99A76442DD95C19F3CBBA632 /* MediaEntry.swift in Sources */,
+				2E8C389857C1556F4D6D052F /* PlaybackEngine.swift in Sources */,
+				FC0E9F9655A7D5BEBF6A6410 /* PlaybackMonitor.swift in Sources */,
+				853570E2DF2C1B7598C44B79 /* PlaylistPlayer.swift in Sources */,
+				C5E39B5C49ABFEBBD7D59F3F /* RingWearPlugin.swift in Sources */,
+				91326CD69B7F812FCDA2DF4F /* ScuffsPlugin.swift in Sources */,
+				CFBCC3E7D3FF5F9C7E73D81D /* SettingsView.swift in Sources */,
+				F8CA5E58AC015EEFFDA417FD /* ShelfManager.swift in Sources */,
+				1D8A876EFBFA213D26A1867C /* ShelfPluginModel.swift in Sources */,
+				F9E1A60DD75D407F5E569209 /* ShelfPlugins.swift in Sources */,
+				6FBE45B914FD317B904F745B /* ShelfSettings.swift in Sources */,
+				CC1D776C8576AEF88AFA4A01 /* ShelfStore.swift in Sources */,
+				D4384C65D02CE1ABFBA3DDD4 /* ShelfView.swift in Sources */,
+				DBE67BF58F811E2080728CF3 /* ShortcutInstaller.swift in Sources */,
+				3B2CA20163FF2E16F56BF460 /* SleeveGlossPlugin.swift in Sources */,
+				7992567D6121E07B6C0EE63A /* SleevesApp.swift in Sources */,
+				FEDE5FE0D9AC808DF2ADA9CF /* StoreShelfPlugin.swift in Sources */,
+				FB2C59D3BA95A4338594A0EE /* SunFadePlugin.swift in Sources */,
+				6E29F1EBB500C4680C2FE11C /* UpdateController.swift in Sources */,
+				3C6540B64E2EA5A9ECCA0830 /* WallPlugin.swift in Sources */,
+				EE9DB7439C64E4857D02A9E4 /* WindowGlass.swift in Sources */,
+				160549BED0E7777404297AC1 /* WoodMaterial.swift in Sources */,
+				5FF924BA01483F7A8783A52C /* YellowingPlugin.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		138A0BE30086A34F4336C163 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Records/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Sleeves;
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Used to fetch albums and playlists from the Apple Music catalog and play them.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Sleeves;
+				PRODUCT_NAME = Sleeves;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		3BDDB2342DB08B126FE03CA3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = Records/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Sleeves;
+				INFOPLIST_KEY_NSAppleMusicUsageDescription = "Used to fetch albums and playlists from the Apple Music catalog and play them.";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Sleeves;
+				PRODUCT_NAME = Sleeves;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		59E9429A2E6DC928E22209C1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Sleeves.tests;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		8156FB95AF1DBB7B26B0B2A2 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = CY4LJR5KMM;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		9D89FA001E5051896C08C232 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = CY4LJR5KMM;
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		BA3FAF9BF2CB7DCDFD216432 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				COMBINE_HIDPI_IMAGES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+					"@loader_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.cacheandbuffer.Sleeves.tests;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		87147B6C0D45E1D96DE9C35D /* Build configuration list for PBXNativeTarget "Sleeves" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3BDDB2342DB08B126FE03CA3 /* Debug */,
+				138A0BE30086A34F4336C163 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		8A999ACE76F0529419C7CCEE /* Build configuration list for PBXNativeTarget "SleevesTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BA3FAF9BF2CB7DCDFD216432 /* Debug */,
+				59E9429A2E6DC928E22209C1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		B9CEBFE996F55FF4DC812D41 /* Build configuration list for PBXProject "Sleeves" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				8156FB95AF1DBB7B26B0B2A2 /* Debug */,
+				9D89FA001E5051896C08C232 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		9F4F53701F4CED1A430646F8 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = exactVersion;
+				version = 2.10.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		6989FE0B101E8FF04306BD42 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 9F4F53701F4CED1A430646F8 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = E87B86A11BA4AFC5AB8EF113 /* Project object */;
+}

@@ -12,16 +12,19 @@ import os
 ///   (ショートカットの「音楽を再生」はプレイリストURLを解決できないため — 実測済み)
 enum PlaybackEngine {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Playback")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "Playback")
 
     /// 対応するショートカット名(この順で優先)。
-    /// "Records Playback" はアプリが同梱ファイルからインストールする名前
+    /// "Sleeves Playback" はアプリが同梱ファイルからインストールする名前
     /// (ASCIIなのでNFD/NFC正規化の問題を踏まない)。
-    /// 残り2つは過去に手動作成を案内していた名前の後方互換。
+    /// "Records Playback"/"Recordsで再生" はアプリ名変更(Records→Sleeves)
+    /// 前に作成・インストール済みのショートカットを拾うための後方互換。
+    /// "Sleevesで再生" は新名での手動作成名。
     static let shortcutNameCandidates = [
+        "Sleeves Playback",
+        "Sleevesで再生",
         "Records Playback",
         "Recordsで再生",
-        "Apple Musicミニプレイヤー",
     ]
 
     enum PlaybackError: LocalizedError {

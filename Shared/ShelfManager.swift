@@ -3,13 +3,13 @@ import os
 
 /// シェルフ(=ウィンドウ)の集合を管理する。
 /// シェルフごとにShelfStoreを1つ持ち、登録データ/表示設定は
-/// Application Support/Records/Shelves/<shelfID>/ 下に保存する。
+/// Application Support/Sleeves/Shelves/<shelfID>/ 下に保存する。
 /// shelves.json にシェルフIDの一覧を保存し、次回起動時に
 /// 全シェルフのウィンドウを開き直す(ウィンドウを閉じてもシェルフは残る)。
 @MainActor
 final class ShelfManager: ObservableObject {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Shelf")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "Shelf")
 
     static let shared = ShelfManager()
 
@@ -33,6 +33,9 @@ final class ShelfManager: ObservableObject {
     private var pendingOpenIDs: Set<String> = []
 
     private init() {
+        // 旧名(Records)のデータディレクトリを先に移行してから
+        // shelves.json等を読む(順序が逆だと旧データを見失う)
+        ShelfStore.migrateLegacyDataDirectoryIfNeeded()
         Self.migrateLegacyFiles()
         shelfIDs = Self.loadShelfIDs()
         saveShelfIDs()
@@ -59,7 +62,7 @@ final class ShelfManager: ObservableObject {
 
     /// 新しいシェルフを作ってそのIDを返す(⇧⌘N / コンテキストメニュー)。
     /// ウィンドウを開くのは呼び出し側の役目(ShelfViewは自身のopenWindow
-    /// 環境で、RecordsAppのコマンドはopenShelfWindow経由で開く)
+    /// 環境で、SleevesAppのコマンドはopenShelfWindow経由で開く)
     func createShelf() -> String {
         let id = "shelf-" + UUID().uuidString.prefix(8).lowercased()
         shelfIDs.append(id)

@@ -1,6 +1,6 @@
 //
 //  StoreShelfPlugin.swift
-//  Records
+//  Sleeves
 //
 //  プラグイン「レコード店の棚」(構造系、shelfStyle=.store)。
 //  レコード店の壁面陳列棚を再現する支え構造: 各行の木製水平棚板
@@ -50,7 +50,7 @@ import os
 struct StoreShelfPlugin: ShelfPlugin {
 
     private static let logger = Logger(
-        subsystem: "com.cacheandbuffer.Records", category: "Plugins")
+        subsystem: "com.cacheandbuffer.Sleeves", category: "Plugins")
 
     /// パラメータID。PluginState.valuesの永続化キーになるので
     /// 一度決めたら変更しない(変えると保存済みの値が効かなくなる)

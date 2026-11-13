@@ -9,7 +9,7 @@ import os
 /// Musicアプリの画面は関与しない(Now PlayingはControl Centerに表示される)。
 enum PlaylistPlayer {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Playlist")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "Playlist")
 
     static func play(_ entry: MediaEntry) async throws {
         logger.notice("play() start id=\(entry.id, privacy: .public) authStatus=\(MusicAuthorization.currentStatus.rawValue, privacy: .public)")
