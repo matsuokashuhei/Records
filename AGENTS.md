@@ -1,4 +1,4 @@
-# AGENTS.md — Records(レコードシェルフ)開発メモ
+# AGENTS.md — Sleeves(レコードシェルフ)開発メモ
 
 ## このプロジェクト
 
@@ -13,10 +13,10 @@ macOSアプリ。Apple Musicのアルバム/プレイリスト20個を壁のレ�
 そのため以下は必須:
 
 - すべてのUIアクション(ボタンクリック、追加フロー、クリップボード操作など)に
-  `os.Logger` を仕込む(subsystem: `com.cacheandbuffer.Records`)
+  `os.Logger` を仕込む(subsystem: `com.cacheandbuffer.Sleeves`)
 - 非同期処理・外部プロセス実行・エラー経路には必ず開始/成功/失敗のログを出す
 - 新しいファイル・新しい機能を書くとき、最初からログを入れる(後で足すのを忘れない)
-- ログ出力例: `Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")`
+- ログ出力例: `Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")`
 - 文字列補間は `\(value, privacy: .public)` にして `log show` で読めるようにする
 
 ### 2. ユーザーに操作を依頼したら、ログは自分で監視・分析する
@@ -49,22 +49,22 @@ DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodegen generate
 
 # ビルド
 DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer xcodebuild \
-  -project Records.xcodeproj -scheme Records -configuration Debug \
+  -project Sleeves.xcodeproj -scheme Sleeves -configuration Debug \
   -derivedDataPath .build build
 
 # 起動(/Applications にはインストールしないこと — ユーザー指示)
 # 注意: open は起動中のインスタンスを再表示するだけで新ビルドを起動しない。
 # 必ず pkill で旧プロセスを落としてから open すること(旧バイナリで
 # 検証したつもりになる事故が実際に起きた — 2026-10-24)
-pkill -x Records; open .build/Build/Products/Debug/Records.app
+pkill -x Sleeves; open .build/Build/Products/Debug/Sleeves.app
 
 # CLI検証(UIを触らずMusicKit取得/再生を試す。結果はログへ)
-.build/Build/Products/Debug/Records.app/Contents/MacOS/Records \
+.build/Build/Products/Debug/Sleeves.app/Contents/MacOS/Sleeves \
   --catalog-test "https://music.apple.com/jp/album/brown-sugar/1440842296" [--play]
 
 # ログ取得
 /usr/bin/log show --last 5m --style compact --info \
-  --predicate 'subsystem == "com.cacheandbuffer.Records"'
+  --predicate 'subsystem == "com.cacheandbuffer.Sleeves"'
 ```
 
 - `xcode-select` はCLT向きなので、xcodebuild/xcodegenには必ず `DEVELOPER_DIR` を付ける
@@ -75,7 +75,7 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
 ## アーキテクチャと検証済み事実(2026-10-18 実機)
 
 - **アルバムの再生**: `shortcuts://run-shortcut?name=<enc>&input=<アルバムURL>` を
-  `/usr/bin/open` で開く → ユーザーのショートカット「Recordsで再生」
+  `/usr/bin/open` で開く → ユーザーのショートカット「Sleeves Playback」
   (音楽を再生アクションの音楽パラメータにShortcut Input)がMusicアプリでカタログ再生
 - **プレイリストの再生**: ショートカットの「音楽を再生」はプレイリストURLを解決できない
   (実測)。MusicKit `ApplicationMusicPlayer` で本アプリ内再生する
@@ -96,7 +96,7 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   スロット計算の純ロジックは `Shared/MediaEntry.swift` の
   `enum ShelfPlacement`(normalized/paddedSlots/firstEmptySlot/place/
   reorder/insertionShift/slotCenter/nearestEmptySlot)に集約し、
-  RecordsTestsから直接テストしている。
+  SleevesTestsから直接テストしている。
   - slotIndex >= capacityのエントリは登録を保持したまま非表示
     (「縮小しても登録は消さない」セマンティクス。グリッドを広げれば
     同じスロット位置に再び現れる)。
@@ -208,7 +208,7 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
    は成功するので、実寸計測は全画面を撮って任意ツールでクロップ/差分する
 - Apple Events / `shortcuts run` CLI は **GUIアプリプロセスからspawnすると
   ショートカット名解決に失敗する**(ターミナルからは成功するのに)。URLスキーム経由なら問題ない
-- `SystemSettings → プライバシーとセキュリティ → オートメーション → Records → Shortcuts Events`
+- `SystemSettings → プライバシーとセキュリティ → オートメーション → Sleeves → Shortcuts Events`
   をONにしないと、アプリプロセスからのShortcuts Events照会が空リストを返す
 
 ## ウィンドウの余白と信号ボタン(2026-10-25 実装・実機検証済み)
@@ -362,15 +362,17 @@ pkill -x Records; open .build/Build/Products/Debug/Records.app
   `com.apple.developer.musickit` というentitlementは存在せず、entitlementsファイルに書くと
   プロビジョニングで「invalid entitlement」エラーになる。**entitlementsファイルに書いてはいけない**
 - MusicKitカタログAPIに必要なのは: developer.apple.com → Identifiers → App ID
-  `com.cacheandbuffer.Records` → **App ServicesタブでMusicKitにチェック**(ユーザーが登録済み、2026-10-18)
+  `com.cacheandbuffer.Sleeves` → **App ServicesタブでMusicKitにチェック**
+  (旧 `com.cacheandbuffer.Records` では登録済み。バンドルID変更に伴い
+   新ID側でのApp ID作成+MusicKit有効化が別途必要 — 2026-11-リネーム時)
   - CLI/`-allowProvisioningUpdates` からはApp IDサービスを有効化できない(pbxprojの
     `SystemCapabilities` 注入も無効だった — MusicKitはXcodeのcapabilityに無い)
 - `NSAppleMusicUsageDescription`(Info.plist)が無いと、MusicAuthorization.request() 時に
   TCCがSIGABRTでアプリを即死させる(project.ymlの `INFOPLIST_KEY_NSAppleMusicUsageDescription` で対応済み)
-- **CLI検証経路**: `Records --catalog-test <URL> [--play]` で起動するとUIを介さず
+- **CLI検証経路**: `Sleeves --catalog-test <URL> [--play]` で起動するとUIを介さず
   MediaCatalogClient.fetch(+PlaybackEngine.play)を実行し結果をログに出して終了する
-  (RecordsApp.swiftのinit内。UIを触れないエージェントの検証用)
-  - `Records --chrome-preview` は起動1.5秒後にツールバー/信号ボタンを強制表示する
+  (SleevesApp.swiftのinit内。UIを触れないエージェントの検証用)
+  - `Sleeves --chrome-preview` は起動1.5秒後にツールバー/信号ボタンを強制表示する
     (3秒で自動的に隠れる。マウス移動・クリックを合成できないエージェントが
     スクリーンショットで見た目を確認するための経路。複数シェルフがある場合は
     プライマリのウィンドウだけが対象)
@@ -458,14 +460,18 @@ jacketShape(cellIndex:)。実物のLPジャケットは角ごとにわずかに�
 
 ## データ
 
-- シェルフ一覧: `~/Library/Application Support/Records/shelves.json`
+- シェルフ一覧: `~/Library/Application Support/Sleeves/shelves.json`
   (シェルフIDの配列。先頭がプライマリ="main")
 - 各シェルフの登録データ/表示設定:
-  `~/Library/Application Support/Records/Shelves/<shelfID>/{albums,settings}.json`
+  `~/Library/Application Support/Sleeves/Shelves/<shelfID>/{albums,settings}.json`
   (旧レイアウトのルートalbums.json/settings.jsonは起動時にShelves/main/へ自動移行)
-- アートワーク: `~/Library/Application Support/Records/Artwork/<id>.jpg`
+- アートワーク: `~/Library/Application Support/Sleeves/Artwork/<id>.jpg`
   (全シェルフで共有。削除時は他シェルフの使用有無をShelfManager.isEntryUsedElsewhereで判定)
 - アプリは非サンドボックスでこのディレクトリを使う
+- 旧名Records時代の `~/Library/Application Support/Records` は初回起動時に
+  `Application Support/Sleeves` へ自動移行される
+  (`ShelfStore.migrateLegacyDataDirectoryIfNeeded`。新旧両方ある場合や
+   移行失敗時は旧ディレクトリを残したまま新ディレクトリで続行)
 
 ## 構成
 
@@ -491,7 +497,7 @@ WidgetKit拡張(RecordsWidget)は**撤去した**。正方形ウィジェット�
 - デスクトップ非アクティブ時の減退描画で画像を保つには
   `Image.widgetAccentedRenderingMode(.fullColor)`(Image専用)
 - 設置済みウィジェットのkind名を変えると `No matching descriptor` で壊れる
-- 描画が壊れたときのリセットは `~/Library/Containers/com.cacheandbuffer.Records.widget/`
+- 描画が壊れたときのリセットは `~/Library/Containers/com.cacheandbuffer.Sleeves.widget/`
   コンテナごとFinderで削除(TCCでターミナルからは消せない)
 
 ## 更新チェック(Sparkle 2)とEdDSA鍵(2026-11-08 実装・E2E検証済み)
@@ -503,12 +509,12 @@ WidgetKit拡張(RecordsWidget)は**撤去した**。正方形ウィジェット�
 - 更新UIはすべてSparkle標準(`SPUStandardUpdaterController`のデフォルト
   UserDriver)。`Records/UpdateController.swift`はログ用
   `SPUUpdaterDelegate`を差し込む薄いラッパーだけ
-- メニューはRecords→「Check for Updates…」(`CommandGroup(after: .appInfo)`)、
+- メニューはSleeves→「Check for Updates…」(`CommandGroup(after: .appInfo)`)、
   自動チェックは`SUEnableAutomaticChecks`=YES + `startingUpdater:true`
   (アプリ側にスケジュールコードは無い)
 - `UpdateController`は`--catalog-test`経路では生成しない
   (その経路はUIを出さず即exitするのでSparkleのスケジューラを
-  起動させない。RecordsApp.initでoptionalにしてある)
+  起動させない。SleevesApp.initでoptionalにしてある)
 - Sparkle系の詳細ログはサブシステム`org.sparkle-project.Sparkle`にも
   出る。更新失敗の原因調査はこちらを見ること:
   `log show --last 5m --info --predicate 'subsystem CONTAINS "sparkle"'`

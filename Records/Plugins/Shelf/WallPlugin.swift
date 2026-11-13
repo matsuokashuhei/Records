@@ -1,6 +1,6 @@
 //
 //  WallPlugin.swift
-//  Records
+//  Sleeves
 //
 //  プラグイン「壁」(構造系・スタイル非依存)。
 //  グリッド背面の壁(単色グラデまたは紙テクスチャ)と、壁に重ねる
@@ -31,7 +31,7 @@ import os
 struct WallPlugin: ShelfPlugin {
 
     private static let logger = Logger(
-        subsystem: "com.cacheandbuffer.Records", category: "Plugins")
+        subsystem: "com.cacheandbuffer.Sleeves", category: "Plugins")
 
     /// パラメータID。PluginState.valuesの永続化キーになるので
     /// 一度決めたら変更しない(変えると保存済みの値が効かなくなる)。

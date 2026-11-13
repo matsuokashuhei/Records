@@ -1,6 +1,6 @@
 //
 //  ShelfView.swift
-//  Records
+//  Sleeves
 //
 //  Created by Shuhei Matsuoka on 2026/10/18.
 //
@@ -16,7 +16,7 @@ import os
 /// シェルフ間でもレコードをドラッグ&ドロップで移動できる。
 struct ShelfView: View {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
 
     /// このウィンドウが表示するシェルフのID。
     /// 起動時にシステムが作る値を持たないウィンドウはプライマリシェルフになる
@@ -40,8 +40,6 @@ struct ShelfView: View {
     /// window.close()用)。@Stateに持つとviewDidMoveToWindow中の代入で
     /// 「レイアウト中の状態更新」になるため、命令的にだけ書く箱に入れる
     @StateObject private var windowBox = WindowBox()
-    /// 削除確認ダイアログに出している対象。非nilの間ダイアログを表示する。
-    @State private var pendingDelete: MediaEntry?
     /// シェルフ削除の確認ダイアログ表示フラグ
     @State private var pendingShelfDelete = false
     /// 重複ウィンドウと判定され、アタッチ次第自分を閉じるフラグ
@@ -107,9 +105,9 @@ struct ShelfView: View {
     /// タイトルバー(信号ボタン)と右上ツールバーの自動表示。
     /// アクティブなウィンドウでマウスが動いたら表示し、3秒動かなければ隠す
     @StateObject private var chrome = ChromeVisibilityController()
-    /// 出しているコンテキストメニューのNSMenuItem.target(クロージャ保持用)。
+    /// 出しているコンテキストメニュー/ダイアログのtarget(クロージャ保持用)。
     /// NSMenuItem.targetは保持されないので、メニューが閉じるまで生かしておく
-    @State private var contextMenuTargets: [ContextMenuAction] = []
+    @State private var contextMenuTargets: [ClosureActionTarget] = []
     /// ゴーストのポインタ追従用タイマー。leftMouseDraggedはドラッグ
     /// セッションに吸収されてモニタへ届かないため(2026-10-24実測)、
     /// 60fpsでmouseLocationをポーリングして追従させる
@@ -156,20 +154,10 @@ struct ShelfView: View {
                 GlassBackgroundView()
                     .ignoresSafeArea()
             }
-        // 右クリックメニュー選択後の確認。「Remove "<name>"?」+ Delete Record/Cancel。
-            .alert(
-                "Remove “\(pendingDelete?.title ?? "")”?",
-                isPresented: Binding(
-                    get: { pendingDelete != nil },
-                    set: { if !$0 { pendingDelete = nil } }
-                ),
-                presenting: pendingDelete
-            ) { entry in
-                Button("Delete Record", role: .destructive) { delete(entry) }
-                Button("Cancel", role: .cancel) {
-                    Self.logger.notice("delete cancelled for '\(entry.title, privacy: .public)'")
-                }
-            }
+        // レコード削除の確認はNSAlertで行う(confirmDelete(_:)参照)。
+        // SwiftUIの.alertは使わない — 「Don't Ask Again」チェックボックスで
+        // settings.confirmDeleteへ即時反映する必要があり、かつモーダル中の
+        // chrome保持はsetHold("alert")で手動管理する
         // 外部ドラッグで追加できなかった理由(重複/満杯/取得失敗)を通知する。
         // 成功時はグリッドにレコードが出るだけなのでアラートは出さない。
             .alert(
@@ -206,7 +194,7 @@ struct ShelfView: View {
                     Self.logger.notice("shortcut install deferred")
                 }
             } message: {
-                Text("Album playback uses a Shortcuts shortcut named \"Records Playback\", which isn't installed yet. Install it and click \"Add Shortcut\" in the Shortcuts app window that opens.")
+                Text("Album playback uses a Shortcuts shortcut named \"Sleeves Playback\", which isn't installed yet. Install it and click \"Add Shortcut\" in the Shortcuts app window that opens.")
             }
         // シェルフ自体の削除確認。コンテキストメニューの「Delete Shelf…」から。
             .alert(
@@ -309,7 +297,7 @@ struct ShelfView: View {
 
     /// 確認/エラー系のアラートを出しているか(chromeの自動非表示を止める条件)
     private var hasModalAlert: Bool {
-        pendingDelete != nil || pendingShelfDelete || addError != nil || showShortcutAlert
+        pendingShelfDelete || addError != nil || showShortcutAlert
     }
 
     /// 確認済みのシェルフ削除。データを消してウィンドウを閉じる
@@ -325,6 +313,66 @@ struct ShelfView: View {
         Self.logger.notice("record deleted: '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
         store.remove(entry.id)
         PlaybackMonitor.shared.stopIfActiveEntryHidden()
+    }
+
+    /// 削除前の確認。settings.confirmDeleteがfalseなら確認せず即削除、
+    /// trueならNSAlert(「Don't Ask Again」チェックボックス付き)を出す。
+    /// SwiftUIの.alertではなくNSAlertを使うのは、チェックボックスの
+    /// 状態変化をその場でsettings.confirmDeleteへ保存する必要があるため
+    /// (accessoryViewのNSButtonターゲットから直接updateSettingsを呼ぶ)。
+    /// モーダル中のchrome保持はhasModalAlertのonChangeが効かない
+    /// (runModalが同期的にブロックする)ので、ここでsetHoldを手動管理する
+    private func confirmDelete(_ entry: MediaEntry) {
+        // 「確認しない」設定(設定画面トグル or 前回の「Don't Ask Again」)
+        guard store.settings.confirmDelete else {
+            Self.logger.notice("delete without confirmation (confirmDelete=false): '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
+            delete(entry)
+            return
+        }
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Remove “\(entry.title)”?")
+        alert.alertStyle = .warning
+        // 先頭ボタン=Returnで確定するデフォルト。destructiveで赤くする
+        let deleteButton = alert.addButton(withTitle: String(localized: "Delete Record"))
+        deleteButton.hasDestructiveAction = true
+        let cancelButton = alert.addButton(withTitle: String(localized: "Cancel"))
+        cancelButton.keyEquivalent = "\u{1b}"
+        // 「今後は確認しない」チェックボックス。ON=confirmDelete false。
+        // トグルのたびに即座にsettingsへ保存する(updateSettingsが
+        // 永続化+変更ログを行う)。NSButton.targetはweakなので、
+        // アクションを持つClosureActionTargetをローカル変数で保持する
+        let checkbox = NSButton(
+            checkboxWithTitle: String(localized: "Don't Ask Again"),
+            target: nil, action: nil
+        )
+        // このダイアログに来る時点でconfirmDelete==trueなので初期状態はOFF
+        checkbox.state = store.settings.confirmDelete ? .off : .on
+        let checkboxTarget = ClosureActionTarget { [checkbox] in
+            // ON=確認しない(confirmDelete=false)、OFF=確認する(=true)
+            let confirm = checkbox.state != .on
+            var s = self.store.settings
+            s.confirmDelete = confirm
+            self.store.updateSettings(s)
+            Self.logger.notice("delete confirm checkbox toggled: don'tAskAgain=\(!confirm, privacy: .public) confirmDelete=\(s.confirmDelete, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
+        }
+        checkbox.target = checkboxTarget
+        checkbox.action = #selector(ClosureActionTarget.invoke)
+        alert.accessoryView = checkbox
+        // モーダル中はchrome(信号ボタン/ツールバー)を自動で隠さない。
+        // SwiftUIアラートと同じ理由キー"alert"。runModalは同期的に
+        // ブロックするのでhasModalAlertのonChangeは効かず、deferで確実に解除
+        chrome.setHold("alert", active: true)
+        defer { chrome.setHold("alert", active: false) }
+        // checkboxTargetはweak参照しか持たれないので、モーダルが
+        // 閉じるまで生存を保証する(withExtendedLifetime)
+        let response = withExtendedLifetime(checkboxTarget) {
+            alert.runModal()
+        }
+        if response == .alertFirstButtonReturn {
+            delete(entry)
+        } else {
+            Self.logger.notice("delete cancelled for '\(entry.title, privacy: .public)'")
+        }
     }
 
     // グリッドの間隔と余白はstore.settingsのcolumnSpacing/rowSpacing/
@@ -618,14 +666,14 @@ struct ShelfView: View {
     private func showDeleteMenu(for entry: MediaEntry, event: NSEvent, in window: NSWindow) {
         Self.logger.notice("context menu requested: entry='\(entry.title, privacy: .public)' shelf=\(self.shelfID, privacy: .public)")
 
-        let target = ContextMenuAction {
+        let target = ClosureActionTarget {
             Self.logger.notice("delete requested for '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
             // メニューの入れ子イベントループ中にシートを出さないよう一段ずらす
-            DispatchQueue.main.async { self.pendingDelete = entry }
+            DispatchQueue.main.async { self.confirmDelete(entry) }
         }
         let item = NSMenuItem(
             title: String(localized: "Delete Record"),
-            action: #selector(ContextMenuAction.invoke),
+            action: #selector(ClosureActionTarget.invoke),
             keyEquivalent: ""
         )
         item.target = target
@@ -1676,7 +1724,7 @@ private final class GhostController {
 /// レコードが消えるため、画面座標で自由に動ける別ウィンドウにする。
 /// ignoresMouseEventsなのでドラッグセッションやクリックの邪魔をしない
 private final class GhostPanel: NSPanel {
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
     /// シャドウ担当(クリップしない)
     private let container = NSView()
     /// 画像担当(角ごとに1〜2ptの角丸でクリップ。セルのジャケットと形を揃える)
@@ -1806,7 +1854,7 @@ private final class GhostPanel: NSPanel {
 /// 自前パネルならウィンドウ内ドラッグと同じ描画・同じ角丸・同じ影で、
 /// サイズもアニメーションも完全に制御できる。
 private final class ExternalDropOverlayView: NSView {
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
 
     /// モーフィングの所要時間(秒)
     private static let morphDuration: CFTimeInterval = 0.2
@@ -2242,7 +2290,7 @@ private struct ExternalDropOverlayRep: NSViewRepresentable {
 @MainActor
 final class ChromeVisibilityController: ObservableObject {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
 
     /// マウスが止まってから隠すまでの時間
     static let hideDelay: Duration = .seconds(3)
@@ -2336,10 +2384,11 @@ final class ChromeVisibilityController: ObservableObject {
     }
 }
 
-/// NSMenuItemのactionをクロージャで扱うためのターゲット。
-/// NSMenuItem.targetは保持されないため、メニューを出している間だけ
-/// ShelfViewの contextMenuTargets(@Stateの配列)で生かしておく
-private final class ContextMenuAction: NSObject {
+/// NSControl(NSButton等)やNSMenuItemのactionをクロージャで扱うための
+/// 汎用ターゲット。targetはweak参照なので、使う側が生存を保証する
+/// (コンテキストメニューはcontextMenuTargets(@Stateの配列)、
+///  削除確認ダイアログはwithExtendedLifetimeでローカル保持)
+private final class ClosureActionTarget: NSObject {
     private let action: () -> Void
 
     init(action: @escaping () -> Void) {
@@ -2354,7 +2403,7 @@ private final class ContextMenuAction: NSObject {
 /// シェルフの1枚分。ホバーで再生/停止アイコンを表示する。
 private struct AlbumSlotView: View {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
 
     let entry: MediaEntry
 

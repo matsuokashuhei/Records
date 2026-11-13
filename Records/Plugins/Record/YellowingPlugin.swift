@@ -1,6 +1,6 @@
 //
 //  YellowingPlugin.swift
-//  Records
+//  Sleeves
 //
 //  プラグイン「黄変」(P6)。
 //  白・淡色のジャケットが経年でアイボリー色に黄ばむ劣化を再現する。
@@ -30,7 +30,7 @@ import os
 struct YellowingPlugin: ShelfPlugin {
 
     private static let logger = Logger(
-        subsystem: "com.cacheandbuffer.Records", category: "Plugins")
+        subsystem: "com.cacheandbuffer.Sleeves", category: "Plugins")
 
     /// パラメータID。PluginState.valuesの永続化キーになるので
     /// 一度決めたら変更しない(変えると保存済みの値が効かなくなる)

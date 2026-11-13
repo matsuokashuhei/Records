@@ -5,7 +5,7 @@ import os
 /// 再生用ショートカットの存在確認とインストール。
 ///
 /// アルバム再生は shortcuts://run-shortcut 経由でユーザー側の
-/// ショートカット(「Records Playback」。Playアクションのパラメータに
+/// ショートカット(「Sleeves Playback」。Playアクションのパラメータに
 /// Shortcut Input)を呼ぶため、ショートカットが無いとアルバムは鳴らない。
 /// OSにショートカットをサイレント作成するAPIは無いので、
 /// 「無い」ことを検知したらバンドル同梱の署名済み .shortcut ファイルを
@@ -15,11 +15,11 @@ import os
 /// 同梱ファイルはShortcutsアプリの File > Export(For: Anyone)で作った
 /// 署名+iCloud検証済みのもの。中身にショートカット名は含まれず、
 /// インポート時の名前はファイル名から取られるため、リソース名を
-/// 「Records Playback.shortcut」にしている(2026-11-08 実機検証)。
+/// 「Sleeves Playback.shortcut」にしている(2026-11-08 実機検証)。
 @MainActor
 final class ShortcutInstaller: ObservableObject {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Shortcut")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "Shortcut")
 
     static let shared = ShortcutInstaller()
 
@@ -34,7 +34,7 @@ final class ShortcutInstaller: ObservableObject {
 
     /// バンドルに同梱している .shortcut リソース名。
     /// インポートされるショートカット名はこのベース名になる
-    private static let bundledName = "Records Playback"
+    private static let bundledName = "Sleeves Playback"
 
     /// 起動時チェック。未インストールならアラートを出す
     func checkAtLaunch() async {

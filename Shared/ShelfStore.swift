@@ -9,7 +9,7 @@ import os
 @MainActor
 final class ShelfStore: ObservableObject {
 
-    nonisolated private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Shelf")
+    nonisolated private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "Shelf")
 
     /// このストアが表すシェルフのID(shelves.jsonに登録されたもの)
     let shelfID: String
@@ -66,7 +66,35 @@ final class ShelfStore: ObservableObject {
 
     nonisolated static var baseDirectory: URL {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return support.appendingPathComponent("Records", isDirectory: true)
+        return support.appendingPathComponent("Sleeves", isDirectory: true)
+    }
+
+    /// 旧アプリ名(Records)時代のデータディレクトリを新名(Sleeves)へ移行する。
+    /// `Application Support/Records` が存在し `Application Support/Sleeves`
+    /// が存在しない場合だけ moveItem でリネームする(初回起動時の一度きり)。
+    /// 失敗時は旧ディレクトリを残したまま新ディレクトリで続行する
+    /// (データを消失させない)。ShelfManager.initとensureDirectoriesの
+    /// 両方から呼ぶ — shelves.jsonの読み込みより必ず先に走らせるため
+    nonisolated static func migrateLegacyDataDirectoryIfNeeded() {
+        let fm = FileManager.default
+        let support = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let legacy = support.appendingPathComponent("Records", isDirectory: true)
+        let current = support.appendingPathComponent("Sleeves", isDirectory: true)
+        guard fm.fileExists(atPath: legacy.path) else { return }
+        if fm.fileExists(atPath: current.path) {
+            // 初回移行失敗→新ディレクトリ作成済みのケース。旧データが
+            // Records/ に取り残されている可能性があるので警告だけ残す
+            // (マージや再試行はしない — データを勝手に統合しない)
+            logger.notice("data dir migration skipped: legacy data dir exists alongside current dir; skipping migration legacy=\(legacy.path, privacy: .public) current=\(current.path, privacy: .public)")
+            return
+        }
+        logger.notice("data dir migration: moving \(legacy.path, privacy: .public) → \(current.path, privacy: .public)")
+        do {
+            try fm.moveItem(at: legacy, to: current)
+            logger.notice("data dir migration: succeeded \(legacy.path, privacy: .public) → \(current.path, privacy: .public)")
+        } catch {
+            logger.error("data dir migration failed: \(legacy.path, privacy: .public) → \(current.path, privacy: .public) error=\(error.localizedDescription, privacy: .public); continuing with new directory (legacy data left in place)")
+        }
     }
 
     nonisolated static var artworkDirectory: URL {
@@ -87,6 +115,7 @@ final class ShelfStore: ObservableObject {
     }
 
     nonisolated static func ensureDirectories(_ shelfID: String) {
+        migrateLegacyDataDirectoryIfNeeded()
         for dir in [shelfDirectory(shelfID), artworkDirectory] {
             do {
                 try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -289,7 +318,7 @@ final class ShelfStore: ObservableObject {
     }
 
     private func logSettingsChange(from old: ShelfSettings, to new: ShelfSettings) {
-        Self.logger.notice("settings changed (shelf=\(self.shelfID, privacy: .public)): \(old.columns, privacy: .public)x\(old.rows, privacy: .public)(\(old.capacity, privacy: .public)枚)→\(new.columns, privacy: .public)x\(new.rows, privacy: .public)(\(new.capacity, privacy: .public)枚) artworkSize \(old.artworkSize.rawValue, privacy: .public)→\(new.artworkSize.rawValue, privacy: .public) shelfStyle \(old.shelfStyle.rawValue, privacy: .public)→\(new.shelfStyle.rawValue, privacy: .public) colGap \(old.columnSpacing, privacy: .public)→\(new.columnSpacing, privacy: .public) rowGap \(old.rowSpacing, privacy: .public)→\(new.rowSpacing, privacy: .public) edgePad \(old.edgePadding, privacy: .public)→\(new.edgePadding, privacy: .public) topPad \(old.topPadding, privacy: .public)→\(new.topPadding, privacy: .public) bottomPad \(old.bottomPadding, privacy: .public)→\(new.bottomPadding, privacy: .public) plugins \(old.pluginSummary, privacy: .public)→\(new.pluginSummary, privacy: .public)")
+        Self.logger.notice("settings changed (shelf=\(self.shelfID, privacy: .public)): \(old.columns, privacy: .public)x\(old.rows, privacy: .public)(\(old.capacity, privacy: .public)枚)→\(new.columns, privacy: .public)x\(new.rows, privacy: .public)(\(new.capacity, privacy: .public)枚) artworkSize \(old.artworkSize.rawValue, privacy: .public)→\(new.artworkSize.rawValue, privacy: .public) shelfStyle \(old.shelfStyle.rawValue, privacy: .public)→\(new.shelfStyle.rawValue, privacy: .public) colGap \(old.columnSpacing, privacy: .public)→\(new.columnSpacing, privacy: .public) rowGap \(old.rowSpacing, privacy: .public)→\(new.rowSpacing, privacy: .public) edgePad \(old.edgePadding, privacy: .public)→\(new.edgePadding, privacy: .public) topPad \(old.topPadding, privacy: .public)→\(new.topPadding, privacy: .public) bottomPad \(old.bottomPadding, privacy: .public)→\(new.bottomPadding, privacy: .public) confirmDelete \(old.confirmDelete, privacy: .public)→\(new.confirmDelete, privacy: .public) plugins \(old.pluginSummary, privacy: .public)→\(new.pluginSummary, privacy: .public)")
     }
 
     // MARK: - 表示用

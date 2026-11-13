@@ -15,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "8BBC55351781245E17B9721F"
-               BuildableName = "Records.app"
-               BlueprintName = "Records"
-               ReferencedContainer = "container:Records.xcodeproj">
+               BlueprintIdentifier = "EA593EBD1823BC432F75034A"
+               BuildableName = "Sleeves.app"
+               BlueprintName = "Sleeves"
+               ReferencedContainer = "container:Sleeves.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,10 +32,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "8BBC55351781245E17B9721F"
-            BuildableName = "Records.app"
-            BlueprintName = "Records"
-            ReferencedContainer = "container:Records.xcodeproj">
+            BlueprintIdentifier = "EA593EBD1823BC432F75034A"
+            BuildableName = "Sleeves.app"
+            BlueprintName = "Sleeves"
+            ReferencedContainer = "container:Sleeves.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -44,10 +44,10 @@
             parallelizable = "NO">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "BA0F5C7B6CA41B02A7368650"
-               BuildableName = "RecordsTests.xctest"
-               BlueprintName = "RecordsTests"
-               ReferencedContainer = "container:Records.xcodeproj">
+               BlueprintIdentifier = "AAA5416612D87E42DA59783E"
+               BuildableName = "SleevesTests.xctest"
+               BlueprintName = "SleevesTests"
+               ReferencedContainer = "container:Sleeves.xcodeproj">
             </BuildableReference>
          </TestableReference>
       </Testables>
@@ -68,10 +68,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "8BBC55351781245E17B9721F"
-            BuildableName = "Records.app"
-            BlueprintName = "Records"
-            ReferencedContainer = "container:Records.xcodeproj">
+            BlueprintIdentifier = "EA593EBD1823BC432F75034A"
+            BuildableName = "Sleeves.app"
+            BlueprintName = "Sleeves"
+            ReferencedContainer = "container:Sleeves.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -87,10 +87,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "8BBC55351781245E17B9721F"
-            BuildableName = "Records.app"
-            BlueprintName = "Records"
-            ReferencedContainer = "container:Records.xcodeproj">
+            BlueprintIdentifier = "EA593EBD1823BC432F75034A"
+            BuildableName = "Sleeves.app"
+            BlueprintName = "Sleeves"
+            ReferencedContainer = "container:Sleeves.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

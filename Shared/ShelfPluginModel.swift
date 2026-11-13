@@ -15,7 +15,7 @@ import os
 /// デコードする(後方互換)。
 
 private let pluginModelLogger = Logger(
-    subsystem: "com.cacheandbuffer.Records", category: "Plugins")
+    subsystem: "com.cacheandbuffer.Sleeves", category: "Plugins")
 
 /// プラグインパラメータの値。スライダーの数値(number)、選択型の
 /// 選択肢id(string)、トグル(Bool)等を型付きで持つenum。

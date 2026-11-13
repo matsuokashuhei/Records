@@ -1,6 +1,6 @@
 //
 //  UpdateController.swift
-//  Records
+//  Sleeves
 //
 //  Sparkle 2 の更新確認を束ねる薄いラッパー。
 //  UIはSparkle標準(SPUStandardUpdaterControllerのデフォルト
@@ -14,7 +14,7 @@ import os
 
 final class UpdateController {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Update")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "Update")
 
     /// メニュー項目などから `updater.checkForUpdates()` を呼ぶための入口
     var updater: SPUUpdater { controller.updater }
@@ -36,7 +36,7 @@ final class UpdateController {
 /// エージェントはUIを目視できないため、チェック結果は必ずログに残す。
 private final class UpdaterLoggingDelegate: NSObject, SPUUpdaterDelegate {
 
-    private let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Update")
+    private let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "Update")
 
     func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
         logger.notice("update found: version=\(item.displayVersionString, privacy: .public) build=\(item.versionString, privacy: .public) url=\(item.fileURL?.absoluteString ?? "none", privacy: .public)")

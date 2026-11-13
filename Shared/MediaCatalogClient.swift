@@ -6,7 +6,7 @@ import os
 /// カタログの読み取りにはユーザー認可は不要(再生時にのみ必要)。
 enum MediaCatalogClient {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Catalog")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "Catalog")
 
     enum CatalogError: LocalizedError {
         case notAuthorized
@@ -15,7 +15,7 @@ enum MediaCatalogClient {
         var errorDescription: String? {
             switch self {
             case .notAuthorized:
-                return String(localized: "Access to Apple Music is not allowed. Allow Records in System Settings → Privacy & Security → Media & Apple Music.")
+                return String(localized: "Access to Apple Music is not allowed. Allow Sleeves in System Settings → Privacy & Security → Media & Apple Music.")
             case .invalidInput:
                 return String(localized: "The URL or ID format was not recognized. Enter an album or playlist URL.")
             case .notFound:

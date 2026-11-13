@@ -1,6 +1,6 @@
 //
 //  PlaybackMonitor.swift
-//  Records
+//  Sleeves
 //
 //  Created by Shuhei Matsuoka on 2026/10/18.
 //
@@ -15,7 +15,7 @@ import os
 @MainActor
 final class PlaybackMonitor: ObservableObject {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Monitor")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "Monitor")
 
     static let shared = PlaybackMonitor()
 

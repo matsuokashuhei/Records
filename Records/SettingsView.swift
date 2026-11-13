@@ -1,6 +1,6 @@
 //
 //  SettingsView.swift
-//  Records
+//  Sleeves
 //
 //  Created by Shuhei Matsuoka on 2026/10/18.
 //
@@ -15,7 +15,7 @@ import os
 /// (ShelfManager.focusedStore)。言語だけはアプリ全体共通。
 struct SettingsView: View {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
 
     @ObservedObject private var manager = ShelfManager.shared
     /// 言語変更後の再起動促しアラート表示フラグ
@@ -45,14 +45,15 @@ struct SettingsView: View {
             // settingsの更新で再描画されないため)、サブビューに切り出して
             // @ObservedObjectで購読する
             if let store {
-                // カテゴリ見出し(Records/Shelf/…)はそのカテゴリの先頭
+                // カテゴリ見出し(Sleeves/Shelf/…)はそのカテゴリの先頭
                 // ボックス(固定項目)に付け、プラグインは1つ=1ボックスの
                 // Sectionとして直後に並べる。プラグインのボックス内は
                 // 先頭行が有効トグル(太字タイトル)、以降の行がパラメータ
                 // 調整UIという、macOSのシステム設定と同じグループ構造
                 // (例: Spotlightの「Results from Clipboard」)
-                Section("Records") {
+                Section("Sleeves") {
                     ArtworkSizePicker(store: store)
+                    DeleteConfirmationToggle(store: store)
                 }
                 ShelfEffectSettings(store: store, category: .record)
                 Section("Shelf") {
@@ -84,7 +85,7 @@ struct SettingsView: View {
         ) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text("The new language will take effect after you restart Records.")
+            Text("The new language will take effect after you restart Sleeves.")
         }
     }
 
@@ -104,7 +105,7 @@ struct SettingsView: View {
                 // OSの言語一覧を拾ってしまう(未設定なのにピッカーが空選択になる)。
                 // アプリ固有ドメインだけ読む
                 let domain = UserDefaults.standard.persistentDomain(
-                    forName: Bundle.main.bundleIdentifier ?? "com.cacheandbuffer.Records"
+                    forName: Bundle.main.bundleIdentifier ?? "com.cacheandbuffer.Sleeves"
                 )
                 return (domain?["AppleLanguages"] as? [String])?.first ?? "system"
             },
@@ -128,7 +129,7 @@ struct SettingsView: View {
 ///  settingsが変わっても再描画されずピッカー表示が古いままになる)
 private struct ShelfPickers: View {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
 
     @ObservedObject var store: ShelfStore
 
@@ -197,7 +198,7 @@ private struct ShelfPickers: View {
 /// ShelfPickersと同じく@ObservedObjectでstoreを購読するサブビュー
 private struct ArtworkSizePicker: View {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
 
     @ObservedObject var store: ShelfStore
 
@@ -224,6 +225,33 @@ private struct ArtworkSizePicker: View {
     }
 }
 
+/// レコード削除時の確認ダイアログ有無トグル。
+/// ArtworkSizePickerと同じく@ObservedObjectでstoreを購読する
+/// サブビュー(SettingsView本体はmanager.focusedStoreの参照しか
+/// 監視しないため、settingsの変更で再描画されない)
+private struct DeleteConfirmationToggle: View {
+
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
+
+    @ObservedObject var store: ShelfStore
+
+    var body: some View {
+        Toggle("Delete Confirmation", isOn: confirmDeleteBinding)
+    }
+
+    private var confirmDeleteBinding: Binding<Bool> {
+        Binding(
+            get: { store.settings.confirmDelete },
+            set: { newValue in
+                Self.logger.notice("settings: delete confirmation toggle changed to \(newValue, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
+                var s = store.settings
+                s.confirmDelete = newValue
+                store.updateSettings(s)
+            }
+        )
+    }
+}
+
 /// グリッド間隔のスライダー1本。spacingのキーで対象フィールドを
 /// 指定する(rowSpacing=棚セクション、columnSpacing=置き方セクション)。
 /// 外周の余白は独立した設定ではなく間隔から導出される
@@ -235,7 +263,7 @@ private struct ArtworkSizePicker: View {
 /// commitSettingsにまとめる
 private struct SpacingSlider: View {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
 
     /// これだけ値が変わらなければ編集完了とみなす無入力時間
     /// (PluginSliderRowと同じ)
@@ -304,7 +332,7 @@ private struct SpacingSlider: View {
 /// 変更はstore.updateSettingsでフォーカス中シェルフへ即時反映・永続化。
 private struct ShelfEffectSettings: View {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
 
     @ObservedObject var store: ShelfStore
     /// このセクションに表示するプラグインの分類
@@ -419,7 +447,7 @@ private func updatePluginState(
 ///  編集完了を網羅できる)
 private struct PluginSliderRow: View {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
 
     /// これだけ値が変わらなければ編集完了とみなす無入力時間
     private static let commitDelay: Duration = .milliseconds(400)
@@ -487,7 +515,7 @@ private struct PluginSliderRow: View {
 /// (persist=true)し、コミットログもここで出す(デバウンス不要)。
 private struct PluginOptionsRow: View {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "UI")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "UI")
 
     /// グリッドピッカーのセル1辺
     private static let gridCellSize: CGFloat = 24

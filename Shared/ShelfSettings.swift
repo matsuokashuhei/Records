@@ -7,7 +7,7 @@ import os
 /// 読み書きはすべて nonisolated。
 struct ShelfSettings: Codable, Equatable {
 
-    private static let logger = Logger(subsystem: "com.cacheandbuffer.Records", category: "Settings")
+    private static let logger = Logger(subsystem: "com.cacheandbuffer.Sleeves", category: "Settings")
 
     /// 列数/行数それぞれの選択上限
     static let maxDimension = 10
@@ -95,6 +95,11 @@ struct ShelfSettings: Codable, Equatable {
     var columnSpacing: Double
     /// シェルフ段同士の縦の隙間(pt)。スライダーで調整可能
     var rowSpacing: Double
+    /// レコード削除時に確認ダイアログを出すか。
+    /// true=確認してから削除(従来動作)、false=確認せず即削除。
+    /// settings.jsonの "confirmDelete" キー。既存ファイルにはキーが
+    /// 無いのでデコード時は true に倒す(後方互換)
+    var confirmDelete: Bool
     /// グリッド外周の余白のうち左右(pt)。
     /// 独立した設定ではなく、常にレコード間隔(columnSpacing)と同じ値になる
     /// 導出値(settings.jsonには保存しない)
@@ -137,7 +142,7 @@ struct ShelfSettings: Codable, Equatable {
     static let `default` = ShelfSettings(columns: 5, rows: 4, artworkSize: .s)
 
     private enum CodingKeys: String, CodingKey {
-        case columns, rows, artworkSize, shelfStyle, plugins
+        case columns, rows, artworkSize, shelfStyle, plugins, confirmDelete
         case columnSpacing, rowSpacing
         case legacyCapacity = "capacity"
     }
@@ -155,7 +160,8 @@ struct ShelfSettings: Codable, Equatable {
          shelfStyle: ShelfStyle = .store,
          plugins: [String: PluginState] = [:],
          columnSpacing: Double = Self.defaultColumnSpacing,
-         rowSpacing: Double = Self.defaultRowSpacing) {
+         rowSpacing: Double = Self.defaultRowSpacing,
+         confirmDelete: Bool = true) {
         self.columns = min(max(columns, 1), Self.maxDimension)
         self.rows = min(max(rows, 1), Self.maxDimension)
         self.artworkSize = artworkSize
@@ -165,6 +171,7 @@ struct ShelfSettings: Codable, Equatable {
                                  Self.columnSpacingRange.upperBound)
         self.rowSpacing = min(max(rowSpacing, Self.rowSpacingRange.lowerBound),
                               Self.rowSpacingRange.upperBound)
+        self.confirmDelete = confirmDelete
     }
 
     init(from decoder: Decoder) throws {
@@ -200,6 +207,9 @@ struct ShelfSettings: Codable, Equatable {
             ?? Self.defaultColumnSpacing
         let rowSpacing = (try? c.decode(Double.self, forKey: .rowSpacing))
             ?? Self.defaultRowSpacing
+        // 新キー "confirmDelete": 既存settings.jsonには無いので省略時は
+        // true(削除時に確認する従来動作)に倒す
+        let confirmDelete = (try? c.decode(Bool.self, forKey: .confirmDelete)) ?? true
         // edgePadding/topPadding/bottomPaddingは導出値になったため
         // settings.jsonには書かない。古いファイルに残っていても
         // 未知キーとして無視される
@@ -218,7 +228,8 @@ struct ShelfSettings: Codable, Equatable {
                 shelfStyle: shelfStyle,
                 plugins: plugins,
                 columnSpacing: columnSpacing,
-                rowSpacing: rowSpacing
+                rowSpacing: rowSpacing,
+                confirmDelete: confirmDelete
             )
         } else {
             // 旧フォーマット(capacity: 6/12/20)からの移行
@@ -227,7 +238,7 @@ struct ShelfSettings: Codable, Equatable {
             self.init(columns: layout.columns, rows: layout.rows, artworkSize: size,
                       shelfStyle: shelfStyle,
                       plugins: plugins, columnSpacing: columnSpacing,
-                      rowSpacing: rowSpacing)
+                      rowSpacing: rowSpacing, confirmDelete: confirmDelete)
         }
     }
 
@@ -243,6 +254,8 @@ struct ShelfSettings: Codable, Equatable {
         try c.encode(plugins, forKey: .plugins)
         try c.encode(columnSpacing, forKey: .columnSpacing)
         try c.encode(rowSpacing, forKey: .rowSpacing)
+        // 常に書き出す(読み戻しも同じ値で一致する)
+        try c.encode(confirmDelete, forKey: .confirmDelete)
         // edgePadding/topPadding/bottomPaddingは導出値なので書き出さない
     }
 
@@ -255,7 +268,7 @@ struct ShelfSettings: Codable, Equatable {
         do {
             let data = try Data(contentsOf: fileURL(shelfID: shelfID))
             let settings = try JSONDecoder().decode(ShelfSettings.self, from: data)
-            logger.notice("settings.json loaded (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) shelfStyle=\(settings.shelfStyle.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) bottomPad=\(settings.bottomPadding, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
+            logger.notice("settings.json loaded (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) shelfStyle=\(settings.shelfStyle.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) bottomPad=\(settings.bottomPadding, privacy: .public) confirmDelete=\(settings.confirmDelete, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
             return settings
         } catch {
             // 初回起動やファイル破損時は既定値。読めなくても既定値で動作継続する。
@@ -268,7 +281,7 @@ struct ShelfSettings: Codable, Equatable {
         do {
             let data = try JSONEncoder().encode(settings)
             try data.write(to: fileURL(shelfID: shelfID), options: .atomic)
-            logger.notice("settings.json saved (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) shelfStyle=\(settings.shelfStyle.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) bottomPad=\(settings.bottomPadding, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
+            logger.notice("settings.json saved (shelf=\(shelfID, privacy: .public)): columns=\(settings.columns, privacy: .public) rows=\(settings.rows, privacy: .public) artworkSize=\(settings.artworkSize.rawValue, privacy: .public) shelfStyle=\(settings.shelfStyle.rawValue, privacy: .public) colGap=\(settings.columnSpacing, privacy: .public) rowGap=\(settings.rowSpacing, privacy: .public) edgePad=\(settings.edgePadding, privacy: .public) topPad=\(settings.topPadding, privacy: .public) bottomPad=\(settings.bottomPadding, privacy: .public) confirmDelete=\(settings.confirmDelete, privacy: .public) plugins=\(settings.pluginSummary, privacy: .public)")
         } catch {
             logger.error("settings.json save failed: \(error.localizedDescription, privacy: .public)")
         }

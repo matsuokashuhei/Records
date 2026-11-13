@@ -1,6 +1,6 @@
 //
 //  EdgeWearPlugin.swift
-//  Records
+//  Sleeves
 //
 //  プラグイン「フチ・角の摩耗」(P5)。
 //  何度も抜き差しされたレコードジャケットの、白っぽく擦り切れた
@@ -29,7 +29,7 @@ import os
 struct EdgeWearPlugin: ShelfPlugin {
 
     private static let logger = Logger(
-        subsystem: "com.cacheandbuffer.Records", category: "Plugins")
+        subsystem: "com.cacheandbuffer.Sleeves", category: "Plugins")
 
     /// パラメータID。PluginState.valuesの永続化キーになるので
     /// 一度決めたら変更しない(変えると保存済みの値が効かなくなる)
