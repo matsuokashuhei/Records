@@ -1811,6 +1811,47 @@
         }
       }
     },
+    "Focus a shelf window to edit these settings." : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fokussiere ein Regalfenster, um diese Einstellungen zu bearbeiten."
+          }
+        },
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Enfoca una ventana de estante para editar estos ajustes."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sélectionne une fenêtre d’étagère pour modifier ces réglages."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "シェルフのウインドウをフォーカスするとこれらの設定を編集できます"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 설정을 편집하려면 선반 윈도우를 포커스하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "聚焦唱片架窗口即可编辑这些设置。"
+          }
+        }
+      }
+    },
     "Found shortcuts: %@" : {
       "extractionState" : "stale",
       "localizations" : {

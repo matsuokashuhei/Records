@@ -20,6 +20,8 @@ struct SettingsView: View {
     @ObservedObject private var manager = ShelfManager.shared
     /// 言語変更後の再起動促しアラート表示フラグ
     @State private var showRestartAlert = false
+    /// サイドバーで選択中のペイン
+    @State private var selectedPane: SettingsPane = .general
 
     /// 編集対象のシェルフ(最後にフォーカスしたウィンドウ)。
     /// まだ一度もシェルフがキーになっていなければnil
@@ -28,54 +30,114 @@ struct SettingsView: View {
     /// 言語選択肢のタグ値。"system"はOS設定に従う(AppleLanguages未設定)
     private static let languageCodes = ["en", "ja", "es", "zh-Hans", "ko", "fr", "de"]
 
-    var body: some View {
-        Form {
-            Section("General") {
-                Picker("Language", selection: languageSelection) {
-                    Text("System").tag("system")
-                    ForEach(Self.languageCodes, id: \.self) { code in
-                        Text(languageName(for: code)).tag(code)
-                    }
-                }
-            }
-            // 表示設定は「レコード」「棚」「レコードの置き方」の
-            // 3セクションに分ける。編集対象は「最後にキーになった
-            // シェルフウィンドウ」(ShelfManager.focusedStore)。
-            // 監視するのはstore側(manager.focusedStoreの参照変更だけでは
-            // settingsの更新で再描画されないため)、サブビューに切り出して
-            // @ObservedObjectで購読する
-            if let store {
-                // カテゴリ見出し(Sleeves/Shelf/…)はそのカテゴリの先頭
-                // ボックス(固定項目)に付け、プラグインは1つ=1ボックスの
-                // Sectionとして直後に並べる。プラグインのボックス内は
-                // 先頭行が有効トグル(太字タイトル)、以降の行がパラメータ
-                // 調整UIという、macOSのシステム設定と同じグループ構造
-                // (例: Spotlightの「Results from Clipboard」)
-                Section("Sleeves") {
-                    ArtworkSizePicker(store: store)
-                    DeleteConfirmationToggle(store: store)
-                }
-                ShelfEffectSettings(store: store, category: .record)
-                Section("Shelf") {
-                    ShelfPickers(store: store)
-                    SpacingSlider(store: store,
-                                  title: "Shelf Spacing",
-                                  range: ShelfSettings.rowSpacingRange,
-                                  spacing: \.rowSpacing)
-                }
-                ShelfEffectSettings(store: store, category: .shelf)
-                Section("Record Placement") {
-                    SpacingSlider(store: store,
-                                  title: "Record Spacing",
-                                  range: ShelfSettings.columnSpacingRange,
-                                  spacing: \.columnSpacing)
-                }
-                ShelfEffectSettings(store: store, category: .placement)
+    /// 設定ペイン。macOSのシステム設定と同じく、左のサイドバーで
+    /// カテゴリを選び右のペインにその設定を出す
+    private enum SettingsPane: String, CaseIterable, Identifiable {
+        case general, sleeves, shelf, placement
+        var id: Self { self }
+
+        /// サイドバー表示名とペインのナビゲーションタイトル。
+        /// キーは旧セクション見出しと同じなので既存の翻訳が効く
+        var title: LocalizedStringKey {
+            switch self {
+            case .general: "General"
+            case .sleeves: "Sleeves"
+            case .shelf: "Shelf"
+            case .placement: "Record Placement"
             }
         }
-        .formStyle(.grouped)
-        .frame(width: 480)
-        .padding(8)
+
+        var symbol: String {
+            switch self {
+            case .general: "gearshape"
+            case .sleeves: "opticaldisc"
+            case .shelf: "square.grid.3x3"
+            case .placement: "rectangle.portrait.rotate"
+            }
+        }
+    }
+
+    var body: some View {
+        // macOSのシステム設定と同じサイドバー+ペイン構成。
+        // 表示設定の編集対象は「最後にキーになったシェルフウィンドウ」
+        // (ShelfManager.focusedStore)。監視するのはstore側
+        // (manager.focusedStoreの参照変更だけではsettingsの更新で
+        // 再描画されないため)、サブビューに切り出して@ObservedObjectで購読する
+        NavigationSplitView {
+            List(SettingsPane.allCases, selection: $selectedPane) { pane in
+                Label(pane.title, systemImage: pane.symbol)
+                    .tag(pane)
+            }
+            .navigationSplitViewColumnWidth(min: 160, ideal: 180, max: 220)
+        } detail: {
+            // ウィンドウは固定サイズ。収まらないペイン(プラグインが多い
+            // Sleeves等)は縦スクロールにする(macOSのForm自体は
+            // スクロールしないので外側をScrollViewにする)
+            ScrollView {
+                Form {
+                    switch selectedPane {
+                    case .general:
+                        Section {
+                            languagePicker
+                        }
+                    case .sleeves:
+                        if let store {
+                            // カテゴリの先頭ボックス(固定項目)の直後に、
+                            // プラグインを1つ=1ボックスのSectionとして並べる。
+                            // プラグインのボックス内は先頭行が有効トグル
+                            // (太字タイトル)、以降の行がパラメータ調整UIという、
+                            // macOSのシステム設定と同じグループ構造
+                            // (例: Spotlightの「Results from Clipboard」)
+                            Section {
+                                ArtworkSizePicker(store: store)
+                                DeleteConfirmationToggle(store: store)
+                            }
+                            ShelfEffectSettings(store: store, category: .record)
+                        } else {
+                            unfocusedShelfSection
+                        }
+                    case .shelf:
+                        if let store {
+                            Section {
+                                ShelfPickers(store: store)
+                                SpacingSlider(store: store,
+                                              title: "Shelf Spacing",
+                                              range: ShelfSettings.rowSpacingRange,
+                                              spacing: \.rowSpacing)
+                            }
+                            ShelfEffectSettings(store: store, category: .shelf)
+                        } else {
+                            unfocusedShelfSection
+                        }
+                    case .placement:
+                        if let store {
+                            Section {
+                                SpacingSlider(store: store,
+                                              title: "Record Spacing",
+                                              range: ShelfSettings.columnSpacingRange,
+                                              spacing: \.columnSpacing)
+                            }
+                            ShelfEffectSettings(store: store, category: .placement)
+                        } else {
+                            unfocusedShelfSection
+                        }
+                    }
+                }
+                .formStyle(.grouped)
+                .padding(8)
+            }
+            // ペイン切替でスクロール位置を引き継がないよう、
+            // ペインごとにScrollViewを作り直す
+            .id(selectedPane)
+            .navigationTitle(selectedPane.title)
+        }
+        // ウィンドウサイズは固定(システム設定アプリと同じく
+        // ペイン切替でサイズが変わらない)。min=maxのcontentSizeで
+        // リサイズ不可になる
+        .frame(width: 900, height: 640)
+        .onChange(of: selectedPane) { _, newValue in
+            Self.logger.notice("settings pane selected: \(newValue.rawValue, privacy: .public)")
+        }
         .onAppear {
             Self.logger.notice("settings window shown")
         }
@@ -90,6 +152,25 @@ struct SettingsView: View {
     }
 
     // MARK: - 表示設定
+
+    /// Generalペインの言語ピッカー
+    private var languagePicker: some View {
+        Picker("Language", selection: languageSelection) {
+            Text("System").tag("system")
+            ForEach(Self.languageCodes, id: \.self) { code in
+                Text(languageName(for: code)).tag(code)
+            }
+        }
+    }
+
+    /// フォーカス中シェルフが無いとき表示設定ペインに出す案内
+    /// (設定画面をシェルフのツールバー以外から開いた経路用)
+    private var unfocusedShelfSection: some View {
+        Section {
+            Text("Focus a shelf window to edit these settings.")
+                .foregroundStyle(.secondary)
+        }
+    }
 
     /// 言語名をその言語自体で表示する(autonym。英語なら"English")
     private func languageName(for code: String) -> String {
@@ -352,9 +433,8 @@ private struct ShelfEffectSettings: View {
             }
         }
         // スライダーのtransient更新が確定前に残らないよう、
-        // 設定画面が閉じる時点で必ず永続化する
-        // (変更が無ければcommitSettingsはno-op。
-        //  3カテゴリ分のShelfEffectSettingsがそれぞれ呼ぶが同じくno-op)
+        // ペイン切替・設定画面を閉じる時点で必ず永続化する
+        // (変更が無ければcommitSettingsはno-op)
         .onDisappear { store.commitSettings() }
     }
 
