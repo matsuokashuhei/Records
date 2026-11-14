@@ -146,16 +146,19 @@
 対象ファイル: Sleeves/Plugins/Record/ScuffsPlugin.swift
 
 - [ ] P8-1. jacketOverlay で、ジャケット表面の擦りキズを2種類描く:
-      髪の毛状の細い淡い線傷(短い弧・直線状)と、白い斑点状の
-      すり傷(小さな点群)。暗いジャケットで目立つ実物の見た目に
-      近い、繊細で目立ちすぎない表現にすること
-- [ ] P8-2. パラメータ(定義済み・変更しない):
-      amount "Amount" 0-1 step0.01 default 0.4(傷の量・密度)
-      style "Style" options(hairline / speckles / both、default both)
+      髪の毛状の細い淡い線傷(弧状・直線状。向きはセルごとの
+      主方向にほぼ揃え、一部に外れ傷を混ぜる)と、白い斑点状の
+      すり傷(小さな点群。全面一様ではなくすれ跡エリアに集中)。
+      暗いジャケットで目立つ実物の見た目に近い、
+      繊細で目立ちすぎない表現にすること
+- [ ] P8-2. パラメータ(2026-11-14改訂: 傷種ごとの量スライダー2本に変更):
+      hairline "Hairline" 0-3 step0.01 default 0.4(線傷の量・密度。
+      1.0=従来の最大密度、3.0まで効きを強められる)
+      speckles "Speckles" 0-3 step0.01 default 0.4(斑点の量・密度。同上)
 - [ ] P8-3. 傷の位置・向き・本数・長さはセルごとの決定論的疑似乱数
       (sinハッシュ方式)で生成し、再描画・再起動で変わらないこと
-- [ ] P8-4. amount≈0ではオーバーレイを返さない。
-      allowsHitTesting(false)必須
+- [ ] P8-4. hairline/speckles両方≈0、または実効傷数0のセルでは
+      オーバーレイを返さない。allowsHitTesting(false)必須
 
 ## 共通(全PR)
 
