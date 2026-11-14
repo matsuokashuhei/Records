@@ -41,6 +41,12 @@ macOSアプリ。Apple Musicのアルバム/プレイリスト20個を壁のレ�
 (ユーザー指示 — 2026-11-08)。自分で実装した場合でも、レビュアー
 (subagent_explore)による要件・ルール照合と実機検証の手順は省略しない。
 
+### 6. 作業が完了したら必ずアプリを起動する
+
+タスク完了時は毎回、新ビルドのアプリを起動しておく
+(ユーザー指示 — 2026-11-14)。手順は下の「起動」コメントの通り
+(必ず pkill してから open)。
+
 ## ビルド・起動コマンド
 
 ```bash
@@ -399,6 +405,14 @@ pkill -x Sleeves; open .build/Build/Products/Debug/Sleeves.app
 `ShelfPluginRegistry`)、合成点はShelfView.swiftのAlbumSlotView。
 `ShelfPluginRegistry.all`の並び=適用順=設定画面の表示順。
 
+設定画面の分類はプラグインの `category`(record/wall/shelf/placement)
+がそのままサイドメニューのペインに対応する(2026-11-14に壁をShelf
+ペインから独立ペインへ分離)。`canDisable=false`(現状wallのみ)の
+プラグインは常時有効: 設定画面にON/OFFトグルを出さず、
+resolve/resolveShelfでもsettingsのenabledフラグを無視する。
+ShelfSettingsのデコード時にwallのstaleなenabled=falseはtrueへ
+正規化される(pluginSummaryが"off"と誤報しないため)。
+
 フックは4種(デフォルト全てno-op、必要なものだけオーバーライド)。
 `applyingJacketPlugins`内での合成順は (a)→(b)→(c):
 
@@ -441,7 +455,7 @@ jacketShape(cellIndex:)。実物のLPジャケットは角ごとにわずかに�
 シェルフの「支え構造」は排他選択。`ShelfSettings.ShelfStyle`
 (settings.jsonの `"shelfStyle"`。"store"=通し棚板+アクリル前柵、
 "ledge"=スロットごとの木製レッジ。キー無し/未知値は .store)で保持し、
-設定画面DisplayセクションのStyleピッカーで切り替える。
+設定画面ShelfペインのStyleピッカーで切り替える。
 
 - 構造プラグインは `var shelfStyle` で自身のスタイルを宣言する
   (WallPluginのようなスタイル非依存プラグインはnil)。レジストリの

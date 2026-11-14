@@ -19,10 +19,10 @@
 //
 //  バックドロップはセルのヒット判定に影響しないが、
 //  空き領域へのタップを壁が食わないよう allowsHitTesting(false)
-//  を掛けている。無効時はレジストリのresolveShelfで除外され、
-//  壁・経年なしの見た目になる。
-//  未保存時の既定は有効(defaultEnabled=true。壁の無い棚は
-//  選択肢に無いため最初からON)。
+//  を掛けている。
+//  壁の無い棚は選択肢に無いため常時有効(canDisable=false。
+//  設定画面にON/OFFトグルを出さず、保存済みのenabled=falseも
+//  resolveで無視される)。
 //
 
 import SwiftUI
@@ -209,9 +209,12 @@ struct WallPlugin: ShelfPlugin {
 
     let id = "wall"
     let displayName = "Wall"
-    let category: ShelfPluginCategory = .shelf
+    let category: ShelfPluginCategory = .wall
     /// 構造系プラグインは既定で有効(壁の無い棚は選択肢に無い)
     let defaultEnabled = true
+    /// 壁の無い棚は選択肢に無いので常に有効。トグルを出さず、
+    /// 保存済みのenabled=falseも無視される
+    let canDisable = false
 
     init() {
         Self.logger.info("plugin registered: wall ('Wall')")

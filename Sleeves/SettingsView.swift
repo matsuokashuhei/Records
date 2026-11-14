@@ -33,16 +33,17 @@ struct SettingsView: View {
     /// 設定ペイン。macOSのシステム設定と同じく、左のサイドバーで
     /// カテゴリを選び右のペインにその設定を出す
     private enum SettingsPane: String, CaseIterable, Identifiable {
-        case general, sleeves, shelf, placement
+        case general, sleeves, shelf, wall, placement
         var id: Self { self }
 
         /// サイドバー表示名とペインのナビゲーションタイトル。
-        /// キーは旧セクション見出しと同じなので既存の翻訳が効く
+        /// キーはプラグイン表示名と同じなので既存の翻訳が効く
         var title: LocalizedStringKey {
             switch self {
             case .general: "General"
             case .sleeves: "Sleeves"
             case .shelf: "Shelf"
+            case .wall: "Wall"
             case .placement: "Record Placement"
             }
         }
@@ -52,6 +53,7 @@ struct SettingsView: View {
             case .general: "gearshape"
             case .sleeves: "opticaldisc"
             case .shelf: "square.grid.3x3"
+            case .wall: "paintbrush"
             case .placement: "rectangle.portrait.rotate"
             }
         }
@@ -84,6 +86,16 @@ struct SettingsView: View {
                         Section {
                             languagePicker
                         }
+                        // 削除確認はアプリ全体の振る舞いに近いので
+                        // Generalに置く(編集対象は他の表示設定と同じく
+                        // フォーカス中のシェルフ)
+                        if let store {
+                            Section {
+                                DeleteConfirmationToggle(store: store)
+                            }
+                        } else {
+                            unfocusedShelfSection
+                        }
                     case .sleeves:
                         if let store {
                             // カテゴリの先頭ボックス(固定項目)の直後に、
@@ -94,7 +106,6 @@ struct SettingsView: View {
                             // (例: Spotlightの「Results from Clipboard」)
                             Section {
                                 ArtworkSizePicker(store: store)
-                                DeleteConfirmationToggle(store: store)
                             }
                             ShelfEffectSettings(store: store, category: .record)
                         } else {
@@ -110,6 +121,12 @@ struct SettingsView: View {
                                               spacing: \.rowSpacing)
                             }
                             ShelfEffectSettings(store: store, category: .shelf)
+                        } else {
+                            unfocusedShelfSection
+                        }
+                    case .wall:
+                        if let store {
+                            ShelfEffectSettings(store: store, category: .wall)
                         } else {
                             unfocusedShelfSection
                         }
@@ -441,10 +458,12 @@ private struct SpacingSlider: View {
 /// エフェクトプラグインの設定ボックス群(レジストリ列挙)。
 /// 各プラグイン = 1つのSection(独立したグループボックス)で、
 /// 先頭行が有効トグル(太字タイトル)、以降の行がパラメータ調整UI
-/// (スライダー等)。パラメータ行は常時表示し、プラグイン無効時は
+/// (スライダー等)。canDisable=falseのプラグイン(壁等)は
+/// トグル行を出さずパラメータ行のみ。パラメータ行は常時表示し、
+/// プラグイン無効時は
 /// .disabledで標準の選択不可表現(グレー・操作不可)にする
 /// — システム設定の「Spotlight > Results from Clipboard」と同じ構造。
-/// categoryで「レコード」「棚」「レコードの置き方」のどの
+/// categoryで「レコード」「壁」「棚」「レコードの置き方」のどの
 /// セクションに属するかを絞る(セクション内の順序はレジストリ順=適用順)。
 /// ShelfPickersと同じく、store.settingsの更新で再描画されるよう
 /// @ObservedObjectでstoreを購読するサブビューに切り出してある。
@@ -478,13 +497,17 @@ private struct ShelfEffectSettings: View {
 
     @ViewBuilder
     private func pluginGroup(_ plugin: any ShelfPlugin) -> some View {
-        Toggle(isOn: enabledBinding(plugin)) {
-            // displayName/labelはStringなのでText(String)=verbatim initに
-            // 解決されてしまう。LocalizedStringKey経由にしてカタログを
-            // 引かせる(キーが無ければそのまま表示される)。
-            // 太字にしてボックス内の先頭行=グループのタイトルに見せる
-            Text(LocalizedStringKey(plugin.displayName))
-                .font(.headline)
+        // canDisable=falseのプラグイン(壁等)は常に有効なので
+        // ON/OFFトグル行を出さず、パラメータ調整UIだけを並べる
+        if plugin.canDisable {
+            Toggle(isOn: enabledBinding(plugin)) {
+                // displayName/labelはStringなのでText(String)=verbatim initに
+                // 解決されてしまう。LocalizedStringKey経由にしてカタログを
+                // 引かせる(キーが無ければそのまま表示される)。
+                // 太字にしてボックス内の先頭行=グループのタイトルに見せる
+                Text(LocalizedStringKey(plugin.displayName))
+                    .font(.headline)
+            }
         }
         // パラメータ調整UIは有効/無効に関わらず常時表示し、
         // 無効時は標準のディセーブル表現(グレー・操作不可)にする
@@ -508,9 +531,10 @@ private struct ShelfEffectSettings: View {
 
     private func isEnabled(_ plugin: any ShelfPlugin) -> Bool {
         // 未保存のプラグインはdefaultEnabled(StoreShelfPluginは既定ON、
-        // 効果系は既定OFF)。レジストリのresolveと同じ規則にして
-        // 表示と実態を一致させる
-        store.settings.plugins[plugin.id]?.enabled ?? plugin.defaultEnabled
+        // 効果系は既定OFF)。canDisable=falseは常に有効。
+        // レジストリのresolveと同じ規則にして表示と実態を一致させる
+        !plugin.canDisable
+            || (store.settings.plugins[plugin.id]?.enabled ?? plugin.defaultEnabled)
     }
 
     private func enabledBinding(_ plugin: any ShelfPlugin) -> Binding<Bool> {
@@ -540,6 +564,9 @@ private func updatePluginState(
     // (トグルの表示=実態の規則と同じ)
     var state = plugins[plugin.id] ?? PluginState(enabled: plugin.defaultEnabled)
     mutate(&state)
+    // canDisable=false(常時有効)のプラグインにenabled=falseは
+    // 書かせない。古い保存値が残っていてもここで正規化する
+    if !plugin.canDisable { state.enabled = true }
     // specに存在しないキー(廃止パラメータ等)を間引き、settings.jsonに
     // 残った古い値が次の保存で消えるようにする
     let specIDs = Set(plugin.parameterSpecs.map(\.id))

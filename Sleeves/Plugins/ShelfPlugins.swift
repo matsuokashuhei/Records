@@ -45,12 +45,16 @@ enum ShelfPluginLayout {
 
 /// プラグインが設定画面のどのセクションに属するか(表示上の分類)。
 /// レジストリ順(=適用順)とは独立で、永続化スキーマにも影響しない。
-/// プラグインファイルもこの分類ごとのサブディレクトリ
-/// (Sleeves/Plugins/{Record,Shelf,Placement})に置く
+/// プラグインファイルもおおむねこの分類ごとのサブディレクトリ
+/// (Sleeves/Plugins/{Record,Shelf,Placement})に置く。
+/// 壁だけは設定画面で独立したサイドメニュー項目にするため
+/// .wallを分けてあるが、ファイルは棚構造の仲間なのでShelf/のまま
 enum ShelfPluginCategory {
     /// レコード(ジャケット)の見た目。色調・摩耗・光沢など
     case record
-    /// 棚(構造・背景)。壁・棚板・レッジなど
+    /// 壁(グリッド背面)。設定画面では独立ペイン
+    case wall
+    /// 棚(構造)。棚板・レッジなどの支え
     case shelf
     /// レコードの置き方。傾きなど配置に関わる見た目
     case placement
@@ -154,8 +158,15 @@ protocol ShelfPlugin {
     ///  同じ規則で未保存時を解釈する)
     var defaultEnabled: Bool { get }
 
+    /// ユーザーが設定画面のトグルで無効化できるか。
+    /// false=常に有効。トグル行を出さず、resolve/resolveShelfでも
+    /// settingsのenabledフラグを無視して常に解決する
+    /// (壁のように「無し」が選択肢に無い構造プラグイン向け。
+    ///  過去にenabled=falseで保存された値も無効化しない)
+    var canDisable: Bool { get }
+
     /// 設定画面での分類(ShelfPluginCategory)。設定画面はこの値で
-    /// プラグインを「レコード」「棚」「レコードの置き方」の
+    /// プラグインを「レコード」「壁」「棚」「レコードの置き方」の
     /// セクションに振り分ける。レジストリ順(適用順)とは独立
     var category: ShelfPluginCategory { get }
 
@@ -213,6 +224,7 @@ protocol ShelfPlugin {
 extension ShelfPlugin {
     var parameterSpecs: [PluginParameterSpec] { [] }
     var defaultEnabled: Bool { false }
+    var canDisable: Bool { true }
     var shelfStyle: ShelfSettings.ShelfStyle? { nil }
     func transformJacket(_ jacket: AnyView, context: ShelfPluginContext) -> AnyView { jacket }
     func jacketOverlay(context: ShelfPluginContext) -> AnyView? { nil }
@@ -291,10 +303,11 @@ enum ShelfPluginRegistry {
                 return nil
             }
             // 未保存のプラグインはdefaultEnabledで有効状態を決める
-            // (構造系は既定ON、効果系は既定OFF)
+            // (構造系は既定ON、効果系は既定OFF)。
+            // canDisable=falseのプラグインはenabledフラグを見ず常に有効
             let state = settings.plugins[plugin.id]
                 ?? PluginState(enabled: plugin.defaultEnabled)
-            guard state.enabled else { return nil }
+            guard !plugin.canDisable || state.enabled else { return nil }
             return ResolvedShelfPlugin(
                 plugin: plugin,
                 context: ShelfPluginContext(
@@ -332,7 +345,7 @@ enum ShelfPluginRegistry {
             }
             let state = settings.plugins[plugin.id]
                 ?? PluginState(enabled: plugin.defaultEnabled)
-            guard state.enabled else { return nil }
+            guard !plugin.canDisable || state.enabled else { return nil }
             return ResolvedShelfStructure(
                 plugin: plugin,
                 context: ShelfStructureContext(

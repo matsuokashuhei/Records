@@ -201,6 +201,15 @@ struct ShelfSettings: Codable, Equatable {
             plugins["store-shelf"] = migrated
             Self.logger.notice("migrated wall params from store-shelf to wall (keys=\(wallValues.keys.sorted().joined(separator: ","), privacy: .public), enabled=\(storeShelf.enabled, privacy: .public))")
         }
+        // 壁は常時有効(WallPlugin.canDisable=false)になった。
+        // トグルOFFで保存した旧ファイルのenabled=falseを正規化する
+        // (resolveでは無視される値だが、pluginSummaryのログが
+        //  "off"と誤報するのを防ぎ、次回保存でファイルも綺麗になる)
+        if var wall = plugins["wall"], !wall.enabled {
+            wall.enabled = true
+            plugins["wall"] = wall
+            Self.logger.notice("normalized stale wall plugin state to enabled (wall is always-on)")
+        }
         // 新キー "columnSpacing"/"rowSpacing": 既存settings.jsonには無いので
         // 省略時は既定値。initで範囲にクランプされる
         let columnSpacing = (try? c.decode(Double.self, forKey: .columnSpacing))
