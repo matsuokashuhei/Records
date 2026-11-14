@@ -64,8 +64,9 @@ struct SettingsView: View {
         // (manager.focusedStoreの参照変更だけではsettingsの更新で
         // 再描画されないため)、サブビューに切り出して@ObservedObjectで購読する
         // columnVisibilityを定数バインドしてサイドバーの折りたたみを
-        // 禁止し(システム設定と同じ)、ツールバーのサイドバートグル
-        // ボタンは.toolbar(removing:)で消す
+        // 禁止(システム設定と同じ)。ツールバーのサイドバートグル
+        // ボタンはremoveSidebarToggleButton()でAppKit側から除去する
+        // (.toolbar(removing: .sidebarToggle)はこの構成では効かない)
         NavigationSplitView(columnVisibility: .constant(.doubleColumn)) {
             List(SettingsPane.allCases, selection: $selectedPane) { pane in
                 Label(pane.title, systemImage: pane.symbol)
@@ -134,18 +135,17 @@ struct SettingsView: View {
             .id(selectedPane)
             .navigationTitle(selectedPane.title)
         }
-        // ツールバーからサイドバートグルボタンを消す
-        // (columnVisibilityは定数なので折りたためず、ボタンは押すだけ無駄)
-        .toolbar(removing: .sidebarToggle)
         // ウィンドウサイズは固定(システム設定アプリと同じく
         // ペイン切替でサイズが変わらない)。min=maxのcontentSizeで
         // リサイズ不可になる
         .frame(width: 675, height: 480)
         .onChange(of: selectedPane) { _, newValue in
             Self.logger.notice("settings pane selected: \(newValue.rawValue, privacy: .public)")
+            scheduleSidebarToggleRemoval()
         }
         .onAppear {
             Self.logger.notice("settings window shown")
+            scheduleSidebarToggleRemoval()
         }
         .alert(
             "Restart Required",
@@ -175,6 +175,38 @@ struct SettingsView: View {
         Section {
             Text("Focus a shelf window to edit these settings.")
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    /// SwiftUIがツールバーを組み直してトグルを復活させることがある
+    /// (直後の再dumpでitemsに戻って来るのを実測)ため、即時+遅延の
+    /// 2パスで除去を試みる
+    @MainActor
+    private func scheduleSidebarToggleRemoval() {
+        DispatchQueue.main.async { removeSidebarToggleButton() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            removeSidebarToggleButton()
+        }
+    }
+
+    /// NavigationSplitViewがツールバーへ自動追加するサイドバートグル
+    /// ボタンを消す。`.toolbar(removing: .sidebarToggle)`はこの構成
+    /// (Windowシーン+固定columnVisibility)では効かなかったため、
+    /// AppKit側からツールバーアイテムを直接除去する
+    /// (columnVisibilityは定数なので残しても押すだけ無駄なボタン)。
+    /// 対象は設定ウィンドウ(Window id="settings")だけに絞る
+    @MainActor
+    private func removeSidebarToggleButton() {
+        for window in NSApp.windows where window.identifier?.rawValue == "settings" {
+            guard let toolbar = window.toolbar else { continue }
+            Self.logger.notice("settings: toolbar items of window '\(window.identifier?.rawValue ?? "nil", privacy: .public)': \(toolbar.items.map(\.itemIdentifier.rawValue), privacy: .public)")
+            while let index = toolbar.items.firstIndex(where: {
+                $0.itemIdentifier == .toggleSidebar
+                    || $0.itemIdentifier.rawValue.localizedCaseInsensitiveContains("toggleSidebar")
+            }) {
+                Self.logger.notice("settings: removing sidebar toggle toolbar item '\(toolbar.items[index].itemIdentifier.rawValue, privacy: .public)'")
+                toolbar.removeItem(at: index)
+            }
         }
     }
 
