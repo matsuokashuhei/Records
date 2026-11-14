@@ -32,6 +32,7 @@
 		89F6C7894E6035DF9E8087B6 /* PlaybackMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16BAD216837A72A5E7D86F25 /* PlaybackMonitor.swift */; };
 		8A336BC9A364DBE8C3450360 /* YellowingPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89F883757235264E2B9B39AB /* YellowingPlugin.swift */; };
 		909930919946830D144E91DF /* SleevesApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076C38BF58785AB29A881D36 /* SleevesApp.swift */; };
+		95E282EFEA12C73C2DB07931 /* AmbientLightPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = BD0929845E7A34DFB12279D8 /* AmbientLightPlugin.swift */; };
 		99A76442DD95C19F3CBBA632 /* MediaEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3539282E2D00D87494F193BB /* MediaEntry.swift */; };
 		CB160F3DD3AFF9982069A66C /* WindowGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 746AFC0300C12CB0FE1CF9E9 /* WindowGlass.swift */; };
 		CC1D776C8576AEF88AFA4A01 /* ShelfStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DC6D43E127302A017ECFCC3 /* ShelfStore.swift */; };
@@ -72,6 +73,7 @@
 		9DC6D43E127302A017ECFCC3 /* ShelfStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfStore.swift; sourceTree = "<group>"; };
 		B1A36145D49F625C035F8E32 /* SleevesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SleevesTests.swift; sourceTree = "<group>"; };
 		B977B4E0818D38B502CB9DD8 /* ShelfManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShelfManager.swift; sourceTree = "<group>"; };
+		BD0929845E7A34DFB12279D8 /* AmbientLightPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmbientLightPlugin.swift; sourceTree = "<group>"; };
 		C04AE0D943DA085F914429B0 /* UpdateController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateController.swift; sourceTree = "<group>"; };
 		C3CD7827CF7BEC4D0337E54F /* WallPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WallPlugin.swift; sourceTree = "<group>"; };
 		C55C08BFCEF7D777250CF115 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -97,6 +99,7 @@
 		15A73A2B37D9A08368D98588 /* Shelf */ = {
 			isa = PBXGroup;
 			children = (
+				BD0929845E7A34DFB12279D8 /* AmbientLightPlugin.swift */,
 				086B44049079FAEA087AF0B9 /* LedgeShelfPlugin.swift */,
 				FC4471CBB5F71E05376E8143 /* StoreShelfPlugin.swift */,
 				C3CD7827CF7BEC4D0337E54F /* WallPlugin.swift */,
@@ -315,6 +318,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				95E282EFEA12C73C2DB07931 /* AmbientLightPlugin.swift in Sources */,
 				14527F5BC1CD30D73FAA278E /* DeleteConfirmationDialog.swift in Sources */,
 				6B4044DBC6FA6E472AF352B7 /* EdgeWearPlugin.swift in Sources */,
 				36AA3D27CC42CA0475A7F5D4 /* LeanDepthPlugin.swift in Sources */,

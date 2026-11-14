@@ -149,7 +149,10 @@ struct ShelfSettings: Codable, Equatable {
 
     /// 旧settings.jsonで store-shelf プラグインが持っていた壁関連
     /// パラメータのキー。wall プラグインへ分離した際に値を引き継ぐ
-    /// (WallPlugin.parameterSpecsのIDと一致させること)
+    /// (wallまたはambient-lightへ引き継ぐキー。
+    ///  aging-warmth/aging-vignetteはWallPluginのspecには無く、
+    ///  このあとの移行でさらにambient-lightのwarmth/vignetteへ
+    ///  移される中継キー)
     private static let wallParamKeys: Set<String> = [
         "wall",
         "aging-warmth", "aging-sepia", "aging-stains",
@@ -209,6 +212,35 @@ struct ShelfSettings: Codable, Equatable {
             wall.enabled = true
             plugins["wall"] = wall
             Self.logger.notice("normalized stale wall plugin state to enabled (wall is always-on)")
+        }
+        // 照明系の要素(暖色被せ・周辺減光)はwallプラグインから
+        // ambient-lightプラグインへ分離した。旧ファイルでwallが保持
+        // していた aging-warmth/aging-vignette を warmth/vignette
+        // キーで引き継ぐ(ambient-lightが既に保存されていればそちらを
+        //  優先。store-shelf→wall移行の成果物もここで拾うため、
+        //  この移行は上の壁関連の処理より後に置く)
+        if plugins["ambient-light"] == nil, var wall = plugins["wall"] {
+            var lightingValues: [String: PluginParameterValue] = [:]
+            if let v = wall.values["aging-warmth"] {
+                lightingValues["warmth"] = v
+                wall.values["aging-warmth"] = nil
+            }
+            if let v = wall.values["aging-vignette"] {
+                lightingValues["vignette"] = v
+                wall.values["aging-vignette"] = nil
+            }
+            if !lightingValues.isEmpty {
+                // 旧設定で効果がONだった見た目を維持するため、
+                // 移行値に0より大きい値があれば有効で作成する。
+                // 両方0/欠損なら無効(=効果なし、旧来の見た目と同一)
+                let anyOn = lightingValues.values.contains {
+                    ($0.number ?? 0) > 0
+                }
+                plugins["ambient-light"] = PluginState(
+                    enabled: anyOn, values: lightingValues)
+                plugins["wall"] = wall
+                Self.logger.notice("migrated lighting params from wall to ambient-light (keys=\(lightingValues.keys.sorted().joined(separator: ","), privacy: .public), enabled=\(anyOn, privacy: .public))")
+            }
         }
         // 新キー "columnSpacing"/"rowSpacing": 既存settings.jsonには無いので
         // 省略時は既定値。initで範囲にクランプされる

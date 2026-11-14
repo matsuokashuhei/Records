@@ -405,16 +405,23 @@ pkill -x Sleeves; open .build/Build/Products/Debug/Sleeves.app
 `ShelfPluginRegistry`)、合成点はShelfView.swiftのAlbumSlotView。
 `ShelfPluginRegistry.all`の並び=適用順=設定画面の表示順。
 
-設定画面の分類はプラグインの `category`(record/wall/shelf/placement)
-がそのままサイドメニューのペインに対応する(2026-11-14に壁をShelf
-ペインから独立ペインへ分離)。`canDisable=false`(現状wallのみ)の
+設定画面の分類はプラグインの `category`(record/wall/shelf/lighting/
+placement)に基づく。サイドメニューのペインはほぼcategoryと1対1
+(2026-11-14に壁をShelfペインから独立ペインへ分離)だが、末尾の
+「飾り方(Arrangement)」ペインだけはplacement(Lean Depth)と
+lighting(Ambient Light/Sleeve Gloss)の2カテゴリを束ねて表示する
+(同日に旧Record Placementペインを解体し、Record Spacingは
+Shelfペインへ移した)。`canDisable=false`(現状wallのみ)の
 プラグインは常時有効: 設定画面にON/OFFトグルを出さず、
 resolve/resolveShelfでもsettingsのenabledフラグを無視する。
 ShelfSettingsのデコード時にwallのstaleなenabled=falseはtrueへ
 正規化される(pluginSummaryが"off"と誤報しないため)。
 
-フックは4種(デフォルト全てno-op、必要なものだけオーバーライド)。
-`applyingJacketPlugins`内での合成順は (a)→(b)→(c):
+フックは6種(デフォルト全てno-op、必要なものだけオーバーライド)。
+(a)〜(d)はセル単位で`applyingJacketPlugins`/`applyingCellPlugins`
+が合成し、(e)(f)はグリッド単位でresolveShelfが解決してShelfViewの
+grid .background/.overlayへ重畳する。(a)〜(c)内での合成順は
+(a)→(b)→(c):
 
 - (a) `transformJacket` — ジャケット**画像のみ**の修飾(色調・フィルタ等。
   SunFade/Yellowingの全体効果)。後段のオーバーレイには掛からない。
@@ -428,6 +435,12 @@ ShelfSettingsのデコード時にwallのstaleなenabled=falseはtrueへ
   1枚の面として変形するフック。LeanDepthのrotation3DEffectはここ
 - (d) `transformCell` — セル全体(面+既定影+ホバー)を包む装飾
   (LeanDepthの接地影)
+- (e) `shelfBackdrop` — グリッド背面への描画(WallPluginの壁+経年、
+  AmbientLightPluginの暖色被せ/周辺減光)。padding適用済みgridの
+  .backgroundにレジストリ順で重畳
+- (f) `shelfOverlay` — グリッド前面への描画(StoreShelfPluginの
+  棚板+前柵、LedgeShelfPluginのレッジ)。gridの.overlayに
+  レジストリ順で重畳。合成側が.allowsHitTesting(false)を掛ける
 
 CAC-9の教訓: 旧設計では変形がtransformJacketにあり「全transform畳み込み→
 全オーバーレイ」の順だったため、rotation3DEffect(描画だけ変形し
@@ -466,7 +479,10 @@ jacketShape(cellIndex:)。実物のLPジャケットは角ごとにわずかに�
   StoreShelfPluginの描画コードを移したもの。旧settings.jsonで
   store-shelfが持っていた壁関連キー("wall"/"aging-*")は
   ShelfSettings.wallParamKeysでデコード時にwallプラグインへ引き継ぐ
-  (store-shelf側の残存キーはspec外として次回保存時に間引かれる)
+  (store-shelf側の残存キーはspec外として次回保存時に間引かれる)。
+  さらに照明系の2キー(aging-warmth/aging-vignette)にはwallから
+  ambient-lightプラグインへの第2段移行がある(キーはwarmth/
+  vignetteにrename、いずれかの値>0ならenabled=trueで作成)
 - LedgeShelfPlugin(id="ledge-shelf"): 各スロット直下に木製レッジ。
   占有・空きを問わず全スロットに描く(空き=土台だけ残る仕様)。
   幅はセル幅比1/3〜11/10のスライダー、厚さは棚板と同じ
