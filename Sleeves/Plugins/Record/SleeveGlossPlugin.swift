@@ -148,7 +148,7 @@ struct SleeveGlossPlugin: ShelfPlugin {
 
     let id = "sleeve-gloss"
     let displayName = "Sleeve Gloss"
-    let category: ShelfPluginCategory = .record
+    let category: ShelfPluginCategory = .lighting
 
     init() {
         Self.logger.info("plugin registered: sleeve-gloss ('Sleeve Gloss')")

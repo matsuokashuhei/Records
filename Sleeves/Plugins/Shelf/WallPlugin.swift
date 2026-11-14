@@ -4,7 +4,9 @@
 //
 //  プラグイン「壁」(構造系・スタイル非依存)。
 //  グリッド背面の壁(単色グラデまたは紙テクスチャ)と、壁に重ねる
-//  経年表現(暖色被せ/セピア/染み/日焼け残り/周辺減光)を描く。
+//  経年表現(セピア/染み/日焼け残り)を描く。
+//  照明系の要素(暖色被せ・周辺減光)は「照明」ペイン新設に伴い
+//  AmbientLightPluginへ分離した(2026-11)。
 //  壁はシェルフのスタイル(棚板+前柵/レッジ/将来のスタイル)とは
 //  直交するので、shelfStyle=nilで全スタイル共通に動く。
 //  描画コードはStoreShelfPluginから分離したもの(2026-11)。
@@ -13,7 +15,7 @@
 //  (=ShelfStructureContextの定義するフレーム)で解釈する。
 //   - 壁: フレーム全面を覆う、上がわずかに明るい暖色の縦
 //     グラデーション(天井からの光)
-//   - 経年(aging-*): 壁に重ねる5要素。各要素の色・合成・強さは
+//   - 経年(aging-*): 壁に重ねる3要素。各要素の色・合成・強さは
 //     選択中の壁の AgingProfile に従い壁材に合わせる(暗い壁は
 //     multiplyが効かないので加算系に切替、日焼け残りは壁の元の色)
 //
@@ -40,21 +42,19 @@ struct WallPlugin: ShelfPlugin {
     private enum Param {
         /// 壁の色。選択肢idの文字列で永続化
         static let wall = "wall"
-        /// 経年: 白熱灯の暖色被せ(0-1)
-        static let warmth = "aging-warmth"
         /// 経年: セピア被り(0-1)
         static let sepia = "aging-sepia"
         /// 経年: 壁の染み(0-1)
         static let stains = "aging-stains"
         /// 経年: 日焼け残り — レコードに守られた壁の明るい跡(0-1)
         static let fadeMarks = "aging-fade-marks"
-        /// 経年: 周辺減光(0-1)
-        static let vignette = "aging-vignette"
     }
 
     /// 壁。rawValueはsettings.jsonへの永続化値なので
-    /// 一度決めたら変更しない
-    private enum Wall: String, CaseIterable {
+    /// 一度決めたら変更しない。
+    /// internalなのは、壁材ごとの個性(agingProfile)を照明系プラグイン
+    /// (AmbientLightPlugin)からも同じ壁で引けるようにするため
+    enum Wall: String, CaseIterable {
         /// 暖色クリーム(レコード店の壁)
         case cream
         /// ニュートラルな暖灰
@@ -207,6 +207,17 @@ struct WallPlugin: ShelfPlugin {
     /// デフォルト値
     private static let defaultWall = Wall.cream
 
+    /// settingsから選択中の壁を解決する共有窓口。
+    /// 壁材ごとの個性(AgingProfile)を必要とする他プラグイン
+    /// (AmbientLightPluginが ShelfStructureContext.settings 経由で
+    /// 呼ぶ)が、自分の値解決とは別に「同じ壁」を引けるようにする。
+    /// 未知/欠損値はdefaultWallに倒す
+    static func wall(in settings: ShelfSettings) -> Wall {
+        let raw = settings.plugins["wall"]?.values[Param.wall]?.string
+            ?? defaultWall.rawValue
+        return Wall(rawValue: raw) ?? defaultWall
+    }
+
     let id = "wall"
     let displayName = "Wall"
     let category: ShelfPluginCategory = .wall
@@ -231,13 +242,6 @@ struct WallPlugin: ShelfPlugin {
                 defaultValue: Self.defaultWall.rawValue
             )),
             .slider(.init(
-                id: Param.warmth,
-                label: "Warm Light",
-                range: 0...1,
-                step: 0.01,
-                defaultValue: 0
-            )),
-            .slider(.init(
                 id: Param.sepia,
                 label: "Sepia Tint",
                 range: 0...1,
@@ -254,13 +258,6 @@ struct WallPlugin: ShelfPlugin {
             .slider(.init(
                 id: Param.fadeMarks,
                 label: "Fade Marks",
-                range: 0...1,
-                step: 0.01,
-                defaultValue: 0
-            )),
-            .slider(.init(
-                id: Param.vignette,
-                label: "Vignette",
                 range: 0...1,
                 step: 0.01,
                 defaultValue: 0
@@ -313,9 +310,10 @@ struct WallPlugin: ShelfPlugin {
         )
     }
 
-    /// 経年レイヤー群。壁の上に5要素を順に重ねる:
-    ///   暖色被せ → セピア → 染み → 日焼け残り → 周辺減光
-    /// 乗算したい要素(セピア・暗い染み・周辺減光)は必ずView修飾子
+    /// 経年レイヤー群。壁の上に3要素を順に重ねる:
+    ///   セピア → 染み → 日焼け残り
+    /// (暖色被せ・周辺減光の照明系レイヤーはAmbientLightPluginへ分離)
+    /// 乗算したい要素(セピア・暗い染み)は必ずView修飾子
     /// `.blendMode(.multiply)` の独立レイヤーにする。Canvas内の
     /// `gc.blendMode` はCanvas自身のバッファ内でしか効かず、
     /// 透明な下地へのmultiplyはsource-overと同義になるため、
@@ -327,19 +325,6 @@ struct WallPlugin: ShelfPlugin {
         _ a: Aging, wall: Wall, context: ShelfStructureContext
     ) -> some View {
         let p = wall.agingProfile
-        if a.warmth > 0 {
-            // 白熱灯: 上ほど強い琥珀色の被せ
-            LinearGradient(
-                gradient: Gradient(colors: [
-                    Color(red: 1, green: 0.80, blue: 0.45)
-                        .opacity(0.28 * a.warmth * p.warmthGain),
-                    Color(red: 1, green: 0.76, blue: 0.42)
-                        .opacity(0.05 * a.warmth * p.warmthGain),
-                ]),
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        }
         if a.sepia > 0 {
             let s = min(1, a.sepia * p.sepiaGain)
             if p.sepiaMultiply {
@@ -357,9 +342,6 @@ struct WallPlugin: ShelfPlugin {
         }
         if a.fadeMarks > 0 {
             fadeMarksLayer(a, profile: p, context: context)
-        }
-        if a.vignette > 0 {
-            vignetteLayer(a, profile: p)
         }
     }
 
@@ -448,39 +430,6 @@ struct WallPlugin: ShelfPlugin {
         }
     }
 
-    /// 周辺減光: 四辺からの帯をぼかした内側影(even-odd fillで
-    /// 中央をくり抜いたリングをぼかす)。中央は一切触らず四辺の
-    /// 帯と角だけを暗くする。multiplyはビュー側で掛けて自己完結
-    /// させる(帯色は乗算前提の色設計なので、付け忘れると
-    /// 不透明の帯として描かれてしまう)。帯の下の壁テクスチャは
-    /// 残ったまま沈む(全面ベールでテクスチャが消えた問題の対策
-    /// 2026-11-03)
-    private func vignetteLayer(_ a: Aging, profile p: AgingProfile) -> some View {
-        let k = min(1, a.vignette * p.vignetteGain)
-        return Canvas { gc, size in
-            guard size.width > 0, size.height > 0 else { return }
-            let frame = CGRect(origin: .zero, size: size)
-            let inset = min(size.width, size.height) * 0.14
-            var ring = Path()
-            ring.addRect(frame)
-            ring.addRoundedRect(
-                in: frame.insetBy(dx: inset, dy: inset),
-                cornerSize: CGSize(width: inset, height: inset))
-            gc.drawLayer { layer in
-                layer.addFilter(.blur(radius: inset * 0.55))
-                layer.fill(
-                    ring,
-                    with: .color(Color(
-                        red: 1 - (1 - p.vignette.r) * k,
-                        green: 1 - (1 - p.vignette.g) * k,
-                        blue: 1 - (1 - p.vignette.b) * k)),
-                    style: FillStyle(eoFill: true))
-            }
-        }
-        .blendMode(.multiply)
-    }
-
-
     // MARK: - パラメータ解決
 
     /// 任意シードの決定論疑似乱数(0〜1)。rowHashと同じsinハッシュ。
@@ -491,7 +440,10 @@ struct WallPlugin: ShelfPlugin {
         return v - v.rounded(.down)
     }
 
-    private struct AgingProfile {
+    /// 壁材ごとの経年/照明の個性。internalなのは、照明系プラグイン
+    /// (AmbientLightPlugin)がwarmthGain・vignette色・vignetteGainを
+    /// 同じ壁材基準で引けるようにするため
+    struct AgingProfile {
         /// 染みの見え方。暗い壁に暗い染みは沈むので明るいかすれにする
         enum Stain { case dark, light }
         var stain: Stain
@@ -513,28 +465,22 @@ struct WallPlugin: ShelfPlugin {
 
     /// 経年パラメータの解決済み値(各0-1)。全て0なら経年なし
     private struct Aging {
-        /// 白熱灯の暖色被せ
-        var warmth = 0.0
         /// セピア乗算
         var sepia = 0.0
         /// 壁の染み
         var stains = 0.0
         /// 日焼け残り(レコードに守られた明るい跡)
         var fadeMarks = 0.0
-        /// 周辺減光
-        var vignette = 0.0
         var isOff: Bool {
-            warmth + sepia + stains + fadeMarks + vignette <= 0
+            sepia + stains + fadeMarks <= 0
         }
     }
 
     private func resolvedAging(context: ShelfStructureContext) -> Aging {
         var a = Aging()
-        a.warmth = min(1, max(0, context.number(Param.warmth, default: 0)))
         a.sepia = min(1, max(0, context.number(Param.sepia, default: 0)))
         a.stains = min(1, max(0, context.number(Param.stains, default: 0)))
         a.fadeMarks = min(1, max(0, context.number(Param.fadeMarks, default: 0)))
-        a.vignette = min(1, max(0, context.number(Param.vignette, default: 0)))
         return a
     }
 
@@ -550,6 +496,6 @@ struct WallPlugin: ShelfPlugin {
     private func logAppliedOnce(wall: Wall, aging: Aging) {
         guard !Self.didLogApplied else { return }
         Self.didLogApplied = true
-        Self.logger.notice("wall applied: wall=\(wall.rawValue, privacy: .public) aging=[warmth=\(aging.warmth, privacy: .public) sepia=\(aging.sepia, privacy: .public) stains=\(aging.stains, privacy: .public) fadeMarks=\(aging.fadeMarks, privacy: .public) vignette=\(aging.vignette, privacy: .public)]")
+        Self.logger.notice("wall applied: wall=\(wall.rawValue, privacy: .public) aging=[sepia=\(aging.sepia, privacy: .public) stains=\(aging.stains, privacy: .public) fadeMarks=\(aging.fadeMarks, privacy: .public)]")
     }
 }

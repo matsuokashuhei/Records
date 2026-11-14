@@ -33,7 +33,7 @@ struct SettingsView: View {
     /// 設定ペイン。macOSのシステム設定と同じく、左のサイドバーで
     /// カテゴリを選び右のペインにその設定を出す
     private enum SettingsPane: String, CaseIterable, Identifiable {
-        case general, sleeves, shelf, wall, placement
+        case general, sleeves, shelf, wall, arrangement
         var id: Self { self }
 
         /// サイドバー表示名とペインのナビゲーションタイトル。
@@ -44,7 +44,7 @@ struct SettingsView: View {
             case .sleeves: "Sleeves"
             case .shelf: "Shelf"
             case .wall: "Wall"
-            case .placement: "Record Placement"
+            case .arrangement: "Arrangement"
             }
         }
 
@@ -54,7 +54,7 @@ struct SettingsView: View {
             case .sleeves: "opticaldisc"
             case .shelf: "square.grid.3x3"
             case .wall: "paintbrush"
-            case .placement: "rectangle.portrait.rotate"
+            case .arrangement: "rectangle.portrait.rotate"
             }
         }
     }
@@ -119,6 +119,10 @@ struct SettingsView: View {
                                               title: "Shelf Spacing",
                                               range: ShelfSettings.rowSpacingRange,
                                               spacing: \.rowSpacing)
+                                SpacingSlider(store: store,
+                                              title: "Record Spacing",
+                                              range: ShelfSettings.columnSpacingRange,
+                                              spacing: \.columnSpacing)
                             }
                             ShelfEffectSettings(store: store, category: .shelf)
                         } else {
@@ -130,15 +134,13 @@ struct SettingsView: View {
                         } else {
                             unfocusedShelfSection
                         }
-                    case .placement:
+                    case .arrangement:
+                        // 「飾り方」ペインは2カテゴリを束ねる1:Nマッピング:
+                        // .placement(Lean Depth=置き方)→.lighting
+                        // (Ambient Light/Sleeve Gloss=光の当たり方)の順
                         if let store {
-                            Section {
-                                SpacingSlider(store: store,
-                                              title: "Record Spacing",
-                                              range: ShelfSettings.columnSpacingRange,
-                                              spacing: \.columnSpacing)
-                            }
                             ShelfEffectSettings(store: store, category: .placement)
+                            ShelfEffectSettings(store: store, category: .lighting)
                         } else {
                             unfocusedShelfSection
                         }
@@ -389,7 +391,8 @@ private struct DeleteConfirmationToggle: View {
 }
 
 /// グリッド間隔のスライダー1本。spacingのキーで対象フィールドを
-/// 指定する(rowSpacing=棚セクション、columnSpacing=置き方セクション)。
+/// 指定する(rowSpacing/columnSpacingとも棚セクション。
+///  columnSpacingは飾り方ペイン解体に伴い棚セクションへ移設)。
 /// 外周の余白は独立した設定ではなく間隔から導出される
 /// (edgePadding=columnSpacing、topPadding=max(4,rowSpacing)、
 ///  bottomPadding=rowSpacing。ShelfSettings参照)。
@@ -463,8 +466,10 @@ private struct SpacingSlider: View {
 /// プラグイン無効時は
 /// .disabledで標準の選択不可表現(グレー・操作不可)にする
 /// — システム設定の「Spotlight > Results from Clipboard」と同じ構造。
-/// categoryで「レコード」「壁」「棚」「レコードの置き方」のどの
-/// セクションに属するかを絞る(セクション内の順序はレジストリ順=適用順)。
+/// categoryで「レコード」「壁」「棚」「照明」「レコードの置き方」
+/// のどのセクションに属するかを絞る(セクション内の順序は
+/// レジストリ順=適用順)。「飾り方」ペインはplacementとlightingの
+/// 2カテゴリ分を並べて表示する(ペイン:カテゴリ=1:N)。
 /// ShelfPickersと同じく、store.settingsの更新で再描画されるよう
 /// @ObservedObjectでstoreを購読するサブビューに切り出してある。
 /// 変更はstore.updateSettingsでフォーカス中シェルフへ即時反映・永続化。

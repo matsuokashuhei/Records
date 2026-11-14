@@ -50,13 +50,18 @@ enum ShelfPluginLayout {
 /// 壁だけは設定画面で独立したサイドメニュー項目にするため
 /// .wallを分けてあるが、ファイルは棚構造の仲間なのでShelf/のまま
 enum ShelfPluginCategory {
-    /// レコード(ジャケット)の見た目。色調・摩耗・光沢など
+    /// レコード(ジャケット)の見た目。色調・摩耗など
     case record
     /// 壁(グリッド背面)。設定画面では独立ペイン
     case wall
     /// 棚(構造)。棚板・レッジなどの支え
     case shelf
-    /// レコードの置き方。傾きなど配置に関わる見た目
+    /// 照明。光の当たり方に関する効果(スリーブ光沢・暖色被せ・
+    /// 周辺減光など)。設定画面ではplacementと一緒に「飾り方」
+    /// ペインへ表示される
+    case lighting
+    /// レコードの置き方。傾きなど配置に関わる見た目。
+    /// 設定画面ではlightingと一緒に「飾り方」ペインへ表示される
     case placement
 }
 
@@ -118,6 +123,11 @@ struct ShelfStructureContext {
     let bottomPadding: CGFloat
     /// パラメータID→値(specのデフォルト値で解決済み)
     let values: [String: PluginParameterValue]
+    /// 生のシェルフ設定。自分以外のプラグインの値(選択中の壁など)を
+    /// 参照する必要があるプラグイン向け。解決済みの自分の値は
+    /// values を使い、こちらは他プラグインの状態を読むためだけに使う
+    /// (例: ambient-light が選択中の壁の AgingProfile を引く)
+    let settings: ShelfSettings
 
     /// 数値パラメータ。未設定/型違いはfallback
     func number(_ id: String, default fallback: Double = 0) -> Double {
@@ -166,8 +176,9 @@ protocol ShelfPlugin {
     var canDisable: Bool { get }
 
     /// 設定画面での分類(ShelfPluginCategory)。設定画面はこの値で
-    /// プラグインを「レコード」「壁」「棚」「レコードの置き方」の
-    /// セクションに振り分ける。レジストリ順(適用順)とは独立
+    /// プラグインを「レコード」「壁」「棚」「照明」「レコードの
+    /// 置き方」のセクションに振り分ける(placementとlightingは
+    /// 「飾り方」ペインがまとめて表示する)。レジストリ順(適用順)とは独立
     var category: ShelfPluginCategory { get }
 
     /// このプラグインが担当するシェルフ構造スタイル。
@@ -263,6 +274,9 @@ enum ShelfPluginRegistry {
         // 構造系(壁・棚板・レッジ)は効果系より上に表示するため先頭に置く。
         // 壁はスタイル非依存、棚板+前柵とレッジはshelfStyleで排他
         WallPlugin(),
+        // 照明レイヤー(暖色被せ・周辺減光)は壁backdropの直上に重ねる
+        // ためWallPluginの直後に置く
+        AmbientLightPlugin(),
         StoreShelfPlugin(),
         LedgeShelfPlugin(),
         LeanDepthPlugin(),
@@ -357,7 +371,8 @@ enum ShelfPluginRegistry {
                     edgePadding: edgePadding,
                     topPadding: topPadding,
                     bottomPadding: bottomPadding,
-                    values: state.resolvedValues(specs: plugin.parameterSpecs)
+                    values: state.resolvedValues(specs: plugin.parameterSpecs),
+                    settings: settings
                 )
             )
         }
