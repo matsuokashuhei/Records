@@ -85,7 +85,15 @@ pkill -x Sleeves; open .build/Build/Products/Debug/Sleeves.app
 - レコード削除は右クリック。SwiftUIの`.contextMenu`はセルの`.onTapGesture`と
   競合してレコード上で開かないため、`NSEvent.addLocalMonitorForEvents`で
   右クリックを拾ってNSMenuを出す(下の「右上ツールバーと右クリックメニュー」参照)。
-  確認アラートを経て削除する(実機確認済み)
+  確認アラートを経て削除する(実機確認済み)。確認は
+  `DeleteConfirmationDialog`(NSPanel+SwiftUIのカスタムダイアログ。
+  NSAlertはaccessoryViewがボタン行の上に固定でチェックを最下部へ
+  置けないため自前化)方式で、ShelfView.confirmDelete(_:)から
+  NSApp.runModal(for:)でモーダル表示する。Return=Delete、
+  Escape=Cancel(.keyboardShortcutの.defaultAction/.cancelAction)。
+  チェックはトグルごとにsettings.confirmDeleteへ即時保存。
+  `ShelfSettings.confirmDelete`(既定true、settings.jsonキー
+  "confirmDelete")がfalseなら確認を出さず即削除する
 - **レコードの配置は自由配置(スパース)モデル**(2026-11-03)。各MediaEntryが
   永続化プロパティ `slotIndex`(0始まりの行優先index、albums.jsonに保存、
   デフォルト-1=未配置)を持ち、その値がそのままグリッド位置になる。
@@ -259,8 +267,10 @@ pkill -x Sleeves; open .build/Build/Products/Debug/Sleeves.app
   mouseMovedは毎フレーム届くので、隠しタイマーの張り直しは250msに間引く。
   `window.acceptsMouseMovedEvents = true`が無いとmouseMovedが来ない
   (WindowConfigurator.configureで設定)。メニュー表示中(`NSMenu`の
-  didBegin/didEndTracking)とアラート表示中(pendingDelete等)は
-  `setHold(_:active:)`で隠すのを止め、閉じたら3秒を数え直す
+  didBegin/didEndTracking)とアラート表示中(SwiftUIアラート=
+  `hasModalAlert`のonChange、レコード削除確認パネル=
+  `confirmDelete(_:)`内の手動呼び出し)は`setHold(_:active:)`で
+  アイドル隠しタイマーを止め、閉じたら3秒を数え直す
   (メニューを開いたままカプセルが消えるのを防ぐ)
 - 信号ボタンの表示は`WindowConfigurator.updateTrafficLightVisibility(_:visible:)`に
   統合し、呼び出し側が「キー状態 && chrome表示中」を渡す
@@ -295,9 +305,9 @@ pkill -x Sleeves; open .build/Build/Products/Debug/Sleeves.app
 - SwiftUIの`.contextMenu`はセルの`.onTapGesture`(クリックで再生)と競合し、
   **レコード上でメニューが開かない**(2026-10-25実測: onTapGestureを外すと
   開くようになる)。そのため右クリックは`NSEvent.addLocalMonitorForEvents`
-  で拾ってNSMenuを出している(`installContextMenuMonitor`)。
+  で拾ってNSMenuを出している(`makeContextMenuMonitor`)。
   NSMenuItem.targetは保持されないので、メニューを出している間は
-  クロージャ保持用の`ContextMenuAction`を生かしておくこと
+  クロージャ保持用の`ClosureActionTarget`を生かしておくこと
 
 ## 複数シェルフ(2026-10-25 実装・実機検証済み)
 
@@ -376,6 +386,11 @@ pkill -x Sleeves; open .build/Build/Products/Debug/Sleeves.app
     (3秒で自動的に隠れる。マウス移動・クリックを合成できないエージェントが
     スクリーンショットで見た目を確認するための経路。複数シェルフがある場合は
     プライマリのウィンドウだけが対象)
+  - `Sleeves --delete-dialog-preview` は起動1.5秒後に合成エントリ
+    (id=delete-dialog-preview、実storeに無いのでDeleteはno-op)の
+    削除確認ダイアログをforceConfirmで自動表示する(右クリック合成なしで
+    ダイアログの見た目・AX構造・ボタン動作を検証するための経路。
+    チェックトグルは実settings.jsonを書き換えるので注意)
 
 ## シェルフエフェクトプラグイン(2026-11-01 CAC-9で面変形フック追加)
 

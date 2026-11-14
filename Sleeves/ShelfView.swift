@@ -154,10 +154,11 @@ struct ShelfView: View {
                 GlassBackgroundView()
                     .ignoresSafeArea()
             }
-        // レコード削除の確認はNSAlertで行う(confirmDelete(_:)参照)。
-        // SwiftUIの.alertは使わない — 「Don't Ask Again」チェックボックスで
-        // settings.confirmDeleteへ即時反映する必要があり、かつモーダル中の
-        // chrome保持はsetHold("alert")で手動管理する
+        // レコード削除の確認はカスタムパネル(DeleteConfirmationDialog)で
+        // 行う(confirmDelete(_:)参照)。SwiftUIの.alertは使わない —
+        // 「Don't Ask Again」チェックボックスでsettings.confirmDeleteへ
+        // 即時反映する必要があり、かつモーダル中のchrome保持は
+        // setHold("alert")で手動管理する
         // 外部ドラッグで追加できなかった理由(重複/満杯/取得失敗)を通知する。
         // 成功時はグリッドにレコードが出るだけなのでアラートは出さない。
             .alert(
@@ -245,6 +246,32 @@ struct ShelfView: View {
                         Self.logger.notice("chrome preview: forced visible")
                     }
                 }
+                // 検証用: `--delete-dialog-preview` で起動すると削除確認
+                // ダイアログを自動表示する(右クリック合成なしでレイアウトを
+                // スクリーンショット確認するための経路。--chrome-previewと同じ扱い)
+                if ProcessInfo.processInfo.arguments.contains("--delete-dialog-preview") {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        // 複数シェルフがある場合はプライマリのウィンドウだけを対象にする
+                        guard self.shelfID == ShelfManager.shared.primaryShelfID,
+                              let window = self.windowBox.window else { return }
+                        NSApp.activate()
+                        window.makeKeyAndOrderFront(nil)
+                        // 合成エントリ。Deleteを押してもstore.removeの
+                        // removeAllがno-opになる検証専用ID
+                        // (保存とログは走る。forceConfirmで設定も無視)
+                        let previewEntry = MediaEntry(
+                            kind: .album,
+                            id: "delete-dialog-preview",
+                            title: "Delete Confirmation Preview",
+                            artist: "Sleeves",
+                            country: "jp",
+                            url: "",
+                            artworkURL: "",
+                            addedAt: Date()
+                        )
+                        self.confirmDelete(previewEntry, forceConfirm: true)
+                    }
+                }
                 // コマンドや他のシェルフのメニューからも新規ウィンドウを
                 // 開けるよう、環境のopenWindowをmanagerに退避する
                 ShelfManager.shared.openShelfWindow = { id in
@@ -316,59 +343,58 @@ struct ShelfView: View {
     }
 
     /// 削除前の確認。settings.confirmDeleteがfalseなら確認せず即削除、
-    /// trueならNSAlert(「Don't Ask Again」チェックボックス付き)を出す。
-    /// SwiftUIの.alertではなくNSAlertを使うのは、チェックボックスの
-    /// 状態変化をその場でsettings.confirmDeleteへ保存する必要があるため
-    /// (accessoryViewのNSButtonターゲットから直接updateSettingsを呼ぶ)。
-    /// モーダル中のchrome保持はhasModalAlertのonChangeが効かない
-    /// (runModalが同期的にブロックする)ので、ここでsetHoldを手動管理する
-    private func confirmDelete(_ entry: MediaEntry) {
+    /// trueならカスタム確認ダイアログ(DeleteConfirmationDialog、
+    /// NSPanel+SwiftUI)を出す。SwiftUIの.alertではなく自前パネルなのは、
+    /// 「Don't Ask Again」チェックボックスを最下部に置くため
+    /// (NSAlertのaccessoryViewは常にボタン行の上になり最下部へは置けない)。
+    /// チェックボックスはトグルするたびにその場でsettings.confirmDeleteへ
+    /// 保存する(DeleteConfirmationDialog.runのonToggleコールバック)。
+    /// Return=Delete Record、Escape=Cancel。
+    /// モーダル中のchromeのアイドル隠し抑制はhasModalAlertのonChangeが
+    /// 効かない(runModalが同期的にブロックする)ので、ここでsetHoldを
+    /// 手動管理する(ウィンドウ非アクティブ化による隠蔽までは防げない)
+    /// - Parameter forceConfirm: 検証用(--delete-dialog-preview)。設定に
+    ///   関わらず確認ダイアログを出す
+    private func confirmDelete(_ entry: MediaEntry, forceConfirm: Bool = false) {
+        // 他のアラート(追加失敗/ショートカット案内/シェルフ削除確認の
+        // SwiftUIシート)の表示中に右クリック→Delete Recordされると、
+        // シートの上に確認パネルが入れ子モーダルになりうる。
+        // その間は削除自体を行わない(confirmDelete=falseの即削除経路も抑止)。
+        // NSApp.modalWindowのチェックは削除確認パネル自体の表示中に
+        // 再入する経路(ローカルモニタ経由の右クリック等)への保険
+        guard !hasModalAlert, NSApp.modalWindow == nil else {
+            Self.logger.notice("record delete skipped: another alert is showing '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
+            return
+        }
         // 「確認しない」設定(設定画面トグル or 前回の「Don't Ask Again」)
-        guard store.settings.confirmDelete else {
+        guard forceConfirm || store.settings.confirmDelete else {
             Self.logger.notice("delete without confirmation (confirmDelete=false): '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
             delete(entry)
             return
         }
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Remove “\(entry.title)”?")
-        alert.alertStyle = .warning
-        // 先頭ボタン=Returnで確定するデフォルト。destructiveで赤くする
-        let deleteButton = alert.addButton(withTitle: String(localized: "Delete Record"))
-        deleteButton.hasDestructiveAction = true
-        let cancelButton = alert.addButton(withTitle: String(localized: "Cancel"))
-        cancelButton.keyEquivalent = "\u{1b}"
-        // 「今後は確認しない」チェックボックス。ON=confirmDelete false。
-        // トグルのたびに即座にsettingsへ保存する(updateSettingsが
-        // 永続化+変更ログを行う)。NSButton.targetはweakなので、
-        // アクションを持つClosureActionTargetをローカル変数で保持する
-        let checkbox = NSButton(
-            checkboxWithTitle: String(localized: "Don't Ask Again"),
-            target: nil, action: nil
-        )
-        // このダイアログに来る時点でconfirmDelete==trueなので初期状態はOFF
-        checkbox.state = store.settings.confirmDelete ? .off : .on
-        let checkboxTarget = ClosureActionTarget { [checkbox] in
-            // ON=確認しない(confirmDelete=false)、OFF=確認する(=true)
-            let confirm = checkbox.state != .on
-            var s = self.store.settings
-            s.confirmDelete = confirm
-            self.store.updateSettings(s)
-            Self.logger.notice("delete confirm checkbox toggled: don'tAskAgain=\(!confirm, privacy: .public) confirmDelete=\(s.confirmDelete, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
-        }
-        checkbox.target = checkboxTarget
-        checkbox.action = #selector(ClosureActionTarget.invoke)
-        alert.accessoryView = checkbox
-        // モーダル中はchrome(信号ボタン/ツールバー)を自動で隠さない。
-        // SwiftUIアラートと同じ理由キー"alert"。runModalは同期的に
-        // ブロックするのでhasModalAlertのonChangeは効かず、deferで確実に解除
+        // モーダル中にchrome(信号ボタン/ツールバー)が3秒アイドル隠し
+        // タイマーで消えるのを防ぐ。SwiftUIアラートと同じ理由キー"alert"。
+        // なおモーダル中はパネルがkeyになりシェルフウィンドウが
+        // 非アクティブ化するため、onActiveChanged→chrome.setActive(false)
+        // でchromeは結局すぐ隠れる — このholdが防げるのはアイドル隠しだけ。
+        // runModalは同期的にブロックするのでhasModalAlertのonChangeは
+        // 効かず、deferで確実に解除
         chrome.setHold("alert", active: true)
         defer { chrome.setHold("alert", active: false) }
-        // checkboxTargetはweak参照しか持たれないので、モーダルが
-        // 閉じるまで生存を保証する(withExtendedLifetime)
-        let response = withExtendedLifetime(checkboxTarget) {
-            alert.runModal()
+        Self.logger.notice("delete confirmation shown: '\(entry.title, privacy: .public)' id=\(entry.id, privacy: .public)")
+        // チェックをトグルするたびに即座にsettingsへ保存する
+        // (updateSettingsが永続化+変更ログを行う)
+        let confirmed = DeleteConfirmationDialog.run(
+            message: String(localized: "Remove “\(entry.title)”?"),
+            confirmDelete: store.settings.confirmDelete,
+            anchorWindow: windowBox.window
+        ) { dontAskAgain in
+            var settings = self.store.settings
+            settings.confirmDelete = !dontAskAgain
+            self.store.updateSettings(settings)
+            Self.logger.notice("delete confirm checkbox toggled: don'tAskAgain=\(dontAskAgain, privacy: .public) confirmDelete=\(settings.confirmDelete, privacy: .public) (shelf=\(self.store.shelfID, privacy: .public))")
         }
-        if response == .alertFirstButtonReturn {
+        if confirmed {
             delete(entry)
         } else {
             Self.logger.notice("delete cancelled for '\(entry.title, privacy: .public)'")
@@ -2386,8 +2412,7 @@ final class ChromeVisibilityController: ObservableObject {
 
 /// NSControl(NSButton等)やNSMenuItemのactionをクロージャで扱うための
 /// 汎用ターゲット。targetはweak参照なので、使う側が生存を保証する
-/// (コンテキストメニューはcontextMenuTargets(@Stateの配列)、
-///  削除確認ダイアログはwithExtendedLifetimeでローカル保持)
+/// (コンテキストメニューはcontextMenuTargets(@Stateの配列)で保持)
 private final class ClosureActionTarget: NSObject {
     private let action: () -> Void
 
