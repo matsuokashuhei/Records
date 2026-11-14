@@ -146,6 +146,7 @@ enum DeleteConfirmationDialog {
                     }
                     .keyboardShortcut(.defaultAction)
                     .buttonStyle(.plain)
+                    .focusEffectDisabled()
                     .glassEffect(
                         .regular.tint(.black.opacity(0.35)).interactive(),
                         in: .rect(cornerRadius: 8)
@@ -157,6 +158,7 @@ enum DeleteConfirmationDialog {
                     }
                     .keyboardShortcut(.cancelAction)
                     .buttonStyle(.plain)
+                    .focusEffectDisabled()
                     .glassEffect(
                         .regular.tint(.black.opacity(0.35)).interactive(),
                         in: .rect(cornerRadius: 8)
