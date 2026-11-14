@@ -63,7 +63,10 @@ struct SettingsView: View {
         // (ShelfManager.focusedStore)。監視するのはstore側
         // (manager.focusedStoreの参照変更だけではsettingsの更新で
         // 再描画されないため)、サブビューに切り出して@ObservedObjectで購読する
-        NavigationSplitView {
+        // columnVisibilityを定数バインドしてサイドバーの折りたたみを
+        // 禁止し(システム設定と同じ)、ツールバーのサイドバートグル
+        // ボタンは.toolbar(removing:)で消す
+        NavigationSplitView(columnVisibility: .constant(.doubleColumn)) {
             List(SettingsPane.allCases, selection: $selectedPane) { pane in
                 Label(pane.title, systemImage: pane.symbol)
                     .tag(pane)
@@ -131,10 +134,13 @@ struct SettingsView: View {
             .id(selectedPane)
             .navigationTitle(selectedPane.title)
         }
+        // ツールバーからサイドバートグルボタンを消す
+        // (columnVisibilityは定数なので折りたためず、ボタンは押すだけ無駄)
+        .toolbar(removing: .sidebarToggle)
         // ウィンドウサイズは固定(システム設定アプリと同じく
         // ペイン切替でサイズが変わらない)。min=maxのcontentSizeで
         // リサイズ不可になる
-        .frame(width: 900, height: 640)
+        .frame(width: 675, height: 640)
         .onChange(of: selectedPane) { _, newValue in
             Self.logger.notice("settings pane selected: \(newValue.rawValue, privacy: .public)")
         }
