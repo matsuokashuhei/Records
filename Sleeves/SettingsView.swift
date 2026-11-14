@@ -140,7 +140,7 @@ struct SettingsView: View {
         // ウィンドウサイズは固定(システム設定アプリと同じく
         // ペイン切替でサイズが変わらない)。min=maxのcontentSizeで
         // リサイズ不可になる
-        .frame(width: 675, height: 640)
+        .frame(width: 675, height: 480)
         .onChange(of: selectedPane) { _, newValue in
             Self.logger.notice("settings pane selected: \(newValue.rawValue, privacy: .public)")
         }
